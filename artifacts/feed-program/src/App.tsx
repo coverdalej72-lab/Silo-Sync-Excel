@@ -2051,7 +2051,6 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
   handleEdit: (si: number, key: string, val: string) => void;
   farmConfig: FarmConfigData;
 }) {
-  const [subView, setSubView] = useState<"template" | "summary">("template");
   const [mortsLog, setMortsLog] = useState<MortsLog>(() => {
     try { return JSON.parse(localStorage.getItem(MORTS_LOG_KEY) || "{}"); } catch { return {}; }
   });
@@ -2251,20 +2250,7 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#f8f8f8" }}>
-      {/* Sub-tab bar */}
-      <div style={{ display: "flex", background: "#fff", borderBottom: "2px solid #8b1a1a", flexShrink: 0 }}>
-        {([["template", "📋 Weekly Log"], ["summary", "📊 Batch Summary"]] as const).map(([key, label]) => (
-          <button key={key} onClick={() => setSubView(key)} style={{
-            flex: 1, padding: "9px 4px", fontSize: 12, fontWeight: 700, border: "none",
-            borderBottom: subView === key ? "3px solid #8b1a1a" : "3px solid transparent",
-            background: "none", color: subView === key ? "#8b1a1a" : "#888",
-            cursor: "pointer", marginBottom: -2,
-          }}>{label}</button>
-        ))}
-      </div>
-
-      {subView === "template" ? (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Toolbar */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "#fff", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
             <button onClick={() => setWeekOffset(w => w - 1)} style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #ddd", background: "#f5f5f5", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>‹</button>
@@ -2429,68 +2415,6 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
             </table>
           </div>
         </div>
-      ) : (
-        /* ── Batch Summary (EOB data) ────────────────────────────────── */
-        <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 9, marginBottom: 16 }}>
-            {[
-              { label: "Total Placed", value: fmtN(totalPlaced), color: "#1a5c36" },
-              { label: "Total Catched", value: fmtN(totalCatched), color: "#2c3e50" },
-              { label: "Total Morts", value: fmtN(totalMorts), color: "#c0392b" },
-              { label: "Overall Mort%", value: totalMortPct.toFixed(2) + "%", color: mortColor(totalMortPct) },
-            ].map(({ label, value, color }) => (
-              <div key={label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 9, padding: "11px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                <div style={{ fontSize: 19, fontWeight: 800, color }}>{value}</div>
-                <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>{label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            {[["<1%","#27ae60","Low"],["1–2%","#f1c40f","Watch"],["2–4%","#e67e22","Warning"],[">4%","#c0392b","Critical"]].map(([range, color, label]) => (
-              <div key={label as string} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#555" }}>
-                <div style={{ width: 9, height: 9, borderRadius: "50%", background: color as string }} />
-                <span>{range} {label}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-            {shedData.map(({ shedNum, row, placed, catched, morts, mortPct }) => {
-              const isEditing = editingShed === shedNum;
-              const col = mortColor(mortPct);
-              return (
-                <div key={shedNum} style={{ background: "#fff", border: `1.5px solid ${col}33`, borderRadius: 9, padding: "10px 12px", display: "grid", gridTemplateColumns: "auto 1fr 1fr 1fr auto", alignItems: "center", gap: "6px 10px" }}>
-                  <div style={{ background: col, color: "#fff", borderRadius: 6, padding: "3px 9px", fontWeight: 800, fontSize: 13, textAlign: "center", minWidth: 40 }}>{shedNum}</div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a5c36" }}>{placed > 0 ? fmtN(placed) : "—"}</div>
-                    <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" }}>Placed</div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#2c3e50" }}>{catched > 0 ? fmtN(catched) : "—"}</div>
-                    <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" }}>Catched</div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    {isEditing ? (
-                      <div style={{ display: "flex", gap: 3, alignItems: "center", justifyContent: "center" }}>
-                        <input type="number" value={editMorts} onChange={e => setEditMorts(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveEobEdit(shedNum, row); if (e.key === "Escape") setEditingShed(null); }} autoFocus style={{ width: 64, fontSize: 12, fontWeight: 700, textAlign: "center", border: "2px solid #c0392b", borderRadius: 4, padding: "2px 3px", outline: "none" }} />
-                        <button onClick={() => saveEobEdit(shedNum, row)} style={{ background: "#c0392b", color: "#fff", border: "none", borderRadius: 4, padding: "3px 7px", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>✓</button>
-                      </div>
-                    ) : (
-                      <div onClick={() => { setEditingShed(shedNum); setEditMorts(morts > 0 ? String(Math.round(morts)) : ""); }} style={{ cursor: "pointer" }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: col }}>{morts !== 0 ? fmtN(morts) : "—"}</div>
-                        <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" }}>Morts ✎</div>
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ background: col, color: "#fff", borderRadius: 6, padding: "3px 8px", fontWeight: 800, fontSize: 12, minWidth: 48, textAlign: "center" }}>
-                    {placed > 0 ? mortPct.toFixed(2) + "%" : "—"}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {eobIdx < 0 && <div style={{ marginTop: 16, padding: 12, background: "#fef3cd", borderRadius: 8, fontSize: 12, color: "#856404" }}>No "End of Batch" sheet found.</div>}
-        </div>
-      )}
     </div>
   );
 }
