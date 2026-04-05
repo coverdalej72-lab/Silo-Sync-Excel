@@ -456,6 +456,9 @@ function SheetView({
                 const numVal = parseFloat(displayVal.replace(/,/g, ""));
                 const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0;
 
+                // Column E (FEED ORDERED) — strip XLSX yellow highlight, show plain background
+                const cellBg = c === COL_E ? null : info.bgColor;
+
                 return (
                   <td
                     key={c}
@@ -464,7 +467,7 @@ function SheetView({
                     onDoubleClick={() => setEditingCell({ r, c, sheetIdx })}
                     title={isFeedRunOut ? "⚠ FEED RUN OUT" : "Double-click to edit"}
                     style={{
-                      background: isFeedRunOut ? "#dc2626" : (info.bgColor ?? "#fff"),
+                      background: isFeedRunOut ? "#dc2626" : (cellBg ?? "#fff"),
                       color: isFeedRunOut ? "#ffffff" : (info.fontColor ?? "#000"),
                       fontWeight: info.bold ? "bold" : "normal",
                       fontStyle: info.italic ? "italic" : "normal",
@@ -499,7 +502,7 @@ function SheetView({
                         }}
                         style={{
                           width: "100%", height: "100%", border: "none", outline: "none",
-                          background: info.bgColor ?? "#fff", color: info.fontColor ?? "#000",
+                          background: cellBg ?? "#fff", color: info.fontColor ?? "#000",
                           fontWeight: info.bold ? "bold" : "normal",
                           fontSize: fs, fontFamily: "Arial,sans-serif",
                           padding: "1px 3px", boxSizing: "border-box",
