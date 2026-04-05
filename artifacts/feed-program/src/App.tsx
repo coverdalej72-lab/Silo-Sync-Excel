@@ -2749,6 +2749,9 @@ export default function App() {
     localStorage.removeItem("silo-batch-catches");
     localStorage.removeItem("silo-batch-num");
     localStorage.removeItem("silo-batch-farm-name");
+    // Clear per-shed morts & culls daily log
+    localStorage.removeItem("silo-morts-log");
+    localStorage.removeItem("silo-culls-log");
     setBatchKey(k => k + 1);
   };
 
@@ -2948,7 +2951,7 @@ export default function App() {
           </div>
         ) : activeView === "morts" ? (
           <div className="flex-1 overflow-auto">
-            <MortsView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
+            <MortsView key={batchKey} sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
           </div>
         ) : activeView === "batchResults" ? (
           <div className="flex-1 overflow-auto">
