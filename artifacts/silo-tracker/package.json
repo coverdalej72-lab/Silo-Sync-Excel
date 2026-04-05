@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "html5-qrcode": "^2.3.8"
   }
 }

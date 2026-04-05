@@ -1,20 +1,27 @@
-import { useListReadings, useDeleteReading, getListReadingsQueryKey, useGetOnedriveStatus, getGetOnedriveStatusQueryKey } from "@workspace/api-client-react";
+import { useListReadings, useDeleteReading, getListReadingsQueryKey, useGetOnedriveStatus, getGetOnedriveStatusQueryKey, useListDeliveries, getListDeliveriesQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
-import { Trash2, AlertCircle, Cloud, CloudOff } from "lucide-react";
+import { Trash2, AlertCircle, CloudOff, FileSpreadsheet } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { exportToExcel } from "@/lib/export-excel";
 
 export default function History() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [exporting, setExporting] = useState(false);
 
   const { data: readings, isLoading, error } = useListReadings(undefined, {
     query: { queryKey: getListReadingsQueryKey() }
+  });
+
+  const { data: deliveries } = useListDeliveries({
+    query: { queryKey: getListDeliveriesQueryKey() }
   });
 
   const { data: onedriveStatus } = useGetOnedriveStatus({
@@ -24,8 +31,7 @@ export default function History() {
   const deleteReading = useDeleteReading();
 
   const handleDelete = (id: number) => {
-    if (!confirm("Are you sure you want to delete this reading?")) return;
-
+    if (!confirm("Delete this reading?")) return;
     deleteReading.mutate({ id }, {
       onSuccess: () => {
         toast({ title: "Reading deleted" });
@@ -37,30 +43,49 @@ export default function History() {
     });
   };
 
-  // Group readings by date
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportToExcel(readings ?? [], deliveries ?? []);
+      toast({ title: "Excel file downloaded" });
+    } catch {
+      toast({ variant: "destructive", title: "Export failed" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const groupedReadings = readings?.reduce((acc, reading) => {
-    const dateStr = format(new Date(reading.readingDate), 'yyyy-MM-dd');
+    const dateStr = format(new Date(reading.readingDate), "yyyy-MM-dd");
     if (!acc[dateStr]) acc[dateStr] = [];
     acc[dateStr].push(reading);
     return acc;
   }, {} as Record<string, typeof readings>) || {};
 
   return (
-    <div className="p-4 space-y-6 pt-6">
+    <div className="p-4 space-y-6 pt-6 pb-24">
       <header className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">History</h1>
           <p className="text-sm text-muted-foreground mt-1">Past readings log.</p>
         </div>
-        {onedriveStatus && (
-          <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/30 px-2 py-1 rounded-md">
-            {onedriveStatus.onedriveConnected || onedriveStatus.gdriveConnected ? (
-              <><Cloud className="h-3 w-3 text-green-500" /> Synced</>
-            ) : (
-              <><CloudOff className="h-3 w-3" /> Local only</>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {onedriveStatus && !onedriveStatus.onedriveConnected && !onedriveStatus.gdriveConnected && (
+            <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/30 px-2 py-1 rounded-md">
+              <CloudOff className="h-3 w-3" /> Local only
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1.5 font-bold border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            onClick={handleExport}
+            disabled={exporting || !readings?.length}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            {exporting ? "Exporting..." : "Export Excel"}
+          </Button>
+        </div>
       </header>
 
       {isLoading ? (
@@ -116,10 +141,10 @@ export default function History() {
                           <span className="block text-xl font-bold leading-none">{reading.amountRemaining}</span>
                           <span className="block text-[10px] uppercase font-bold text-muted-foreground mt-1">{reading.unit}</span>
                         </div>
-                        
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 rounded-full"
                           onClick={() => handleDelete(reading.id)}
                         >
