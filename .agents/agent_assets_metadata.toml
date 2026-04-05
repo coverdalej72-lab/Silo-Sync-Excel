@@ -6,3 +6,9 @@ id = "1GMeT5F2KaogAaOekyp1y"
 uri = "file://artifacts/silo-tracker/public/silo-mate-template.xlsx"
 type = "table"
 title = "Silo Mate — Excel Template"
+
+[[outputs]]
+id = "g7nlL_3VEYLItb4YGw1_p"
+uri = "file://artifacts/silo-tracker/public/silo-mate-feed-program.xlsx"
+type = "table"
+title = "Silo Mate — Feed Program (Styled)"
