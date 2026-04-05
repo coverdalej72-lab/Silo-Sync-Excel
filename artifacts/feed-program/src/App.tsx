@@ -940,71 +940,118 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
 }
 
 // ── BatchResultsView ──────────────────────────────────────────────────────
-function BatchResultsView({ sheets, edits, farmConfig }: {
-  sheets: SheetParsed[];
-  edits: Map<string, string>[];
-  farmConfig: FarmConfigData;
-}) {
-  const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
-  if (eobIdx === -1) {
-    return (
-      <div style={{ padding: 40, textAlign: "center", color: "#888", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
-        No End of Batch sheet found.
-      </div>
-    );
+interface ShedBatchData {
+  shedNum: number;
+  placement: number;
+  morts: number;
+  mortPct: number;
+  totalCaught: number;
+  aveWeight: number;
+  totalWeight: number;
+}
+interface BatchSummary {
+  farmName: string;
+  batchNum: number;
+  totalPlaced: number;
+  totalOut: number;
+  mortalityPct: number;
+  aveWeight: number;
+  fcr: number;
+  cfcr: number;
+  feedOnHand: number;
+  feedDelivered: number;
+  feedConsumed: number;
+}
+
+async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatchData[]; summary: BatchSummary | null }> {
+  const res = await fetch(`${baseUrl}batch-results.xlsx`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const buf = await res.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array", raw: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  if (!ws || !ws["!ref"]) return { sheds: [], summary: null };
+
+  const gv = (row: number, col: number): unknown => {
+    const cell = ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })];
+    return cell?.v !== undefined ? cell.v : null;
+  };
+  const num = (v: unknown) => { const n = parseFloat(String(v ?? "").replace(/,/g, "")); return isNaN(n) ? 0 : n; };
+
+  // Overall summary from the right-side summary block (cols 32-40)
+  const farmName   = String(gv(1, 2) ?? "");
+  const batchNum   = num(gv(1, 7));
+  const totalPlaced    = num(gv(4, 34));
+  const totalOut       = num(gv(7, 34));
+  const mortalityPct   = num(gv(5, 34)) * 100;
+  const aveWeight      = num(gv(9, 34));
+  const fcr            = num(gv(9, 38));
+  const cfcr           = num(gv(11, 38));
+  const feedOnHand     = num(gv(6, 38));
+  const feedDelivered  = num(gv(5, 38));
+  const feedConsumed   = num(gv(7, 38));
+
+  // Shed data: 3 sheds per block, stacked every 16 rows.
+  // Column groups (1-indexed): left=cols1-9, mid=cols11-19, right=cols21-29
+  const COLS = [
+    { p: 2,  m: 2,  mp: 3,  tc: 2,  aw: 6,  tw: 7  },
+    { p: 12, m: 12, mp: 13, tc: 12, aw: 16, tw: 17 },
+    { p: 22, m: 22, mp: 23, tc: 22, aw: 26, tw: 27 },
+  ];
+
+  const sheds: ShedBatchData[] = [];
+  const range = XLSX.utils.decode_range(ws["!ref"]!);
+  let shedCounter = 0;
+
+  for (let r = 1; r <= range.e.r + 1; r++) {
+    if (String(gv(r, 1) ?? "").toLowerCase().trim() !== "placement") continue;
+    const pRow = r;       // placement row
+    const mRow = r + 1;   // morts row
+    const tRow = r + 12;  // totals row (total birds caught, ave wgt, total wgt)
+
+    for (let gi = 0; gi < 3; gi++) {
+      shedCounter++;
+      const c = COLS[gi];
+      const placement = num(gv(pRow, c.p));
+      if (!placement) continue; // empty shed slot — skip but keep counter
+      sheds.push({
+        shedNum:     shedCounter,
+        placement,
+        morts:       num(gv(mRow, c.m)),
+        mortPct:     num(gv(mRow, c.mp)) * 100,
+        totalCaught: num(gv(tRow, c.tc)),
+        aveWeight:   num(gv(tRow, c.aw)),
+        totalWeight: num(gv(tRow, c.tw)),
+      });
+    }
   }
 
-  const eobSheet = sheets[eobIdx];
-  const eobEdits = edits[eobIdx] ?? new Map();
-  const g = (r: number, c: number) => {
-    const edited = eobEdits.get(`${r},${c}`);
-    if (edited !== undefined) return edited;
-    return String(eobSheet.cells.get(`${r},${c}`)?.value ?? "");
-  };
-  const num = (v: string) => parseFloat(String(v).replace(/,/g, "")) || 0;
-  const fmt = (v: string | number) => {
-    const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
-    return isNaN(n) ? "—" : n.toLocaleString();
-  };
+  return { sheds, summary: { farmName, batchNum, totalPlaced, totalOut, mortalityPct, aveWeight, fcr, cfcr, feedOnHand, feedDelivered, feedConsumed } };
+}
 
-  // Determine which shed group each shed number belongs to.
-  // Sheds are paired: sheds 1-2 → group 1, 3-4 → group 2, etc.
-  const isGroupActive = (shedNumber: number): boolean => {
-    const groupId = Math.ceil(shedNumber / 2); // shed 1→grp1, shed 2→grp1, shed 3→grp2 …
+function BatchResultsView({ farmConfig }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData }) {
+  const [sheds, setSheds] = useState<ShedBatchData[]>([]);
+  const [summary, setSummary] = useState<BatchSummary | null>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
+
+  useEffect(() => {
+    loadBatchResultsXlsx(import.meta.env.BASE_URL)
+      .then(({ sheds, summary }) => { setSheds(sheds); setSummary(summary); setLoadState("ok"); })
+      .catch(() => setLoadState("error"));
+  }, []);
+
+  const isGroupActive = (shedNum: number) => {
+    const groupId = Math.ceil(shedNum / 2);
     const cfg = farmConfig.shedGroups?.find(g => g.shedGroupId === groupId);
     return cfg ? cfg.active !== false : groupId <= 6;
   };
 
-  const batchNum       = g(1, 2);
-  const feedUsed       = g(18, 18);
-  const feedLeft       = g(15, 18);
-  const lastBatchLeft  = g(7, 18);
+  const activeSheds = sheds.filter(s => isGroupActive(s.shedNum));
+  const totalPlaced  = activeSheds.reduce((a, s) => a + s.placement,   0);
+  const totalCaught  = activeSheds.reduce((a, s) => a + s.totalCaught, 0);
+  const totalMorts   = activeSheds.reduce((a, s) => a + s.morts,       0);
+  const overallMortPct = totalPlaced > 0 ? ((totalMorts / totalPlaced) * 100).toFixed(2) + "%" : "—";
 
-  // Per-shed rows: cols 21-24, data starts row 4 — filtered to active sheds only
-  const allShedRows: { shedNum: string; shedInt: number; placed: number; catched: number; morts: number }[] = [];
-  for (let r = 4; r <= 25; r++) {
-    const shedNum = g(r, 21);
-    if (!shedNum || shedNum.trim() === "") break;
-    const shedInt = parseInt(shedNum, 10);
-    allShedRows.push({
-      shedNum,
-      shedInt,
-      placed:  num(g(r, 22)),
-      catched: num(g(r, 23)),
-      morts:   num(g(r, 24)),
-    });
-  }
-
-  // Filter to active sheds only
-  const shedRows = allShedRows.filter(row => !isNaN(row.shedInt) && isGroupActive(row.shedInt));
-
-  // Recompute totals from active sheds only
-  const totalPlacedNum  = shedRows.reduce((s, r) => s + r.placed, 0);
-  const totalCatchedNum = shedRows.reduce((s, r) => s + r.catched, 0);
-  const totalMortsNum   = shedRows.reduce((s, r) => s + r.morts, 0);
-  const mortPct = totalPlacedNum > 0
-    ? ((totalMortsNum / totalPlacedNum) * 100).toFixed(2) + "%"
-    : "—";
+  const fmtN = (n: number, dec = 0) => isNaN(n) || n === 0 ? "—" : dec > 0 ? n.toFixed(dec) : n.toLocaleString();
 
   const cardStyle = (color: string): React.CSSProperties => ({
     background: "#fff",
@@ -1017,88 +1064,128 @@ function BatchResultsView({ sheets, edits, farmConfig }: {
     gap: 4,
   });
 
+  if (loadState === "loading") return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#888", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
+      Loading batch results…
+    </div>
+  );
+
+  if (loadState === "error") return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#c0392b", fontFamily: "Inter,'Segoe UI',sans-serif", flexDirection: "column", gap: 8 }}>
+      <div style={{ fontSize: 18 }}>⚠️</div>
+      <div>Could not load batch results file.</div>
+    </div>
+  );
+
   return (
     <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%", boxSizing: "border-box" }}>
+
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH RESULTS</div>
-        {batchNum && <div style={{ fontSize: 20, fontWeight: 700 }}>Batch #{batchNum}</div>}
+        {summary && (
+          <>
+            {summary.farmName && <div style={{ fontSize: 16, fontWeight: 700 }}>{summary.farmName}</div>}
+            {summary.batchNum > 0 && <div style={{ fontSize: 16, opacity: 0.85 }}>Batch #{summary.batchNum}</div>}
+          </>
+        )}
       </div>
 
-      {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+      {/* Top stat cards — filtered totals */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(165px, 1fr))", gap: 12, marginBottom: 20 }}>
         <div style={cardStyle("#1a5c36")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#1a5c36" }}>{totalPlacedNum > 0 ? totalPlacedNum.toLocaleString() : "—"}</div>
-          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Purchased</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#1a5c36" }}>{totalPlaced > 0 ? totalPlaced.toLocaleString() : "—"}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Placed</div>
         </div>
         <div style={cardStyle("#217346")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#217346" }}>{totalCatchedNum > 0 ? totalCatchedNum.toLocaleString() : "—"}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#217346" }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Caught</div>
         </div>
         <div style={cardStyle("#c0392b")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#c0392b" }}>{totalMortsNum > 0 ? totalMortsNum.toLocaleString() : "—"}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#c0392b" }}>{totalMorts > 0 ? totalMorts.toLocaleString() : "—"}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Total Morts</div>
         </div>
         <div style={cardStyle("#e67e22")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#e67e22" }}>{mortPct}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#e67e22" }}>{overallMortPct}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Mortality %</div>
         </div>
+        {summary && summary.aveWeight > 0 && (
+          <div style={cardStyle("#8e44ad")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#8e44ad" }}>{summary.aveWeight.toFixed(3)} kg</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
+          </div>
+        )}
+        {summary && summary.fcr > 0 && (
+          <div style={cardStyle("#2980b9")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
+          </div>
+        )}
+        {summary && summary.cfcr > 0 && (
+          <div style={cardStyle("#16a085")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
+          </div>
+        )}
       </div>
 
       {/* Feed summary */}
-      <div style={{ background: "#f4f9f6", border: "1px solid #c8e6d4", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
-          {[
-            { label: "Last Batch Left", value: fmt(lastBatchLeft) + " kg" },
-            { label: "Feed Used",       value: fmt(feedUsed)      + " kg" },
-            { label: "Feed Left",       value: fmt(feedLeft)      + " kg" },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#217346" }}>{value}</div>
-            </div>
-          ))}
+      {summary && (
+        <div style={{ background: "#f4f9f6", border: "1px solid #c8e6d4", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 10, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+            {[
+              { label: "Feed Delivered", value: fmtN(summary.feedDelivered) + " kg" },
+              { label: "Feed Consumed",  value: fmtN(summary.feedConsumed)  + " kg" },
+              { label: "Feed on Hand",   value: fmtN(summary.feedOnHand)    + " kg" },
+            ].map(({ label, value }) => (
+              <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#217346" }}>{value}</div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Per-shed table */}
-      {shedRows.length > 0 && (
+      {/* Per-shed breakdown */}
+      {activeSheds.length > 0 && (
         <div>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>Per-Shed Breakdown</div>
+          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            Per-Shed Breakdown ({activeSheds.length} active shed{activeSheds.length !== 1 ? "s" : ""})
+          </div>
           <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid #e0e0e0" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "#1a5c36", color: "#fff" }}>
-                  <th style={{ padding: "9px 12px", textAlign: "left", fontWeight: 700 }}>Shed</th>
+                  <th style={{ padding: "9px 12px", textAlign: "left",  fontWeight: 700 }}>Shed</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Placed</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Caught</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Morts</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Mort %</th>
+                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Ave Wgt</th>
                 </tr>
               </thead>
               <tbody>
-                {shedRows.map((row, i) => {
-                  const mp = row.placed > 0 ? ((row.morts / row.placed) * 100).toFixed(2) + "%" : "—";
-                  return (
-                    <tr key={i} style={{ background: i % 2 === 0 ? "#fafafa" : "#fff", borderBottom: "1px solid #eee" }}>
-                      <td style={{ padding: "8px 12px", fontWeight: 600 }}>Shed {row.shedNum}</td>
-                      <td style={{ padding: "8px 12px", textAlign: "right" }}>{row.placed.toLocaleString()}</td>
-                      <td style={{ padding: "8px 12px", textAlign: "right" }}>{row.catched.toLocaleString()}</td>
-                      <td style={{ padding: "8px 12px", textAlign: "right", color: row.morts > 0 ? "#c0392b" : undefined }}>{row.morts.toLocaleString()}</td>
-                      <td style={{ padding: "8px 12px", textAlign: "right", color: "#e67e22", fontWeight: 600 }}>{mp}</td>
-                    </tr>
-                  );
-                })}
+                {activeSheds.map((shed, i) => (
+                  <tr key={shed.shedNum} style={{ background: i % 2 === 0 ? "#fafafa" : "#fff", borderBottom: "1px solid #eee" }}>
+                    <td style={{ padding: "8px 12px", fontWeight: 600 }}>Shed {shed.shedNum}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.placement.toLocaleString()}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.totalCaught > 0 ? shed.totalCaught.toLocaleString() : "—"}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", color: shed.morts > 0 ? "#c0392b" : undefined }}>{shed.morts.toLocaleString()}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#e67e22", fontWeight: 600 }}>{shed.mortPct > 0 ? shed.mortPct.toFixed(2) + "%" : "—"}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.aveWeight > 0 ? shed.aveWeight.toFixed(3) + " kg" : "—"}</td>
+                  </tr>
+                ))}
               </tbody>
-              {/* Totals row */}
               <tfoot>
                 <tr style={{ background: "#1a5c3615", borderTop: "2px solid #1a5c36" }}>
                   <td style={{ padding: "9px 12px", fontWeight: 800, color: "#1a5c36" }}>TOTAL</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalPlacedNum.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalCatchedNum.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#c0392b" }}>{totalMortsNum.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#e67e22" }}>{mortPct}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalPlaced.toLocaleString()}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#c0392b" }}>{totalMorts.toLocaleString()}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#e67e22" }}>{overallMortPct}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{summary && summary.aveWeight > 0 ? summary.aveWeight.toFixed(3) + " kg" : "—"}</td>
                 </tr>
               </tfoot>
             </table>
