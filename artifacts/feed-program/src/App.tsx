@@ -512,6 +512,7 @@ export default function App() {
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
+  const deliverySeedDoneRef = useRef(false);
 
   useEffect(() => {
     const xlsxUrl = `${BASE}feed-program.xlsx`;
@@ -638,6 +639,115 @@ export default function App() {
         // These are already-saved readings — don't flag as unsaved changes
       })
       .catch(() => { /* silently ignore — app works fine without API readings */ });
+  }, [sheets]);
+
+  // ── Seed deliveries from Silo Mate into "end of batch" sheet ────────────────
+  useEffect(() => {
+    if (sheets.length === 0 || deliverySeedDoneRef.current) return;
+    deliverySeedDoneRef.current = true;
+
+    // Section column mapping (0-based): date | docket | tonnes
+    const FEED_COLS: Record<string, { date: number; docket: number; tonnes: number }> = {
+      starter:    { date: 1,  docket: 2,  tonnes: 3  },
+      grower:     { date: 6,  docket: 7,  tonnes: 8  },
+      finisher:   { date: 10, docket: 11, tonnes: 12 },
+      withdrawl:  { date: 14, docket: 15, tonnes: 16 },
+      withdrawal: { date: 14, docket: 15, tonnes: 16 },
+      wdw:        { date: 14, docket: 15, tonnes: 16 },
+    };
+
+    const getCols = (feedType: string) => {
+      const ft = feedType.toLowerCase().trim();
+      if (FEED_COLS[ft]) return FEED_COLS[ft];
+      if (ft.includes("start")) return FEED_COLS.starter;
+      if (ft.includes("grow"))  return FEED_COLS.grower;
+      if (ft.includes("fin"))   return FEED_COLS.finisher;
+      if (ft.includes("with") || ft.includes("wdw")) return FEED_COLS.withdrawl;
+      return null;
+    };
+
+    fetch("/api/deliveries")
+      .then(r => r.ok ? r.json() : null)
+      .then((deliveries: Array<{
+        feedType: string; amount: number; notes: string | null; deliveryDate: string;
+      }> | null) => {
+        if (!deliveries || deliveries.length === 0) return;
+
+        const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
+        if (eobIdx === -1) return;
+        const eobSheet = sheets[eobIdx];
+
+        const DATA_START_ROW = 6; // 0-based → Excel row 7
+
+        // Collect existing docket numbers so we don't duplicate
+        const existingDockets = new Set<string>();
+        for (const [key, cell] of eobSheet.cells.entries()) {
+          const col = parseInt(key.split(",")[1]);
+          if ([2, 7, 11, 15].includes(col) && cell.value) {
+            existingDockets.add(String(cell.value).trim());
+          }
+        }
+
+        // Find the last occupied row for a given date column
+        const findLastRow = (dateCol: number): number => {
+          let last = DATA_START_ROW - 1;
+          for (const key of eobSheet.cells.keys()) {
+            const parts = key.split(",");
+            if (parseInt(parts[1]) === dateCol) {
+              const r = parseInt(parts[0]);
+              if (r > last) last = r;
+            }
+          }
+          return last;
+        };
+
+        const pairs = new Map<string, string>();
+        const sectionNextRow: Record<number, number> = {};
+
+        // Sort deliveries oldest-first so they appear in date order
+        const sorted = [...deliveries].sort(
+          (a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime()
+        );
+
+        for (const delivery of sorted) {
+          const cols = getCols(delivery.feedType);
+          if (!cols) continue;
+
+          const docket = delivery.notes
+            ? delivery.notes.replace(/^Doc:\s*/i, "").trim()
+            : "";
+
+          // Skip if this docket is already in the spreadsheet
+          if (docket && existingDockets.has(docket)) continue;
+
+          // Initialise next-row pointer for this section
+          if (!(cols.date in sectionNextRow)) {
+            sectionNextRow[cols.date] = findLastRow(cols.date) + 1;
+          }
+          const row = sectionNextRow[cols.date];
+
+          const dateStr = new Date(delivery.deliveryDate).toLocaleDateString("en-AU", {
+            weekday: "long", year: "numeric", month: "long", day: "numeric",
+          });
+
+          pairs.set(`${row},${cols.date}`, dateStr);
+          if (docket) pairs.set(`${row},${cols.docket}`, docket);
+          pairs.set(`${row},${cols.tonnes}`, String(delivery.amount));
+
+          sectionNextRow[cols.date]++;
+        }
+
+        if (pairs.size === 0) return;
+
+        setEdits(prev => {
+          const next = [...prev];
+          const m = new Map(next[eobIdx] ?? []);
+          pairs.forEach((val, key) => m.set(key, val));
+          next[eobIdx] = m;
+          return next;
+        });
+      })
+      .catch(() => { /* silently ignore */ });
   }, [sheets]);
 
   const handleEdit = useCallback((sheetIdx: number, key: string, value: string) => {
