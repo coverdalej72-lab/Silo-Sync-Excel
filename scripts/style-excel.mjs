@@ -46,9 +46,14 @@ function setAlign(cell, h="left", v="middle", wrap=false) {
 }
 
 // ─── Detect whether a cell is a non-anchor of a merge ────────────────────────
-// In ExcelJS, non-anchor merged cells have type === 8 (Merge)
 function isMergeOverflow(cell) {
   return cell.type === ExcelJS.ValueType.Merge;
+}
+
+// ─── Reset a cell's shared style so our overrides actually stick ──────────────
+// ExcelJS loaded files use shared style indices; resetting forces new style creation.
+function resetStyle(cell) {
+  cell.style = {};
 }
 
 // ─── Style a shed sheet in-place (preserving all structure) ──────────────────
@@ -77,6 +82,9 @@ function styleShedInPlace(ws, isBig) {
     for (let cn = 1; cn <= COLS; cn++) {
       const cell = row.getCell(cn);
       if (isMergeOverflow(cell)) continue; // skip non-anchor merged cells
+
+      // Reset shared style index so our overrides are written independently
+      resetStyle(cell);
 
       const raw = cell.value;
       const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
@@ -223,6 +231,7 @@ function styleEOBInPlace(ws) {
     for (let cn = 1; cn <= COLS; cn++) {
       const cell = row.getCell(cn);
       if (isMergeOverflow(cell)) continue;
+      resetStyle(cell);
       const raw = cell.value;
       const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
       const isL = cn === 1; const isR = cn === COLS;
