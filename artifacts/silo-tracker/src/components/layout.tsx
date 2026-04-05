@@ -1,40 +1,20 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Clock, Truck, Sun, Moon, FileSpreadsheet } from "lucide-react";
+import { Home, Clock, Truck, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/hooks/use-theme";
 
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
-  const { theme, toggle } = useTheme();
 
   const tabs = [
-    { href: "/", label: "Today", icon: Home },
-    { href: "/history", label: "History", icon: Clock },
-    { href: "/deliveries", label: "Deliveries", icon: Truck },
+    { href: "/",            label: "Today",      icon: Home },
+    { href: "/history",     label: "History",    icon: Clock },
+    { href: "/deliveries",  label: "Deliveries", icon: Truck },
+    { href: "/settings",    label: "Settings",   icon: Settings },
   ];
 
   return (
     <div className="flex flex-col h-[100dvh] max-w-md mx-auto bg-background shadow-xl overflow-hidden relative">
-      <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
-        <a
-          href="/silo-mate-feed-program.xlsx"
-          download="Silo-Mate-Feed-Program.xlsx"
-          className="p-2 rounded-full bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
-          aria-label="Download Feed Program spreadsheet"
-          title="Download Feed Program"
-        >
-          <FileSpreadsheet className="h-5 w-5" />
-        </a>
-        <button
-          onClick={toggle}
-          className="p-2 rounded-full bg-primary-foreground/10 text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
-          aria-label="Toggle dark mode"
-        >
-          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </button>
-      </div>
-
       <main className="flex-1 overflow-y-auto pb-16">
         {children}
       </main>
