@@ -939,10 +939,165 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
   );
 }
 
+// ── BatchResultsView ──────────────────────────────────────────────────────
+function BatchResultsView({ sheets, edits }: { sheets: SheetParsed[]; edits: Map<string, string>[] }) {
+  const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
+  if (eobIdx === -1) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "#888", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
+        No End of Batch sheet found.
+      </div>
+    );
+  }
+
+  const eobSheet = sheets[eobIdx];
+  const eobEdits = edits[eobIdx] ?? new Map();
+  const g = (r: number, c: number) => {
+    const edited = eobEdits.get(`${r},${c}`);
+    if (edited !== undefined) return edited;
+    return String(eobSheet.cells.get(`${r},${c}`)?.value ?? "");
+  };
+  const num = (v: string) => parseFloat(String(v).replace(/,/g, "")) || 0;
+  const fmt = (v: string | number) => {
+    const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
+    return isNaN(n) ? "—" : n.toLocaleString();
+  };
+
+  const batchNum       = g(1, 2);
+  const totalPurchased = g(11, 18);
+  const feedUsed       = g(18, 18);
+  const feedLeft       = g(15, 18);
+  const lastBatchLeft  = g(7, 18);
+  const totalCatched   = g(16, 23);
+  const totalMorts     = g(16, 24);
+
+  const totalPlacedNum  = num(totalPurchased);
+  const totalCatchedNum = num(totalCatched);
+  const totalMortsNum   = num(totalMorts);
+  const mortPct = totalPlacedNum > 0
+    ? ((totalMortsNum / totalPlacedNum) * 100).toFixed(2) + "%"
+    : "—";
+
+  // Per-shed rows: cols 21-24, data starts row 4
+  const shedRows: { shedNum: string; placed: number; catched: number; morts: number }[] = [];
+  for (let r = 4; r <= 25; r++) {
+    const shedNum = g(r, 21);
+    if (!shedNum || shedNum.trim() === "") break;
+    shedRows.push({
+      shedNum,
+      placed:  num(g(r, 22)),
+      catched: num(g(r, 23)),
+      morts:   num(g(r, 24)),
+    });
+  }
+
+  const cardStyle = (color: string): React.CSSProperties => ({
+    background: "#fff",
+    border: `2px solid ${color}22`,
+    borderLeft: `4px solid ${color}`,
+    borderRadius: 10,
+    padding: "14px 16px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+  });
+
+  return (
+    <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%", boxSizing: "border-box" }}>
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
+        <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH RESULTS</div>
+        {batchNum && <div style={{ fontSize: 20, fontWeight: 700 }}>Batch #{batchNum}</div>}
+      </div>
+
+      {/* Stat cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div style={cardStyle("#1a5c36")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#1a5c36" }}>{fmt(totalPurchased)}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Purchased</div>
+        </div>
+        <div style={cardStyle("#217346")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#217346" }}>{fmt(totalCatched)}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Caught</div>
+        </div>
+        <div style={cardStyle("#c0392b")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#c0392b" }}>{fmt(totalMorts)}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Total Morts</div>
+        </div>
+        <div style={cardStyle("#e67e22")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#e67e22" }}>{mortPct}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Mortality %</div>
+        </div>
+      </div>
+
+      {/* Feed summary */}
+      <div style={{ background: "#f4f9f6", border: "1px solid #c8e6d4", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+          {[
+            { label: "Last Batch Left", value: fmt(lastBatchLeft) + " kg" },
+            { label: "Feed Used",       value: fmt(feedUsed)      + " kg" },
+            { label: "Feed Left",       value: fmt(feedLeft)      + " kg" },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#217346" }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Per-shed table */}
+      {shedRows.length > 0 && (
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>Per-Shed Breakdown</div>
+          <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid #e0e0e0" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#1a5c36", color: "#fff" }}>
+                  <th style={{ padding: "9px 12px", textAlign: "left", fontWeight: 700 }}>Shed</th>
+                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Placed</th>
+                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Caught</th>
+                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Morts</th>
+                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Mort %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shedRows.map((row, i) => {
+                  const mp = row.placed > 0 ? ((row.morts / row.placed) * 100).toFixed(2) + "%" : "—";
+                  return (
+                    <tr key={i} style={{ background: i % 2 === 0 ? "#fafafa" : "#fff", borderBottom: "1px solid #eee" }}>
+                      <td style={{ padding: "8px 12px", fontWeight: 600 }}>Shed {row.shedNum}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right" }}>{row.placed.toLocaleString()}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right" }}>{row.catched.toLocaleString()}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", color: row.morts > 0 ? "#c0392b" : undefined }}>{row.morts.toLocaleString()}</td>
+                      <td style={{ padding: "8px 12px", textAlign: "right", color: "#e67e22", fontWeight: 600 }}>{mp}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              {/* Totals row */}
+              <tfoot>
+                <tr style={{ background: "#1a5c3615", borderTop: "2px solid #1a5c36" }}>
+                  <td style={{ padding: "9px 12px", fontWeight: 800, color: "#1a5c36" }}>TOTAL</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{fmt(totalPurchased)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{fmt(totalCatched)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#c0392b" }}>{fmt(totalMorts)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#e67e22" }}>{mortPct}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
-  const [showSummary, setShowSummary] = useState(false);
+  const [activeView, setActiveView] = useState<null | "summary" | "batchResults">(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -1408,18 +1563,33 @@ export default function App() {
       <div className="flex items-end gap-0.5 px-3 pt-2 bg-gray-200 dark:bg-zinc-800 overflow-x-auto shrink-0">
         {/* Summary tab */}
         <button
-          onClick={() => setShowSummary(true)}
+          onClick={() => setActiveView("summary")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
           style={{
-            backgroundColor: showSummary ? "#1a5c36" : "#1a5c3688",
+            backgroundColor: activeView === "summary" ? "#1a5c36" : "#1a5c3688",
             color: "#fff",
             borderColor: "#1a5c36",
-            opacity: showSummary ? 1 : 0.72,
-            transform: showSummary ? "translateY(1px)" : "translateY(3px)",
+            opacity: activeView === "summary" ? 1 : 0.72,
+            transform: activeView === "summary" ? "translateY(1px)" : "translateY(3px)",
             marginRight: 4,
           }}
         >
           ☰ Summary
+        </button>
+        {/* Batch Results tab */}
+        <button
+          onClick={() => setActiveView("batchResults")}
+          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          style={{
+            backgroundColor: activeView === "batchResults" ? "#1a5c36" : "#1a5c3688",
+            color: "#fff",
+            borderColor: "#1a5c36",
+            opacity: activeView === "batchResults" ? 1 : 0.72,
+            transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)",
+            marginRight: 4,
+          }}
+        >
+          📊 Batch Results
         </button>
         {(() => {
           let shedCount = 0;
@@ -1444,7 +1614,7 @@ export default function App() {
           return (
             <button
               key={i}
-              onClick={() => { setActive(i); setShowSummary(false); }}
+              onClick={() => { setActive(i); setActiveView(null); }}
               className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
               style={{
                 backgroundColor: isActive ? bg : `${bg}aa`,
@@ -1463,9 +1633,13 @@ export default function App() {
 
       {/* Spreadsheet / Summary */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
-        {showSummary ? (
+        {activeView === "summary" ? (
           <div className="flex-1 overflow-auto">
             <SummaryView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
+          </div>
+        ) : activeView === "batchResults" ? (
+          <div className="flex-1 overflow-auto">
+            <BatchResultsView sheets={sheets} edits={edits} />
           </div>
         ) : current && (() => {
           const tabName = current.name.trim().toUpperCase();
