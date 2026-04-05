@@ -830,6 +830,17 @@ export default function App() {
       m.set("20,23", "");   // X21 – feed on hand this batch (manual)
       m.set("21,23", "0");  // X22 – total feed use (formula, cached)
 
+      // Bird totals panel (cols W/X/Y = 22/23/24, Excel rows 5–16 → 0-based 4–15)
+      // Col V (21) holds shed numbers (1–12) — keep those as labels
+      for (let r = 4; r <= 15; r++) {
+        m.set(`${r},22`, ""); // W – Birds Placed
+        m.set(`${r},23`, ""); // X – Birds Catched
+        m.set(`${r},24`, ""); // Y – Actual Morts
+      }
+      // Row 17 (0-based 16) has SUM formulas for catched/morts — zero them
+      m.set("16,23", "0");  // X17 – total birds catched (formula, cached)
+      m.set("16,24", "0");  // Y17 – total actual morts (formula, cached)
+
       return m;
     });
 
