@@ -1151,6 +1151,8 @@ interface BatchSummary {
   fcr: number;
   cfcr: number;
   cage: number;
+  actualAge: number;
+  correctedAge: number;
   feedOnHand: number;
   feedDelivered: number;
   feedConsumed: number;
@@ -1180,6 +1182,8 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   const fcr            = num(gv(9, 38));
   const cfcr           = num(gv(11, 38));
   const cage           = num(gv(6, 40));
+  const actualAge      = num(gv(11, 34));   // "Actual Age" — average age (days) at catch
+  const correctedAge   = num(gv(12, 34));   // "Correct Age to 2.45" — age corrected to standard weight
   const feedOnHand     = num(gv(6, 38));
   const feedDelivered  = num(gv(5, 38));
   const feedConsumed   = num(gv(7, 38));
@@ -1235,7 +1239,7 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
     }
   }
 
-  return { sheds, summary: { farmName, batchNum, totalPlaced, totalOut, mortalityPct, aveWeight, fcr, cfcr, cage, feedOnHand, feedDelivered, feedConsumed } };
+  return { sheds, summary: { farmName, batchNum, totalPlaced, totalOut, mortalityPct, aveWeight, fcr, cfcr, cage, actualAge, correctedAge, feedOnHand, feedDelivered, feedConsumed } };
 }
 
 const BATCH_CATCHES_KEY = "silo-batch-catches";
@@ -1574,10 +1578,22 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
           </div>
         )}
+        {summary && summary.actualAge > 0 && (
+          <div style={cardStyle("#5b6fa6")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#5b6fa6" }}>{summary.actualAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Actual Age</div>
+          </div>
+        )}
+        {summary && summary.correctedAge > 0 && (
+          <div style={cardStyle("#7d6aa0")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#7d6aa0" }}>{summary.correctedAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
+          </div>
+        )}
         {summary && summary.cage > 0 && (
           <div style={cardStyle("#7f8c8d")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Cage</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE Eff.</div>
           </div>
         )}
       </div>
