@@ -20,8 +20,16 @@ interface CellInfo {
   borderRight?: string;
 }
 
+interface RichStyle {
+  fontColor: string | null;
+  bgColor: string | null;
+  bold: boolean;
+  fontSize: number;
+}
+
 interface SheetParsed {
   name: string;
+  rawName: string;
   tabColor?: string;
   cells: Map<string, CellInfo>;
   minRow: number;
@@ -44,13 +52,6 @@ function colLetter(n: number): string {
   return s;
 }
 
-function argbToHex(argb?: string): string | undefined {
-  if (!argb || argb.length < 6) return undefined;
-  if (argb.length === 8) return `#${argb.slice(2)}`;
-  if (argb.length === 6) return `#${argb}`;
-  return undefined;
-}
-
 function contrastColor(hex?: string): string {
   if (!hex) return "#000";
   const raw = hex.startsWith("#") ? hex.slice(1) : hex;
@@ -63,15 +64,21 @@ function contrastColor(hex?: string): string {
 
 function borderStyle(b?: { style?: string; color?: { rgb?: string } }): string | undefined {
   if (!b?.style || b.style === "none") return undefined;
-  const color = argbToHex(b.color?.rgb) ?? "#ccc";
+  const color = b.color?.rgb ? `#${b.color.rgb.length === 8 ? b.color.rgb.slice(2) : b.color.rgb}` : "#ccc";
   const w = b.style === "thick" ? "2px" : b.style === "medium" ? "1.5px" : "1px";
   return `${w} solid ${color}`;
 }
 
-function parseSheet(ws: XLSX.WorkSheet, name: string, tabArgb?: string): SheetParsed {
+function parseSheet(
+  ws: XLSX.WorkSheet,
+  name: string,
+  rawName: string,
+  tabArgb: string | undefined,
+  richStyles: Record<string, RichStyle> | undefined
+): SheetParsed {
   const ref = ws["!ref"];
   if (!ref) {
-    return { name, tabColor: tabArgb, cells: new Map(), minRow: 0, maxRow: 0, minCol: 0, maxCol: 0, colWidths: [], rowHeights: [], merges: [] };
+    return { name, rawName, tabColor: tabArgb, cells: new Map(), minRow: 0, maxRow: 0, minCol: 0, maxCol: 0, colWidths: [], rowHeights: [], merges: [] };
   }
   const range = XLSX.utils.decode_range(ref);
   const minRow = range.s.r, maxRow = range.e.r;
@@ -112,6 +119,7 @@ function parseSheet(ws: XLSX.WorkSheet, name: string, tabArgb?: string): SheetPa
       const cell: XLSX.CellObject | undefined = ws[addr];
       const hidden = mergeHidden.has(key);
       const merge = mergeSet.get(key);
+
       let value = "";
       if (cell) {
         if (cell.t === "d" && cell.v instanceof Date)
@@ -119,37 +127,31 @@ function parseSheet(ws: XLSX.WorkSheet, name: string, tabArgb?: string): SheetPa
         else if (cell.w != null) value = cell.w;
         else if (cell.v != null) value = String(cell.v);
       }
-      // SheetJS community returns styles FLAT on cell.s (not nested under fill/font)
+
+      // Primary: use rich style data from the pre-extracted JSON (accurate font + bg colors)
+      const rich = richStyles?.[addr];
+
+      // Fallback: SheetJS flat style for fill colour (when rich data not available)
       const s = (cell as any)?.s;
+      let fallbackBg: string | undefined;
+      if (!rich?.bgColor && s?.patternType === "solid" && s?.fgColor?.rgb) {
+        const raw = s.fgColor.rgb as string;
+        const hex = raw.length === 8 ? raw.slice(2) : raw;
+        if (hex.toUpperCase() !== "FFFFFF" && hex !== "") fallbackBg = `#${hex}`;
+      }
+
       const al = s?.alignment;
       const border = s?.border;
 
-      // Background fill: s.fgColor.rgb when s.patternType === "solid"
-      let bgColor: string | undefined;
-      if (s?.patternType === "solid" && s?.fgColor?.rgb) {
-        const raw = s.fgColor.rgb as string;
-        const hex = raw.length === 8 ? raw.slice(2) : raw;
-        // Skip pure white fills — treat as no fill
-        if (hex.toUpperCase() !== "FFFFFF") bgColor = `#${hex}`;
-      }
-
-      // Font color — try both flat and nested paths
-      let fontColor: string | undefined;
-      const frgb = s?.color?.rgb ?? s?.font?.color?.rgb;
-      if (frgb) {
-        const hex = (frgb as string).length === 8 ? (frgb as string).slice(2) : frgb as string;
-        if (hex.toUpperCase() !== "000000") fontColor = `#${hex}`;
-      }
-
-      // Font properties — try both flat and nested
-      const bold = s?.bold ?? s?.font?.bold ?? false;
-      const italic = s?.italic ?? s?.font?.italic ?? false;
-      const fontSize = s?.sz ?? s?.font?.sz ?? 11;
+      const bgColor = rich?.bgColor ?? fallbackBg;
+      const fontColor = rich?.fontColor ?? undefined;
+      const bold = rich?.bold ?? s?.bold ?? false;
+      const fontSize = rich?.fontSize ?? s?.sz ?? 11;
 
       cells.set(key, {
         value,
         bold,
-        italic,
+        italic: s?.italic ?? false,
         fontSize,
         fontColor,
         bgColor,
@@ -166,10 +168,41 @@ function parseSheet(ws: XLSX.WorkSheet, name: string, tabArgb?: string): SheetPa
       });
     }
   }
-  return { name, tabColor: tabArgb, cells, minRow, maxRow, minCol, maxCol, colWidths, rowHeights, merges };
+  return { name, rawName, tabColor: tabArgb, cells, minRow, maxRow, minCol, maxCol, colWidths, rowHeights, merges };
 }
 
 interface EditingCell { r: number; c: number; sheetIdx: number }
+
+const thStyle: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 2,
+  background: "#e8ede8",
+  border: "1px solid #b0b0b0",
+  height: 20,
+  fontSize: 10,
+  color: "#444",
+  textAlign: "center",
+  fontWeight: 600,
+  userSelect: "none",
+  padding: "1px 2px",
+};
+
+const rnStyle: React.CSSProperties = {
+  position: "sticky",
+  left: 0,
+  zIndex: 1,
+  background: "#e8ede8",
+  border: "1px solid #b0b0b0",
+  fontSize: 10,
+  color: "#555",
+  textAlign: "center",
+  userSelect: "none",
+  fontFamily: "Calibri,sans-serif",
+  padding: "0 3px",
+  minWidth: 42,
+  width: 42,
+};
 
 function SheetView({
   sheet,
@@ -193,18 +226,13 @@ function SheetView({
     if (editingCell && inputRef.current) inputRef.current.focus();
   }, [editingCell]);
 
-  const startEdit = (r: number, c: number) => {
-    setEditingCell({ r, c, sheetIdx });
-  };
-
   const commitEdit = (r: number, c: number, val: string) => {
-    const key = `${r},${c}`;
-    onEdit(key, val);
+    onEdit(`${r},${c}`, val);
     setEditingCell(null);
   };
 
   return (
-    <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed" }}>
+    <table style={{ borderCollapse: "collapse", fontFamily: "Arial,sans-serif", tableLayout: "fixed" }}>
       <colgroup>
         <col style={{ width: 42, minWidth: 42 }} />
         {Array.from({ length: maxCol - minCol + 1 }, (_, i) => {
@@ -242,7 +270,7 @@ function SheetView({
                     key={c}
                     colSpan={info.colSpan}
                     rowSpan={info.rowSpan}
-                    onDoubleClick={() => startEdit(r, c)}
+                    onDoubleClick={() => setEditingCell({ r, c, sheetIdx })}
                     title="Double-click to edit"
                     style={{
                       background: info.bgColor ?? "#fff",
@@ -264,7 +292,6 @@ function SheetView({
                       maxWidth: 400,
                       cursor: "default",
                       outline: isEditing ? "2px solid #1a5c36" : "none",
-                      position: "relative",
                     }}
                   >
                     {isEditing ? (
@@ -280,22 +307,14 @@ function SheetView({
                           if (e.key === "Escape") setEditingCell(null);
                         }}
                         style={{
-                          width: "100%",
-                          height: "100%",
-                          border: "none",
-                          outline: "none",
-                          background: info.bgColor ?? "#fff",
-                          color: info.fontColor ?? "#000",
+                          width: "100%", height: "100%", border: "none", outline: "none",
+                          background: info.bgColor ?? "#fff", color: info.fontColor ?? "#000",
                           fontWeight: info.bold ? "bold" : "normal",
-                          fontSize: fs,
-                          fontFamily: "Calibri,'Segoe UI',sans-serif",
-                          padding: "1px 3px",
-                          boxSizing: "border-box",
+                          fontSize: fs, fontFamily: "Arial,sans-serif",
+                          padding: "1px 3px", boxSizing: "border-box",
                         }}
                       />
-                    ) : (
-                      displayVal
-                    )}
+                    ) : displayVal}
                   </td>
                 );
               })}
@@ -307,66 +326,52 @@ function SheetView({
   );
 }
 
-const thStyle: React.CSSProperties = {
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-  background: "#e8ede8",
-  border: "1px solid #b0b0b0",
-  height: 20,
-  fontSize: 10,
-  color: "#444",
-  textAlign: "center",
-  fontWeight: 600,
-  userSelect: "none",
-  padding: "1px 2px",
-};
-
-const rnStyle: React.CSSProperties = {
-  position: "sticky",
-  left: 0,
-  zIndex: 1,
-  background: "#e8ede8",
-  border: "1px solid #b0b0b0",
-  fontSize: 10,
-  color: "#555",
-  textAlign: "center",
-  userSelect: "none",
-  fontFamily: "Calibri,sans-serif",
-  padding: "0 3px",
-  minWidth: 42,
-  width: 42,
-};
-
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
-  // edits[sheetIdx] -> Map<"r,c", newValue>
   const [edits, setEdits] = useState<Map<string, string>[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
 
   useEffect(() => {
-    const url = `${BASE}feed-program.xlsx`;
-    fetch(url)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.arrayBuffer(); })
-      .then((buf) => {
+    const xlsxUrl = `${BASE}feed-program.xlsx`;
+    const styleUrl = `${BASE}style-data.json`;
+
+    Promise.all([
+      fetch(xlsxUrl).then(r => { if (!r.ok) throw new Error(`xlsx HTTP ${r.status}`); return r.arrayBuffer(); }),
+      fetch(styleUrl).then(r => { if (!r.ok) throw new Error(`styles HTTP ${r.status}`); return r.json(); }),
+    ])
+      .then(([buf, styleData]: [ArrayBuffer, Record<string, Record<string, RichStyle>>]) => {
         const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellDates: true, dense: false });
         workbookRef.current = wb;
+
+        // Build a trimmed-name -> richStyles lookup from style-data.json
+        const styleByTrimmed = new Map<string, Record<string, RichStyle>>();
+        Object.entries(styleData).forEach(([rawName, cellMap]) => {
+          styleByTrimmed.set(rawName.trim(), cellMap);
+        });
+
         const result: SheetParsed[] = [];
         let startIdx = 0;
-        wb.SheetNames.forEach((name, idx) => {
-          const ws = wb.Sheets[name];
+
+        wb.SheetNames.forEach((rawName, idx) => {
+          const ws = wb.Sheets[rawName];
           if (!ws) return;
+          const trimmedName = rawName.trim();
           const tabColor = wb.Workbook?.Sheets?.[idx]?.TabColor;
-          const tabArgb = tabColor?.rgb ? tabColor.rgb : undefined;
-          const parsed = parseSheet(ws, name.trim(), tabArgb ? argbToHex(tabArgb) : undefined);
-          if (name.trim().toUpperCase().includes("3") && name.trim().toUpperCase().includes("4")) startIdx = result.length;
+          const tabArgb = tabColor?.rgb ? `#${tabColor.rgb}` : undefined;
+          const richStyles = styleByTrimmed.get(trimmedName);
+          const parsed = parseSheet(ws, trimmedName, rawName, tabArgb, richStyles);
+
+          if (trimmedName.toUpperCase().includes("3") && trimmedName.toUpperCase().includes("4")) {
+            startIdx = result.length;
+          }
           result.push(parsed);
         });
+
         setSheets(result);
         setEdits(result.map(() => new Map()));
         setActive(startIdx);
@@ -389,7 +394,6 @@ export default function App() {
   const downloadFile = () => {
     const wb = workbookRef.current;
     if (!wb) return;
-    // Apply edits back to workbook
     sheets.forEach((sheet, si) => {
       const ws = wb.Sheets[wb.SheetNames[si]];
       if (!ws) return;
@@ -400,8 +404,7 @@ export default function App() {
         else {
           ws[addr].v = isNaN(Number(val)) ? val : Number(val);
           ws[addr].w = val;
-          if (!isNaN(Number(val))) ws[addr].t = "n";
-          else ws[addr].t = "s";
+          ws[addr].t = !isNaN(Number(val)) ? "n" : "s";
         }
       });
     });
@@ -439,9 +442,7 @@ export default function App() {
       <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
         <span className="text-lg font-bold tracking-wide">Double B Farm — Feed Program</span>
         <div className="ml-auto flex items-center gap-2">
-          {hasChanges && (
-            <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>
-          )}
+          {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
           <button
             onClick={downloadFile}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors"
@@ -452,9 +453,9 @@ export default function App() {
         </div>
       </div>
 
-      {/* Editing hint */}
+      {/* Hint bar */}
       <div className="bg-[#e8f5ee] border-b border-green-200 px-4 py-1 text-xs text-green-800 shrink-0">
-        Double-click any cell to edit it. Press <kbd className="bg-white border border-green-300 rounded px-1">Enter</kbd> or click away to confirm. Download your updated file when done.
+        Double-click any cell to edit. Press <kbd className="bg-white border border-green-300 rounded px-1">Enter</kbd> or click away to confirm.
       </div>
 
       {/* Sheet tabs */}
@@ -463,8 +464,7 @@ export default function App() {
           const isActive = i === active;
           const bg = s.tabColor ?? "#217346";
           const fg = contrastColor(s.tabColor);
-          const sheetEdits = edits[i];
-          const hasSheetEdits = sheetEdits && sheetEdits.size > 0;
+          const hasEdits = edits[i]?.size > 0;
           return (
             <button
               key={i}
@@ -478,7 +478,7 @@ export default function App() {
                 transform: isActive ? "translateY(1px)" : "translateY(3px)",
               }}
             >
-              {s.name}{hasSheetEdits ? " •" : ""}
+              {s.name}{hasEdits ? " •" : ""}
             </button>
           );
         })}
