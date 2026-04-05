@@ -72,10 +72,35 @@ function getLastCol(ws) {
 }
 
 function copyData(src, dst, colLimit) {
+  // Copy merges that fit within colLimit (so merged date zones look correct)
+  const nonAnchor = new Set();
+  (src.model.merges || []).forEach((ref) => {
+    try {
+      const [start, end] = ref.split(":");
+      const colLetter = (addr) => addr.match(/^[A-Z]+/)[0];
+      const colNum    = (l) => l.split("").reduce((n, c) => n * 26 + (c.charCodeAt(0) - 64), 0);
+      const rowNum    = (addr) => parseInt(addr.match(/\d+/)[0]);
+      const c1 = colNum(colLetter(start));
+      const c2 = colNum(colLetter(end));
+      const r1 = rowNum(start);
+      const r2 = rowNum(end);
+      if (c1 <= colLimit && c2 <= colLimit) {
+        try { dst.mergeCells(ref); } catch {}
+        // Track all non-anchor cells in this merge to skip copying their values
+        for (let r = r1; r <= r2; r++) {
+          for (let c = c1; c <= c2; c++) {
+            if (r !== r1 || c !== c1) nonAnchor.add(`${r},${c}`);
+          }
+        }
+      }
+    } catch {}
+  });
+
   // Copy row data only – no styles from original
   src.eachRow((srcRow, rn) => {
     const dstRow = dst.getRow(rn);
     for (let cn = 1; cn <= colLimit; cn++) {
+      if (nonAnchor.has(`${rn},${cn}`)) continue; // skip merge overflow cells
       const sc = srcRow.getCell(cn);
       const dc = dstRow.getCell(cn);
       if (sc.formula)            dc.value = { formula: sc.formula, result: sc.result };
@@ -90,15 +115,16 @@ function styleShed(ws, isBig) {
   const COLS   = isBig ? 34 : 23;
   const siloA  = isBig ? 22 : 11;
   const siloC  = isBig ? 24 : 13;
-  const dateC  = isBig ? 14 : 3;
+  // Shed 1&2: date is in col 2 (merged B:N per row); other sheds: col 3
+  const dateC  = isBig ? 2  : 3;
   const lastR  = ws.rowCount;
 
   ws.views = [{ state: "frozen", ySplit: 9, showGridLines: false }];
 
-  // Widths
+  // Widths – Shed 1&2 has 13 leading cols (age + merged date zone), others have 2
   const widths = isBig
-    ? [0,5,5,5,5,5,5,5,5,5,5,5,5,5, 12,10,10,10,10,10,10, 10,10,10,10, 10,10,10, 13,15,13,12,13,12,6]
-    : [0,5,5, 12,10,10,10,10,10,10, 10,10,10,10, 10,10,10, 13,15,13,12,13,12,6];
+    ? [0, 6, 17,17,17,17,17,17,17,17,17,17,17,17, 15, 15,18,10,15,15,14, 12,12,12,12, 16,11,8, 16,21,15,13,15,13, 12]
+    : [0, 6,6,  14,12,12,10,14,14,12, 12,12,12,12, 12,12,8,  16,21,15,13,15,13, 8];
   widths.forEach((w, i) => { if (i > 0 && i <= COLS) ws.getColumn(i).width = w; });
 
   // ── ROW 1 – App banner (dark green, large white text) ──────────────────────
