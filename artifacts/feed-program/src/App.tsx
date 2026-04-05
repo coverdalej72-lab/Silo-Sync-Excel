@@ -1316,11 +1316,6 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
             {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? `Batch #${bn}` : <span style={{ opacity: 0.5 }}>Batch #</span>; })()}
           </div>
         )}
-        <div style={{ marginLeft: "auto" }}>
-          <button onClick={openClearModal} style={{ background: "rgba(192,57,43,0.85)", color: "#fff", border: "none", borderRadius: 7, padding: "6px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-            Clear for New Batch
-          </button>
-        </div>
       </div>
 
       {/* Top stat cards */}
