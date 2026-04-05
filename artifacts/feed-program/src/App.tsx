@@ -119,15 +119,40 @@ function parseSheet(ws: XLSX.WorkSheet, name: string, tabArgb?: string): SheetPa
         else if (cell.w != null) value = cell.w;
         else if (cell.v != null) value = String(cell.v);
       }
+      // SheetJS community returns styles FLAT on cell.s (not nested under fill/font)
       const s = (cell as any)?.s;
-      const font = s?.font, fill = s?.fill, al = s?.alignment, border = s?.border;
+      const al = s?.alignment;
+      const border = s?.border;
+
+      // Background fill: s.fgColor.rgb when s.patternType === "solid"
+      let bgColor: string | undefined;
+      if (s?.patternType === "solid" && s?.fgColor?.rgb) {
+        const raw = s.fgColor.rgb as string;
+        const hex = raw.length === 8 ? raw.slice(2) : raw;
+        // Skip pure white fills — treat as no fill
+        if (hex.toUpperCase() !== "FFFFFF") bgColor = `#${hex}`;
+      }
+
+      // Font color — try both flat and nested paths
+      let fontColor: string | undefined;
+      const frgb = s?.color?.rgb ?? s?.font?.color?.rgb;
+      if (frgb) {
+        const hex = (frgb as string).length === 8 ? (frgb as string).slice(2) : frgb as string;
+        if (hex.toUpperCase() !== "000000") fontColor = `#${hex}`;
+      }
+
+      // Font properties — try both flat and nested
+      const bold = s?.bold ?? s?.font?.bold ?? false;
+      const italic = s?.italic ?? s?.font?.italic ?? false;
+      const fontSize = s?.sz ?? s?.font?.sz ?? 11;
+
       cells.set(key, {
         value,
-        bold: font?.bold ?? false,
-        italic: font?.italic ?? false,
-        fontSize: font?.sz ?? 11,
-        fontColor: argbToHex(font?.color?.rgb),
-        bgColor: argbToHex(fill?.fgColor?.rgb),
+        bold,
+        italic,
+        fontSize,
+        fontColor,
+        bgColor,
         hAlign: al?.horizontal,
         vAlign: al?.vertical,
         wrapText: al?.wrapText,
