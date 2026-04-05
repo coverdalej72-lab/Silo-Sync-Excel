@@ -22,41 +22,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(__dirname, "../../attached_assets/feed_program_batch_120_1775355933095.xlsx");
 const OUT = path.join(__dirname, "public/silo-mate-feed-program.xlsx");
 
-const solid = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
-
-// ── Fill remap table ──────────────────────────────────────────────────────────
-const FILL_MAP = {
-  "FFFFFF00": "FFFFC000",  // bright yellow  → app amber
-  "FF92D050": "FF217346",  // lime green     → app primary green
-  "FFFF0000": "FFFFC000",  // red bg         → app amber (Silo A header)
-  "FFC00000": "FF1A5C36",  // dark red bg    → app dark green
-};
-
 // ── Tab colours: rotate green / blue / amber across the 6 shed pairs ─────────
-// (matches the reference file's rotating pattern, but using app palette)
+// Matches the reference file's rotating pattern exactly
 const SHED_TAB_COLORS = [
-  "FF217346",  // Shed 1 & 2  – app green
-  "FF0070C0",  // Shed 3 & 4  – blue (kept, matches reference)
-  "FFFFC000",  // Shed 5 & 6  – app amber
-  "FF217346",  // Shed 7 & 8  – app green
-  "FF0070C0",  // Shed 9 & 10 – blue
-  "FFFFC000",  // Shed 11 & 12– app amber
+  "FF92D050",  // Shed 1 & 2  – lime green  (same as reference)
+  "FF00B0F0",  // Shed 3 & 4  – blue        (same as reference)
+  "FFFFC000",  // Shed 5 & 6  – amber       (same as reference)
+  "FF92D050",  // Shed 7 & 8  – lime green
+  "FF00B0F0",  // Shed 9 & 10 – blue
+  "FFFFC000",  // Shed 11 & 12– amber
 ];
 
 let shedIndex = 0;
-
-function remapSheet(ws) {
-  ws.eachRow((row) => {
-    row.eachCell({ includeEmpty: false }, (cell) => {
-      if (cell.type === ExcelJS.ValueType.Merge) return;
-      const origArgb = cell.fill?.fgColor?.argb;
-      if (origArgb && FILL_MAP[origArgb]) {
-        cell.fill = solid(FILL_MAP[origArgb]);
-      }
-      // If no fill → leave as-is (do NOT add any background)
-    });
-  });
-}
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const wb = new ExcelJS.Workbook();
@@ -72,7 +49,7 @@ for (const ws of wb.worksheets) {
   }
 
   if (n.includes("SHED")) {
-    remapSheet(ws);
+    // Only set tab colour — touch absolutely nothing else in the sheet
     ws.properties = ws.properties ?? {};
     ws.properties.tabColor = { argb: SHED_TAB_COLORS[shedIndex % SHED_TAB_COLORS.length] };
     // Make Shed 3 & 4 the active tab when file opens
@@ -90,15 +67,12 @@ for (const ws of wb.worksheets) {
   }
 
   if (n.includes("END") || n.includes("BATCH")) {
-    remapSheet(ws);
     ws.properties = ws.properties ?? {};
-    ws.properties.tabColor = { argb: "FF217346" };
+    ws.properties.tabColor = { argb: "FF92D050" };
     console.log(`✓ EOB:     ${ws.name.trim()}`);
     continue;
   }
 
-  // Any other visible sheet — just remap fills
-  remapSheet(ws);
   console.log(`  Other:   ${ws.name.trim()}`);
 }
 
