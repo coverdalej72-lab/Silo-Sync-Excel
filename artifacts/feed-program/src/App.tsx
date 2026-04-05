@@ -456,6 +456,7 @@ export default function App() {
   const [hasChanges, setHasChanges] = useState(false);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
+  const seedDoneRef = useRef(false);
 
   useEffect(() => {
     const xlsxUrl = `${BASE}feed-program.xlsx`;
@@ -501,6 +502,88 @@ export default function App() {
       })
       .catch((e) => { setError(e.message); setLoading(false); });
   }, []);
+
+  // ── Seed today's readings from the Silo Mate app ─────────────────────────
+  useEffect(() => {
+    if (sheets.length === 0 || seedDoneRef.current) return;
+    seedDoneRef.current = true;
+
+    fetch("/api/readings/today")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.sheds) return;
+
+        const today = new Date().toLocaleDateString("en-AU", {
+          weekday: "long", year: "numeric", month: "long", day: "numeric",
+        });
+
+        // Build sheetIdx → { "row,col" → value } map
+        const seedMap = new Map<number, Map<string, string>>();
+
+        for (const shed of data.sheds as Array<{
+          shedGroupName: string;
+          silos: Array<{ letter: string; saved: boolean; amountRemaining: number | null }>;
+        }>) {
+          const nums = shed.shedGroupName.match(/\d+/g) ?? [];
+
+          // Match shed numbers to sheet numbers (e.g. "1","2" → "SHED 1 & 2")
+          const sheetIdx = sheets.findIndex(s => {
+            const sNums = s.name.match(/\d+/g) ?? [];
+            return nums.length > 0 && nums.every(n => sNums.includes(n));
+          });
+          if (sheetIdx === -1) continue;
+
+          const sheet = sheets[sheetIdx];
+
+          // Find the row where column C's displayed value equals today's date string
+          let dateRow = -1;
+          for (const [key, cell] of sheet.cells.entries()) {
+            const parts = key.split(",");
+            if (parseInt(parts[1]) === 2 && cell.value === today) {
+              dateRow = parseInt(parts[0]);
+              break;
+            }
+          }
+          if (dateRow === -1) continue;
+
+          const letterToCol: Record<string, number> = { A: COL_K, B: COL_L, C: COL_M };
+          const pairs = new Map<string, string>();
+
+          for (const silo of shed.silos) {
+            if (!silo.saved || silo.amountRemaining === null) continue;
+            const col = letterToCol[silo.letter];
+            if (col === undefined) continue;
+            pairs.set(`${dateRow},${col}`, String(silo.amountRemaining));
+          }
+
+          if (pairs.size > 0) seedMap.set(sheetIdx, pairs);
+        }
+
+        if (seedMap.size === 0) return;
+
+        setEdits(prev => {
+          const next = [...prev];
+          for (const [si, pairs] of seedMap.entries()) {
+            let m = new Map(next[si]);
+            pairs.forEach((val, key) => m.set(key, val));
+            const sheet = sheets[si];
+            if (sheet) {
+              // Find the earliest edited row to trigger cascade from
+              let minRow = sheet.maxRow;
+              pairs.forEach((_, key) => {
+                const r = parseInt(key.split(",")[0]);
+                if (r < minRow) minRow = r;
+              });
+              m = recalculate(sheet.cells, m, minRow, COL_K, sheet.maxRow);
+            }
+            next[si] = m;
+          }
+          return next;
+        });
+        // These are already-saved readings — don't flag as unsaved changes
+      })
+      .catch(() => { /* silently ignore — app works fine without API readings */ });
+  }, [sheets]);
 
   const handleEdit = useCallback((sheetIdx: number, key: string, value: string) => {
     setEdits((prev) => {
