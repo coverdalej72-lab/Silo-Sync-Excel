@@ -1007,6 +1007,21 @@ export default function App() {
           >
             ⬇ Save & Download
           </button>
+          <button
+            onClick={() => {
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+              } else {
+                document.exitFullscreen();
+              }
+            }}
+            className="flex items-center justify-center w-8 h-8 rounded bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
+            title="Toggle fullscreen"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path d="M3 3h5v2H5v3H3V3zm9 0h5v5h-2V5h-3V3zM3 12h2v3h3v2H3v-5zm12 3h-3v2h5v-5h-2v3z"/>
+            </svg>
+          </button>
         </div>
       </div>
 
