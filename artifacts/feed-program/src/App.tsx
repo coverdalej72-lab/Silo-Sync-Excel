@@ -1,5 +1,57 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import * as XLSX from "xlsx";
+import JSZip from "jszip";
+
+function escapeXml(str: string) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function updateCellInXml(xml: string, addr: string, newVal: string): string {
+  const numVal = parseFloat(newVal.replace(/,/g, ""));
+  const isNum = !isNaN(numVal) && newVal.trim() !== "";
+  // Match <c ... r="ADDR" ... > ... </c>
+  const cellRe = new RegExp(`(<c\\b[^>]*\\br="${escapeRegex(addr)}"[^>]*>)([\\s\\S]*?)(</c>)`, "g");
+  let matched = false;
+  const out = xml.replace(cellRe, (_match, open, _inner, close) => {
+    matched = true;
+    // Strip existing t="..." attribute so we can set the correct one
+    let newOpen = open.replace(/\s+t="[^"]*"/, "");
+    if (isNum) {
+      return `${newOpen}<v>${numVal}</v>${close}`;
+    } else {
+      // Insert t="inlineStr" right after <c
+      newOpen = newOpen.replace(/^<c\b/, '<c t="inlineStr"');
+      return `${newOpen}<is><t>${escapeXml(newVal)}</t></is>${close}`;
+    }
+  });
+  if (!matched) {
+    // Cell doesn't exist in XML yet — inject a new <c> before </row>
+    const numStr = isNum ? `<v>${numVal}</v>` : `<is><t>${escapeXml(newVal)}</t></is>`;
+    const type = isNum ? "" : ` t="inlineStr"`;
+    return out.replace(/<\/row>/, `<c r="${addr}"${type}>${numStr}</c></row>`);
+  }
+  return out;
+}
+
+async function getSheetXmlPaths(zip: JSZip): Promise<string[]> {
+  const wbRelsXml = await zip.file("xl/_rels/workbook.xml.rels")?.async("string") ?? "";
+  // Build rId -> target map
+  const ridToTarget = new Map<string, string>();
+  for (const m of wbRelsXml.matchAll(/Id="([^"]+)"[^>]*Target="([^"]+)"/g)) {
+    ridToTarget.set(m[1], m[2]);
+  }
+  const wbXml = await zip.file("xl/workbook.xml")?.async("string") ?? "";
+  const paths: string[] = [];
+  for (const m of wbXml.matchAll(/<sheet\b[^>]*\br:id="([^"]+)"/g)) {
+    const target = ridToTarget.get(m[1]) ?? "";
+    paths.push(target.startsWith("worksheets/") ? `xl/${target}` : target);
+  }
+  return paths;
+}
 
 interface CellInfo {
   value: string;
@@ -340,6 +392,7 @@ export default function App() {
   const [edits, setEdits] = useState<Map<string, string>[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
+  const rawBufferRef = useRef<ArrayBuffer | null>(null);
 
   useEffect(() => {
     const xlsxUrl = `${BASE}feed-program.xlsx`;
@@ -350,6 +403,7 @@ export default function App() {
       fetch(styleUrl).then(r => { if (!r.ok) throw new Error(`styles HTTP ${r.status}`); return r.json(); }),
     ])
       .then(([buf, styleData]: [ArrayBuffer, Record<string, Record<string, RichStyle>>]) => {
+        rawBufferRef.current = buf;
         const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellDates: true, dense: false });
         workbookRef.current = wb;
 
@@ -396,25 +450,27 @@ export default function App() {
     setHasChanges(true);
   }, []);
 
-  const downloadFile = () => {
-    const wb = workbookRef.current;
-    if (!wb) return;
-    sheets.forEach((sheet, si) => {
-      const ws = wb.Sheets[wb.SheetNames[si]];
-      if (!ws) return;
-      edits[si].forEach((val, key) => {
+  const downloadFile = async () => {
+    if (!rawBufferRef.current) return;
+    const zip = await JSZip.loadAsync(rawBufferRef.current.slice(0));
+    const sheetPaths = await getSheetXmlPaths(zip);
+
+    for (let si = 0; si < sheets.length; si++) {
+      const sheetEdits = edits[si];
+      if (!sheetEdits || sheetEdits.size === 0) continue;
+      const xmlPath = sheetPaths[si];
+      if (!xmlPath) continue;
+      let xml = await zip.file(xmlPath)?.async("string");
+      if (!xml) continue;
+      sheetEdits.forEach((newVal, key) => {
         const [r, c] = key.split(",").map(Number);
         const addr = XLSX.utils.encode_cell({ r, c });
-        if (!ws[addr]) ws[addr] = { t: "s", v: val, w: val };
-        else {
-          ws[addr].v = isNaN(Number(val)) ? val : Number(val);
-          ws[addr].w = val;
-          ws[addr].t = !isNaN(Number(val)) ? "n" : "s";
-        }
+        xml = updateCellInXml(xml!, addr, newVal);
       });
-    });
-    const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      zip.file(xmlPath, xml!);
+    }
+
+    const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 3 } });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
