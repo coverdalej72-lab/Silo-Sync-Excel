@@ -26,6 +26,21 @@ A mobile-friendly web app for recording silo readings in the field.
 - Manage silos (add, edit, delete)
 - Export all readings as CSV (opens in Excel or Google Sheets)
 - Cloud sync to Google Drive and/or OneDrive (ready but not yet authorized)
+- **Light/Dark mode toggle** in Settings → Appearance; persists to `silo-theme` localStorage
+- Configurable farm name, shed groups (up to 10 groups / 20 sheds), silo tonnages
+- Farm Setup Lock to prevent accidental edits
+- Share App Links section for copying Feed Program and Silo Mate URLs
+
+### Feed Program (`artifacts/feed-program`)
+An Excel-like spreadsheet viewer/editor with full inline editing and live formula recalculation.
+- Syncs theme with Silo Tracker via `silo-theme` localStorage key
+- Syncs farm config (name, shed visibility) from `silo-farm-config` localStorage
+
+## Theme System
+- **localStorage key**: `silo-theme` (`"dark"` | `"light"`)
+- **CSS**: `:root` = light vars, `.dark` = dark vars; `@custom-variant dark (&:is(.dark *))` for Tailwind
+- **Hook**: `artifacts/silo-tracker/src/hooks/use-theme.ts` (apply `.dark` class to `document.documentElement`)
+- **Flash prevention**: inline `<script>` in both `index.html` files applies class before React loads
 
 ## Key Commands
 

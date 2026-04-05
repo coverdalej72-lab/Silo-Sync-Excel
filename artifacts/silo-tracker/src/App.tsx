@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import { useTheme } from "@/hooks/use-theme";
 
 import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
@@ -27,6 +28,7 @@ function Router() {
 }
 
 function App() {
+  useTheme(); // initialize theme class on document root
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

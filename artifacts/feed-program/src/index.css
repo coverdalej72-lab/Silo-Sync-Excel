@@ -33,6 +33,18 @@
   --radius: 0.375rem;
 }
 
+.dark {
+  --background: 222 25% 9%;
+  --foreground: 0 0% 93%;
+  --border: 220 15% 22%;
+  --input: 220 15% 22%;
+  --ring: 138 56% 42%;
+  --primary: 138 56% 42%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 222 25% 14%;
+  --muted-foreground: 220 10% 55%;
+}
+
 @layer base {
   * { @apply border-border; }
   body { @apply font-sans antialiased bg-background text-foreground; }

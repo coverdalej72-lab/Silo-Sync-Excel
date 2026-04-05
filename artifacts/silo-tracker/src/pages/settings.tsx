@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid } from "lucide-react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
+import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -63,6 +64,7 @@ function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void;
 
 export default function Settings() {
   const { config, updateFarmName, updateShedName, updateSiloTonnage, toggleShedActive, addSilo, removeSilo, toggleSetupLock } = useFarmConfig();
+  const { theme, toggle: toggleTheme } = useTheme();
   const { toast } = useToast();
   const [expandedSheds, setExpandedSheds] = useState<Record<number, boolean>>({});
   const [resetting, setResetting] = useState(false);
@@ -311,6 +313,41 @@ export default function Settings() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Appearance */}
+      <div>
+        <SectionLabel title="Appearance" />
+        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              {theme === "dark" ? (
+                <Moon className="w-4 h-4 text-primary" />
+              ) : (
+                <Sun className="w-4 h-4 text-primary" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-tight">Theme</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {theme === "dark" ? "Dark mode" : "Light mode"}
+              </p>
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+              style={{
+                backgroundColor: theme === "dark" ? "hsl(142 71% 45%)" : "hsl(220 15% 80%)",
+              }}
+              aria-label="Toggle theme"
+            >
+              <span
+                className="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform"
+                style={{ transform: theme === "dark" ? "translateX(1.5rem)" : "translateX(0.25rem)" }}
+              />
+            </button>
+          </div>
         </div>
       </div>
 

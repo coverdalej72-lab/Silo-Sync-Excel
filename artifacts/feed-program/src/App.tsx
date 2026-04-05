@@ -531,6 +531,19 @@ export default function App() {
   const seedDoneRef = useRef(false);
   const deliverySeedDoneRef = useRef(false);
 
+  // Initialize and sync theme with Silo Tracker
+  useEffect(() => {
+    const applyTheme = (t: string | null) => {
+      document.documentElement.classList.toggle("dark", t === "dark");
+    };
+    applyTheme(localStorage.getItem("silo-theme"));
+    const onThemeStorage = (e: StorageEvent) => {
+      if (e.key === "silo-theme") applyTheme(e.newValue);
+    };
+    window.addEventListener("storage", onThemeStorage);
+    return () => window.removeEventListener("storage", onThemeStorage);
+  }, []);
+
   // Sync farm config whenever Silo Tracker updates localStorage
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -925,7 +938,7 @@ export default function App() {
   const current = sheets[active];
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex flex-col h-screen bg-gray-100 dark:bg-zinc-900">
       {/* Header */}
       <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
@@ -949,12 +962,12 @@ export default function App() {
       </div>
 
       {/* Hint bar */}
-      <div className="bg-[#e8f5ee] border-b border-green-200 px-4 py-1 text-xs text-green-800 shrink-0">
-        Double-click any cell to edit. Press <kbd className="bg-white border border-green-300 rounded px-1">Enter</kbd> or click away to confirm.
+      <div className="bg-[#e8f5ee] dark:bg-zinc-800 border-b border-green-200 dark:border-zinc-700 px-4 py-1 text-xs text-green-800 dark:text-green-300 shrink-0">
+        Double-click any cell to edit. Press <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd> or click away to confirm.
       </div>
 
       {/* Sheet tabs */}
-      <div className="flex items-end gap-0.5 px-3 pt-2 bg-gray-200 overflow-x-auto shrink-0">
+      <div className="flex items-end gap-0.5 px-3 pt-2 bg-gray-200 dark:bg-zinc-800 overflow-x-auto shrink-0">
         {(() => {
           let shedCount = 0;
           return sheets.map((s, i) => {
@@ -996,7 +1009,7 @@ export default function App() {
       </div>
 
       {/* Spreadsheet */}
-      <div className="flex-1 overflow-auto bg-white border-t-2 border-[#217346]">
+      <div className="flex-1 overflow-auto bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
         {current && (
           <SheetView
             sheet={current}
