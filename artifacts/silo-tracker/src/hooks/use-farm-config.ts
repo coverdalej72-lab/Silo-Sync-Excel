@@ -22,12 +22,16 @@ const SILO_LETTERS = ["A", "B", "C"] as const;
 const DEFAULT_CONFIG: FarmConfig = {
   farmName: "Double B Farm",
   shedGroups: [
-    { shedGroupId: 1, customName: "Sheds 1 & 2",   active: true, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 2, customName: "Sheds 3 & 4",   active: true, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 3, customName: "Sheds 5 & 6",   active: true, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 4, customName: "Sheds 7 & 8",   active: true, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 5, customName: "Sheds 9 & 10",  active: true, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 6, customName: "Sheds 11 & 12", active: true, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 1,  customName: "Sheds 1 & 2",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 2,  customName: "Sheds 3 & 4",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 3,  customName: "Sheds 5 & 6",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 4,  customName: "Sheds 7 & 8",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 5,  customName: "Sheds 9 & 10",  active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 6,  customName: "Sheds 11 & 12", active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 7,  customName: "Sheds 13 & 14", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 8,  customName: "Sheds 15 & 16", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 9,  customName: "Sheds 17 & 18", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+    { shedGroupId: 10, customName: "Sheds 19 & 20", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
   ],
 };
 

@@ -78,8 +78,8 @@ function readFarmConfig(): FarmConfigData {
   } catch { return {}; }
 }
 
-// Maps shed sheet index (0-based, counting only SHED sheets) → shedGroupId (1–6)
-const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6];
+// Maps shed sheet index (0-based, counting only SHED sheets) → shedGroupId (1–10)
+const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 // Cobb 500 grams per bird per day (day 1 → day 54)
 const COBB500_GRAMS = [22,24,26,28,30,32,34,36,40,45,50,55,60,65,74,75,80,87,93,97,103,107,113,118,122,128,134,139,140,142,149,153,158,163,165,168,171,174,176,178,180,181,188,190,192,193,194,195,196,197,197,197,198,197];
@@ -966,7 +966,9 @@ export default function App() {
             const shedGroupId = SHED_SHEET_ORDER[shedCount];
             shedCount++;
             const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-            if (groupCfg && groupCfg.active === false) return null;
+            // If config found: use stored active flag. If missing: groups 1-6 active by default, 7+ inactive.
+            const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+            if (!groupActive) return null;
           }
 
           const isActive = i === active;
