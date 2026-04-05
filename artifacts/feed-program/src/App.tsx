@@ -689,9 +689,196 @@ function SheetView({
   );
 }
 
+// ── Summary Tab Components ────────────────────────────────────────────────
+
+function SummaryInputField({ label, value, onSave, wide }: { label: string; value: string; onSave: (v: string) => void; wide?: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+      <span style={{ fontSize: 11, color: "#555", minWidth: wide ? 0 : 80, flexShrink: 0 }}>{label}</span>
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={() => { onSave(draft); setEditing(false); }}
+          onKeyDown={e => {
+            if (e.key === "Enter") { onSave(draft); setEditing(false); }
+            if (e.key === "Escape") { setDraft(value); setEditing(false); }
+          }}
+          style={{ flex: 1, border: "2px solid #1a5c36", borderRadius: 4, padding: "3px 7px", fontSize: 13, outline: "none", minWidth: 0 }}
+        />
+      ) : (
+        <div
+          onClick={() => { setDraft(value); setEditing(true); }}
+          style={{ flex: 1, background: "#f5f5f5", borderRadius: 4, padding: "3px 7px", fontSize: 13, cursor: "pointer", minHeight: 22, color: value ? "#000" : "#aaa", minWidth: 0 }}
+        >
+          {value || "tap to edit…"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShedSummaryCard({
+  sheetIdx, sheet, edits, onEdit, getCell,
+}: {
+  sheetIdx: number; sheet: SheetParsed; edits: Map<string, string>;
+  onEdit: (si: number, key: string, val: string) => void;
+  getCell: (si: number, r: number, c: number) => string;
+}) {
+  if (!sheet) return null;
+  const shedNum   = getCell(sheetIdx, 0, 6);
+  const placement = getCell(sheetIdx, 2, 2);
+  const shed1Name = getCell(sheetIdx, 3, 1) || "Shed 1";
+  const shed2Name = getCell(sheetIdx, 4, 1) || "Shed 2";
+  const shed1Birds = getCell(sheetIdx, 3, 2);
+  const shed2Birds = getCell(sheetIdx, 4, 2);
+  const strAlloc  = getCell(sheetIdx, 1, 7);
+  const gwrAlloc  = getCell(sheetIdx, 2, 7);
+  const finAlloc  = getCell(sheetIdx, 3, 7);
+  const wdwAlloc  = getCell(sheetIdx, 4, 7);
+
+  const b1 = parseFloat(shed1Birds.replace(/,/g, "")) || 0;
+  const b2 = parseFloat(shed2Birds.replace(/,/g, "")) || 0;
+  const totalBirds = b1 + b2;
+
+  let totalFeed = 0;
+  for (let r = 12; r <= 71; r++) {
+    const f = parseFloat(getCell(sheetIdx, r, 4).replace(/,/g, ""));
+    if (!isNaN(f)) totalFeed += f;
+  }
+  const kgPerBird = totalBirds > 0 && totalFeed > 0 ? (totalFeed / totalBirds).toFixed(3) : null;
+
+  return (
+    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #dde8e0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+      <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>SHED {shedNum}</div>
+        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+          <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.1 }}>{totalBirds > 0 ? totalBirds.toLocaleString() : "—"}</div>
+          <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Birds</div>
+        </div>
+      </div>
+      <div style={{ padding: "12px 14px" }}>
+        <SummaryInputField label="Placement" value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
+        <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
+        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>Birds Per Shed</div>
+        <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => onEdit(sheetIdx, "3,2", v)} />
+        <SummaryInputField label={shed2Name} value={shed2Birds} onSave={v => onEdit(sheetIdx, "4,2", v)} />
+        <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
+        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>Feed Allocations (kg)</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
+          {([["STR", "1,7", strAlloc], ["GWR", "2,7", gwrAlloc], ["FIN", "3,7", finAlloc], ["WDW", "4,7", wdwAlloc]] as [string, string, string][]).map(([lbl, key, val]) => (
+            <SummaryInputField key={lbl} label={lbl} value={val} onSave={v => onEdit(sheetIdx, key, v)} />
+          ))}
+        </div>
+        {(totalFeed > 0 || kgPerBird) && (
+          <>
+            <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              {totalFeed > 0 && (
+                <div style={{ flex: 1, background: "#f0f7f3", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1a5c36" }}>{totalFeed.toLocaleString()}</div>
+                  <div style={{ fontSize: 9, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>Feed Ordered (kg)</div>
+                </div>
+              )}
+              {kgPerBird && (
+                <div style={{ flex: 1, background: "#fff8e6", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#8b6a00" }}>{kgPerBird}</div>
+                  <div style={{ fontSize: 9, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>kg / Bird</div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
+  sheets: SheetParsed[];
+  edits: Map<string, string>[];
+  handleEdit: (si: number, key: string, val: string) => void;
+  farmConfig: FarmConfigData;
+}) {
+  const getCell = (si: number, r: number, c: number) => {
+    const e = edits[si];
+    if (e?.has(`${r},${c}`)) return e.get(`${r},${c}`) ?? "";
+    return String(sheets[si]?.cells.get(`${r},${c}`)?.value ?? "");
+  };
+
+  let shedCount = 0;
+  const shedItems: { sheetIdx: number; shedGroupId: number }[] = [];
+  for (let i = 0; i < sheets.length; i++) {
+    const tabName = sheets[i].name.trim().toUpperCase();
+    if (tabName === "WEEKLY STOCK TAKE" || tabName === "CONSUMPTION GUIDE") continue;
+    if (tabName.includes("SHED")) {
+      const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
+      const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+      const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+      if (groupActive) shedItems.push({ sheetIdx: i, shedGroupId });
+      shedCount++;
+    }
+  }
+
+  let grandBirds = 0, grandFeed = 0;
+  for (const { sheetIdx } of shedItems) {
+    const b1 = parseFloat(getCell(sheetIdx, 3, 2).replace(/,/g, "")) || 0;
+    const b2 = parseFloat(getCell(sheetIdx, 4, 2).replace(/,/g, "")) || 0;
+    grandBirds += b1 + b2;
+    for (let r = 12; r <= 71; r++) {
+      const f = parseFloat(getCell(sheetIdx, r, 4).replace(/,/g, ""));
+      if (!isNaN(f)) grandFeed += f;
+    }
+  }
+  const overallKgPerBird = grandBirds > 0 && grandFeed > 0 ? (grandFeed / grandBirds).toFixed(3) : null;
+
+  return (
+    <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
+      <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
+        <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH SUMMARY</div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
+            <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{grandBirds > 0 ? grandBirds.toLocaleString() : "—"}</div>
+            <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Birds Placed</div>
+          </div>
+          {grandFeed > 0 && (
+            <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{grandFeed.toLocaleString()}</div>
+              <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Feed Ordered (kg)</div>
+            </div>
+          )}
+          {overallKgPerBird && (
+            <div style={{ background: "rgba(201,162,39,0.3)", border: "1px solid #C9A227", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{overallKgPerBird}</div>
+              <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Overall kg / Bird</div>
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+        {shedItems.map(({ sheetIdx, shedGroupId }) => (
+          <ShedSummaryCard
+            key={shedGroupId}
+            sheetIdx={sheetIdx}
+            sheet={sheets[sheetIdx]}
+            edits={edits[sheetIdx] ?? new Map()}
+            onEdit={handleEdit}
+            getCell={getCell}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -1155,6 +1342,21 @@ export default function App() {
 
       {/* Sheet tabs */}
       <div className="flex items-end gap-0.5 px-3 pt-2 bg-gray-200 dark:bg-zinc-800 overflow-x-auto shrink-0">
+        {/* Summary tab */}
+        <button
+          onClick={() => setShowSummary(true)}
+          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          style={{
+            backgroundColor: showSummary ? "#1a5c36" : "#1a5c3688",
+            color: "#fff",
+            borderColor: "#1a5c36",
+            opacity: showSummary ? 1 : 0.72,
+            transform: showSummary ? "translateY(1px)" : "translateY(3px)",
+            marginRight: 4,
+          }}
+        >
+          ☰ Summary
+        </button>
         {(() => {
           let shedCount = 0;
           return sheets.map((s, i) => {
@@ -1178,7 +1380,7 @@ export default function App() {
           return (
             <button
               key={i}
-              onClick={() => setActive(i)}
+              onClick={() => { setActive(i); setShowSummary(false); }}
               className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
               style={{
                 backgroundColor: isActive ? bg : `${bg}aa`,
@@ -1195,9 +1397,11 @@ export default function App() {
         })()}
       </div>
 
-      {/* Spreadsheet */}
+      {/* Spreadsheet / Summary */}
       <div className="flex-1 overflow-auto bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
-        {current && (() => {
+        {showSummary ? (
+          <SummaryView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
+        ) : current && (() => {
           const tabName = current.name.trim().toUpperCase();
           const isShed = tabName.includes("SHED");
           const isEob  = tabName === "END OF BATCH";
