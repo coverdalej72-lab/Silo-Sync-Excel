@@ -13,7 +13,6 @@ export interface DocketData {
 function parseDocketQr(raw: string): DocketData {
   const result: DocketData = { rawText: raw };
 
-  // Try URL query params
   try {
     const url = new URL(raw);
     const p = url.searchParams;
@@ -25,7 +24,6 @@ function parseDocketQr(raw: string): DocketData {
     return result;
   } catch {}
 
-  // Try JSON
   try {
     const obj = JSON.parse(raw);
     const net = obj.netWeight ?? obj.net ?? obj.weight;
@@ -36,7 +34,6 @@ function parseDocketQr(raw: string): DocketData {
     return result;
   } catch {}
 
-  // Try pipe / comma / semicolon delimited
   const delimiters = ["|", ",", ";", "\t"];
   for (const delim of delimiters) {
     if (raw.includes(delim)) {
@@ -51,7 +48,6 @@ function parseDocketQr(raw: string): DocketData {
     }
   }
 
-  // Plain text — scrape with regex
   const netMatch = raw.match(/net[:\s]*([0-9,]+\.?[0-9]*)\s*(kg)?/i);
   if (netMatch) result.amountKg = parseFloat(netMatch[1].replace(/,/g, ""));
 
@@ -87,10 +83,23 @@ interface QrScannerProps {
 export function QrScanner({ onResult, onClose }: QrScannerProps) {
   const containerId = "qr-scanner-container";
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isRunningRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [scanned, setScanned] = useState<DocketData | null>(null);
 
-  useEffect(() => {
+  const stopScanner = async () => {
+    if (scannerRef.current && isRunningRef.current) {
+      try {
+        await scannerRef.current.stop();
+      } catch {
+        // already stopped — safe to ignore
+      }
+      isRunningRef.current = false;
+    }
+  };
+
+  const startScanner = () => {
+    setError(null);
     const scanner = new Html5Qrcode(containerId);
     scannerRef.current = scanner;
 
@@ -98,20 +107,33 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
       .start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 260, height: 260 } },
-        (text) => {
-          scanner.stop().catch(() => {});
+        async (text) => {
+          await stopScanner();
           setScanned(parseDocketQr(text));
         },
         () => {}
       )
+      .then(() => {
+        isRunningRef.current = true;
+      })
       .catch(() => {
+        isRunningRef.current = false;
         setError("Camera access denied. Please allow camera permissions and try again.");
       });
+  };
 
+  useEffect(() => {
+    startScanner();
     return () => {
-      scanner.stop().catch(() => {});
+      stopScanner();
     };
   }, []);
+
+  const handleScanAgain = async () => {
+    setScanned(null);
+    // Small delay to let the DOM re-render the container before restarting
+    setTimeout(() => startScanner(), 100);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col">
@@ -140,22 +162,19 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
         <div className="flex-1 flex flex-col justify-center p-6 gap-4">
           <div className="bg-white rounded-xl p-5 space-y-4">
             <h2 className="font-bold text-lg">Docket Scanned</h2>
-
             <Row label="Date" value={scanned.deliveryDate ?? "—"} />
             <Row label="Doc Number" value={scanned.docNumber ?? "—"} />
             <Row label="Kilograms" value={scanned.amountKg != null ? `${scanned.amountKg.toLocaleString()} kg` : "—"} />
-
             {!scanned.deliveryDate && !scanned.docNumber && scanned.amountKg == null && (
               <div className="text-xs text-gray-400 break-all pt-1">
                 Raw: {scanned.rawText}
               </div>
             )}
           </div>
-
           <Button className="w-full h-14 text-base font-bold" onClick={() => onResult(scanned)}>
             Use This Data
           </Button>
-          <Button variant="outline" className="w-full h-12 bg-white" onClick={() => setScanned(null)}>
+          <Button variant="outline" className="w-full h-12 bg-white" onClick={handleScanAgain}>
             Scan Again
           </Button>
         </div>
