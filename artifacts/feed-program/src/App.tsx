@@ -374,7 +374,7 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
   const fmt = (v: string | number) => { const n = parseFloat(String(v).replace(/,/g, "")); return isNaN(n) ? String(v) : n.toLocaleString(); };
 
   const shedNum    = g(0, 6);
-  const totalBirds = g(1, 2);
+  const totalBirdsRaw = g(1, 2);
   const placement  = g(2, 2);
   const shed1Name  = g(3, 1);  const shed1Birds = g(3, 2);
   const shed2Name  = g(4, 1);  const shed2Birds = g(4, 2);
@@ -385,6 +385,15 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
 
   const allocations = [["STR", strAlloc], ["GWR", gwrAlloc], ["FIN", finAlloc], ["WDW", wdwAlloc]] as [string, string][];
 
+  // If g(1,2) is a date string rather than a number, compute total from individual shed counts
+  const totalBirdsRawNum = parseFloat(String(totalBirdsRaw).replace(/,/g, ""));
+  const shed1Num = parseFloat(String(shed1Birds).replace(/,/g, "")) || 0;
+  const shed2Num = parseFloat(String(shed2Birds).replace(/,/g, "")) || 0;
+  const totalBirdsNum = !isNaN(totalBirdsRawNum) && totalBirdsRawNum > 0
+    ? totalBirdsRawNum
+    : (shed1Num + shed2Num > 0 ? shed1Num + shed2Num : NaN);
+  const totalBirds = !isNaN(totalBirdsNum) ? String(totalBirdsNum) : "";
+
   // Live-compute Total Feed Ordered (sum of COL_E = col 4, rows 12–71)
   let totalFeedOrdered = 0;
   for (let r = 12; r <= 71; r++) {
@@ -392,7 +401,6 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
     const n = parseFloat(String(raw).replace(/,/g, ""));
     if (!isNaN(n)) totalFeedOrdered += n;
   }
-  const totalBirdsNum = parseFloat(String(totalBirds).replace(/,/g, ""));
   const kgPerBird = totalFeedOrdered > 0 && !isNaN(totalBirdsNum) && totalBirdsNum > 0
     ? (totalFeedOrdered / totalBirdsNum).toFixed(3)
     : null;
