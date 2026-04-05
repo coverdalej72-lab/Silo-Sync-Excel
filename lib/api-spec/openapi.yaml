@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Silo Feed Tracker API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: silos
+    description: Silo management
+  - name: readings
+    description: Silo readings
 paths:
   /healthz:
     get:
@@ -24,6 +28,173 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /silos:
+    get:
+      operationId: listSilos
+      tags: [silos]
+      summary: List all silos
+      responses:
+        "200":
+          description: List of silos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Silo"
+    post:
+      operationId: createSilo
+      tags: [silos]
+      summary: Create a silo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSiloBody"
+      responses:
+        "201":
+          description: Silo created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Silo"
+        "400":
+          description: Invalid input
+
+  /silos/{id}:
+    put:
+      operationId: updateSilo
+      tags: [silos]
+      summary: Update a silo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSiloBody"
+      responses:
+        "200":
+          description: Silo updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Silo"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSilo
+      tags: [silos]
+      summary: Delete a silo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /readings:
+    get:
+      operationId: listReadings
+      tags: [readings]
+      summary: List all readings (newest first)
+      parameters:
+        - name: siloId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of readings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reading"
+    post:
+      operationId: createReading
+      tags: [readings]
+      summary: Record a silo reading
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReadingBody"
+      responses:
+        "201":
+          description: Reading recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reading"
+        "400":
+          description: Invalid input
+
+  /readings/summary:
+    get:
+      operationId: getReadingsSummary
+      tags: [readings]
+      summary: Get the latest reading for each silo
+      responses:
+        "200":
+          description: Latest reading per silo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SiloSummary"
+
+  /readings/{id}:
+    delete:
+      operationId: deleteReading
+      tags: [readings]
+      summary: Delete a reading
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /onedrive/status:
+    get:
+      operationId: getOnedriveStatus
+      tags: [readings]
+      summary: Check if OneDrive is connected
+      responses:
+        "200":
+          description: OneDrive connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnedriveStatus"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +205,122 @@ components:
       required:
         - status
 
+    Silo:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        defaultFeedType:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - defaultFeedType
+        - createdAt
+
+    CreateSiloBody:
+      type: object
+      properties:
+        name:
+          type: string
+        defaultFeedType:
+          type: ["string", "null"]
+      required:
+        - name
+
+    Reading:
+      type: object
+      properties:
+        id:
+          type: integer
+        siloId:
+          type: integer
+        siloName:
+          type: string
+        feedType:
+          type: string
+        amountRemaining:
+          type: number
+        unit:
+          type: string
+        notes:
+          type: ["string", "null"]
+        readingDate:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - siloId
+        - siloName
+        - feedType
+        - amountRemaining
+        - unit
+        - notes
+        - readingDate
+        - createdAt
+
+    CreateReadingBody:
+      type: object
+      properties:
+        siloId:
+          type: integer
+        feedType:
+          type: string
+        amountRemaining:
+          type: number
+        unit:
+          type: string
+        notes:
+          type: ["string", "null"]
+        readingDate:
+          type: ["string", "null"]
+      required:
+        - siloId
+        - feedType
+        - amountRemaining
+        - unit
+
+    SiloSummary:
+      type: object
+      properties:
+        siloId:
+          type: integer
+        siloName:
+          type: string
+        feedType:
+          type: string
+        amountRemaining:
+          type: number
+        unit:
+          type: string
+        readingDate:
+          type: string
+        lastReadingId:
+          type: integer
+      required:
+        - siloId
+        - siloName
+        - feedType
+        - amountRemaining
+        - unit
+        - readingDate
+        - lastReadingId
+
+    OnedriveStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        fileId:
+          type: ["string", "null"]
+        fileName:
+          type: ["string", "null"]
+      required:
+        - connected
+        - fileId
+        - fileName
