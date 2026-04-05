@@ -1099,6 +1099,11 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
   const [editCell, setEditCell] = useState<{ shedNum: number; rowIdx: number; field: keyof EditableCatch } | null>(null);
   const [editVal, setEditVal] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [newBatchNum, setNewBatchNum] = useState("");
+  const [overrideBatchNum, setOverrideBatchNum] = useState<number | null>(() => {
+    const s = localStorage.getItem("silo-batch-num");
+    return s ? parseInt(s, 10) || null : null;
+  });
 
   useEffect(() => {
     loadBatchResultsXlsx(import.meta.env.BASE_URL)
@@ -1153,7 +1158,21 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
   const handleClearBatch = () => {
     setCatchMap({});
     localStorage.removeItem(BATCH_CATCHES_KEY);
+    const parsed = parseInt(newBatchNum, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      localStorage.setItem("silo-batch-num", String(parsed));
+      setOverrideBatchNum(parsed);
+    } else {
+      localStorage.removeItem("silo-batch-num");
+      setOverrideBatchNum(null);
+    }
     setShowClearConfirm(false);
+  };
+
+  const openClearModal = () => {
+    const currentBatch = overrideBatchNum ?? summary?.batchNum ?? 0;
+    setNewBatchNum(currentBatch > 0 ? String(currentBatch + 1) : "");
+    setShowClearConfirm(true);
   };
 
   const startEdit = (shedNum: number, rowIdx: number, field: keyof EditableCatch, current: string) => {
@@ -1234,9 +1253,9 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
         {(farmConfig.farmName || summary?.farmName) && (
           <div style={{ fontSize: 16, fontWeight: 700 }}>{farmConfig.farmName || summary?.farmName}</div>
         )}
-        {summary && summary.batchNum > 0 && <div style={{ fontSize: 16, opacity: 0.85 }}>Batch #{summary.batchNum}</div>}
+        {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? <div style={{ fontSize: 16, opacity: 0.85 }}>Batch #{bn}</div> : null; })()}
         <div style={{ marginLeft: "auto" }}>
-          <button onClick={() => setShowClearConfirm(true)} style={{ background: "rgba(192,57,43,0.85)", color: "#fff", border: "none", borderRadius: 7, padding: "6px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+          <button onClick={openClearModal} style={{ background: "rgba(192,57,43,0.85)", color: "#fff", border: "none", borderRadius: 7, padding: "6px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
             Clear for New Batch
           </button>
         </div>
@@ -1475,8 +1494,28 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
                     <span style={{ fontWeight: 700, color: "#c0392b" }}>{totalRows}</span>
                   </div>
                 </div>
-                <div style={{ fontSize: 12, color: "#888", marginBottom: 20 }}>
+                <div style={{ fontSize: 12, color: "#888", marginBottom: 16 }}>
                   The xlsx summary (FCR, feed data) will remain. Only the per-shed catch rows entered here will be cleared.
+                </div>
+                {/* New batch number */}
+                <div style={{ background: "#f0f7f3", border: "1px solid #c8e6d4", borderRadius: 8, padding: "14px 16px", marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                    New Batch Number
+                  </label>
+                  <input
+                    type="number"
+                    value={newBatchNum}
+                    onChange={e => setNewBatchNum(e.target.value)}
+                    placeholder="Enter new batch #"
+                    style={{ width: "100%", border: "1px solid #a8d5b9", borderRadius: 7, padding: "10px 12px", fontSize: 16, fontWeight: 700, color: "#1a5c36", background: "#fff", boxSizing: "border-box", outline: "none" }}
+                    autoFocus
+                    onKeyDown={e => { if (e.key === "Enter") handleClearBatch(); if (e.key === "Escape") setShowClearConfirm(false); }}
+                  />
+                  {newBatchNum && !isNaN(parseInt(newBatchNum, 10)) && (
+                    <div style={{ fontSize: 11, color: "#555", marginTop: 6 }}>
+                      New batch will be labelled <strong>Batch #{parseInt(newBatchNum, 10)}</strong>
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setShowClearConfirm(false)}
