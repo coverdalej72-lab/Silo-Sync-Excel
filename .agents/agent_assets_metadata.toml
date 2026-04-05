@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "1GMeT5F2KaogAaOekyp1y"
+uri = "file://artifacts/silo-tracker/public/silo-mate-template.xlsx"
+type = "table"
+title = "Silo Mate — Excel Template"
