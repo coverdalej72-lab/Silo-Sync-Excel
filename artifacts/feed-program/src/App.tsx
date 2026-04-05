@@ -1301,7 +1301,7 @@ function parseEmailCatchText(text: string): ParsedEmailRow[] {
   return results;
 }
 
-function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number> }) {
+function BatchResultsView({ farmConfig, shedPlacement, onEobCatch }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void }) {
   const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
@@ -1360,6 +1360,17 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
   const saveCatchMap = (next: CatchMap) => {
     setCatchMap(next);
     localStorage.setItem(BATCH_CATCHES_KEY, JSON.stringify(next));
+    // Push total caught per shed back to EOB "birds catched" column (0-based col 23)
+    if (onEobCatch) {
+      const allShedNums = new Set([
+        ...Object.keys(next).map(Number),
+        ...Object.keys(catchMap).map(Number),
+      ]);
+      allShedNums.forEach(shedNum => {
+        const { totalCaught } = parseCatches(next, shedNum);
+        onEobCatch(shedNum, totalCaught);
+      });
+    }
   };
 
   const updateRow = (shedNum: number, rowIdx: number, field: keyof EditableCatch, value: string) => {
@@ -2571,7 +2582,18 @@ export default function App() {
           </div>
         ) : activeView === "batchResults" ? (
           <div className="flex-1 overflow-auto">
-            <BatchResultsView sheets={sheets} edits={edits} farmConfig={farmConfig} shedPlacement={shedPlacement} />
+            <BatchResultsView
+              sheets={sheets}
+              edits={edits}
+              farmConfig={farmConfig}
+              shedPlacement={shedPlacement}
+              onEobCatch={(shedNum, totalCaught) => {
+                const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
+                if (eobIdx < 0) return;
+                // EOB row for shed N is (N + 3) 0-indexed; col 23 = "birds catched"
+                handleEdit(eobIdx, `${shedNum + 3},23`, String(totalCaught));
+              }}
+            />
           </div>
         ) : current && (() => {
           const tabName = current.name.trim().toUpperCase();
