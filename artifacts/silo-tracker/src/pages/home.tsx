@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useFarmConfig } from "@/hooks/use-farm-config";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const batchCreate = useBatchCreateReadings();
+  const { config, getShedName, getSiloTonnage } = useFarmConfig();
 
   const { data: progress, isLoading } = useGetTodayProgress({
     query: { queryKey: getGetTodayProgressQueryKey() }
@@ -144,7 +146,7 @@ export default function Home() {
   return (
     <div className="bg-background min-h-full pb-20">
       <div className="p-4 bg-primary text-primary-foreground pt-8 pb-10">
-        <h1 className="text-2xl font-bold tracking-tight">Silo Mate</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{config.farmName}</h1>
         <p className="text-primary-foreground/80 mt-1">{format(new Date(), "EEEE, d MMMM yyyy")}</p>
         
         <div className="mt-6 flex flex-col items-center justify-center p-6 bg-primary-foreground/10 rounded-xl">
@@ -157,7 +159,7 @@ export default function Home() {
         {progress.sheds.map(shed => (
           <Card key={shed.shedGroupId} className="shadow-md border-border/50 overflow-hidden">
             <CardHeader className="bg-secondary/50 py-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">{shed.shedGroupName}</CardTitle>
+              <CardTitle className="text-lg">{getShedName(shed.shedGroupId, shed.shedGroupName)}</CardTitle>
               {shed.allSaved && (
                 <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white gap-1 py-1">
                   <Check className="h-3 w-3" /> Saved
@@ -171,10 +173,17 @@ export default function Home() {
                   return (
                     <div key={silo.siloId} className="p-4">
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="bg-muted text-muted-foreground font-bold w-8 h-8 rounded-md flex items-center justify-center text-sm">
+                        <div className="bg-primary text-primary-foreground font-bold w-8 h-8 rounded-md flex items-center justify-center text-sm">
                           {silo.letter}
                         </div>
-                        <span className="font-semibold text-sm flex-1">{silo.name}</span>
+                        <div className="flex-1">
+                          <span className="font-semibold text-sm block">{silo.name}</span>
+                          {getSiloTonnage(shed.shedGroupId, silo.letter) > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              Capacity: {getSiloTonnage(shed.shedGroupId, silo.letter)}t
+                            </span>
+                          )}
+                        </div>
                         {silo.saved && !shed.allSaved && (
                           <span className="text-xs font-medium text-green-600 flex items-center gap-1">
                             <Check className="w-3 h-3" /> saved
