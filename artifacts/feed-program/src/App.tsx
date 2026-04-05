@@ -265,16 +265,21 @@ function SheetView({
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
                 const displayVal = edits.has(key) ? edits.get(key)! : info.value;
                 const fs = info.fontSize ?? 11;
+
+                // Column I (index 8) = FEED ON HAND — highlight red when negative (feed run out)
+                const numVal = parseFloat(displayVal.replace(/,/g, ""));
+                const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0;
+
                 return (
                   <td
                     key={c}
                     colSpan={info.colSpan}
                     rowSpan={info.rowSpan}
                     onDoubleClick={() => setEditingCell({ r, c, sheetIdx })}
-                    title="Double-click to edit"
+                    title={isFeedRunOut ? "⚠ FEED RUN OUT" : "Double-click to edit"}
                     style={{
-                      background: info.bgColor ?? "#fff",
-                      color: info.fontColor ?? "#000",
+                      background: isFeedRunOut ? "#dc2626" : (info.bgColor ?? "#fff"),
+                      color: isFeedRunOut ? "#ffffff" : (info.fontColor ?? "#000"),
                       fontWeight: info.bold ? "bold" : "normal",
                       fontStyle: info.italic ? "italic" : "normal",
                       fontSize: fs,
