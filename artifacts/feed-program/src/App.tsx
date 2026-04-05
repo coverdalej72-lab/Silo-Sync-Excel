@@ -1236,17 +1236,9 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
         )}
         {summary && summary.batchNum > 0 && <div style={{ fontSize: 16, opacity: 0.85 }}>Batch #{summary.batchNum}</div>}
         <div style={{ marginLeft: "auto" }}>
-          {showClearConfirm ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.25)", borderRadius: 8, padding: "6px 12px" }}>
-              <span style={{ fontSize: 13 }}>Clear all catch data?</span>
-              <button onClick={handleClearBatch} style={{ background: "#c0392b", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Yes, Clear</button>
-              <button onClick={() => setShowClearConfirm(false)} style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 13 }}>Cancel</button>
-            </div>
-          ) : (
-            <button onClick={() => setShowClearConfirm(true)} style={{ background: "rgba(192,57,43,0.85)", color: "#fff", border: "none", borderRadius: 7, padding: "6px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-              Clear for New Batch
-            </button>
-          )}
+          <button onClick={() => setShowClearConfirm(true)} style={{ background: "rgba(192,57,43,0.85)", color: "#fff", border: "none", borderRadius: 7, padding: "6px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+            Clear for New Batch
+          </button>
         </div>
       </div>
 
@@ -1438,6 +1430,69 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
           No active sheds configured. Add catch rows once sheds are set up.
         </div>
       )}
+
+      {/* Clear confirmation modal */}
+      {showClearConfirm && (() => {
+        const shedsWithData = Object.values(catchMap).filter(r => r.length > 0).length;
+        const totalRows = Object.values(catchMap).reduce((a, r) => a + r.length, 0);
+        const batchLabel = summary?.batchNum && summary.batchNum > 0 ? `Batch #${summary.batchNum}` : "current batch";
+        const farmLabel = farmConfig.farmName || summary?.farmName || "";
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+            onClick={() => setShowClearConfirm(false)}>
+            <div style={{ background: "#fff", borderRadius: 14, maxWidth: 420, width: "100%", boxShadow: "0 8px 40px rgba(0,0,0,0.3)", overflow: "hidden" }}
+              onClick={e => e.stopPropagation()}>
+              {/* Modal header */}
+              <div style={{ background: "#c0392b", color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontSize: 22 }}>⚠️</div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>Clear for New Batch</div>
+                  <div style={{ fontSize: 12, opacity: 0.85 }}>This action cannot be undone</div>
+                </div>
+              </div>
+              {/* Modal body */}
+              <div style={{ padding: "20px 24px" }}>
+                <div style={{ fontSize: 14, color: "#333", marginBottom: 16, lineHeight: 1.5 }}>
+                  The following catch data will be <strong>permanently deleted</strong>:
+                </div>
+                <div style={{ background: "#fff5f5", border: "1px solid #f5c6cb", borderRadius: 8, padding: "14px 16px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                  {farmLabel && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: "#666" }}>Farm</span>
+                      <span style={{ fontWeight: 700, color: "#333" }}>{farmLabel}</span>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#666" }}>Batch</span>
+                    <span style={{ fontWeight: 700, color: "#333" }}>{batchLabel}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderTop: "1px solid #f5c6cb", paddingTop: 8 }}>
+                    <span style={{ color: "#666" }}>Sheds with catch data</span>
+                    <span style={{ fontWeight: 700, color: "#c0392b" }}>{shedsWithData}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                    <span style={{ color: "#666" }}>Total catch rows</span>
+                    <span style={{ fontWeight: 700, color: "#c0392b" }}>{totalRows}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "#888", marginBottom: 20 }}>
+                  The xlsx summary (FCR, feed data) will remain. Only the per-shed catch rows entered here will be cleared.
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setShowClearConfirm(false)}
+                    style={{ flex: 1, background: "#f0f0f0", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#333" }}>
+                    Cancel
+                  </button>
+                  <button onClick={handleClearBatch}
+                    style={{ flex: 1, background: "#c0392b", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 14, cursor: "pointer", color: "#fff" }}>
+                    Delete {totalRows} Catch Row{totalRows !== 1 ? "s" : ""}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
