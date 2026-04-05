@@ -1301,7 +1301,7 @@ function parseEmailCatchText(text: string): ParsedEmailRow[] {
   return results;
 }
 
-function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void }) {
+function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch, onBatchNum }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void; onBatchNum?: (n: number) => void }) {
   const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
@@ -1330,7 +1330,13 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
 
   useEffect(() => {
     loadBatchResultsXlsx(import.meta.env.BASE_URL)
-      .then(({ sheds, summary }) => { setXlSheds(sheds); setSummary(summary); setLoadState("ok"); })
+      .then(({ sheds, summary }) => {
+        setXlSheds(sheds);
+        setSummary(summary);
+        setLoadState("ok");
+        const resolved = parseInt(localStorage.getItem("silo-batch-num") || "0", 10) || summary?.batchNum || 0;
+        if (resolved > 0 && onBatchNum) onBatchNum(resolved);
+      })
       .catch(() => setLoadState("error"));
   }, []);
 
@@ -2356,6 +2362,7 @@ export default function App() {
   const [edits, setEdits] = useState<Map<string, string>[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [batchKey, setBatchKey] = useState(0);
+  const batchNumCacheRef = useRef(parseInt(localStorage.getItem("silo-batch-num") || "0", 10));
   const [farmConfig, setFarmConfig] = useState<FarmConfigData>(readFarmConfig);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
@@ -2747,11 +2754,17 @@ export default function App() {
 
     // Clear Batch Results catch data so it resets cleanly
     localStorage.removeItem("silo-batch-catches");
-    localStorage.removeItem("silo-batch-num");
     localStorage.removeItem("silo-batch-farm-name");
     // Clear per-shed morts & culls daily log
     localStorage.removeItem("silo-morts-log");
     localStorage.removeItem("silo-culls-log");
+    // Auto-increment batch number
+    const nextBatch = batchNumCacheRef.current > 0 ? batchNumCacheRef.current + 1 : 0;
+    if (nextBatch > 0) {
+      localStorage.setItem("silo-batch-num", String(nextBatch));
+    } else {
+      localStorage.removeItem("silo-batch-num");
+    }
     setBatchKey(k => k + 1);
   };
 
@@ -2961,6 +2974,7 @@ export default function App() {
               edits={edits}
               farmConfig={farmConfig}
               shedPlacement={shedPlacement}
+              onBatchNum={(n) => { batchNumCacheRef.current = n; }}
               onEobCatch={(shedNum, totalCaught) => {
                 const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
                 if (eobIdx < 0) return;
