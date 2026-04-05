@@ -186,6 +186,7 @@ wb.eachSheet((ws) => {
   else if (n.includes("STOCK"))                      type = "stock";
 
   styleSheet(ws, type);
+  if (type === "guide") ws.state = "hidden";
   console.log("Styled:", ws.name, "→", type);
 });
 
