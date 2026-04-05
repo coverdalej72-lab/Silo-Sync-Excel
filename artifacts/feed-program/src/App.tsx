@@ -360,10 +360,15 @@ function parseSheet(
 interface EditingCell { r: number; c: number; sheetIdx: number }
 
 // ── ShedInfoPanel ──────────────────────────────────────────────────────────
-function ShedInfoPanel({ sheet }: { sheet: SheetParsed }) {
+function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<string, string> }) {
   const { cells } = sheet;
-  const g = (r: number, c: number) => cells.get(`${r},${c}`)?.value ?? "";
-  const fmt = (v: string) => { const n = parseFloat(v.replace(/,/g, "")); return isNaN(n) ? v : n.toLocaleString(); };
+  const safeEdits = edits ?? new Map<string, string>();
+  const g = (r: number, c: number) => {
+    const edited = safeEdits.get(`${r},${c}`);
+    if (edited !== undefined) return edited;
+    return String(cells.get(`${r},${c}`)?.value ?? "");
+  };
+  const fmt = (v: string | number) => { const n = parseFloat(String(v).replace(/,/g, "")); return isNaN(n) ? String(v) : n.toLocaleString(); };
 
   const shedNum    = g(0, 6);
   const totalBirds = g(1, 2);
@@ -376,6 +381,18 @@ function ShedInfoPanel({ sheet }: { sheet: SheetParsed }) {
   const wdwAlloc   = g(4, 7);
 
   const allocations = [["STR", strAlloc], ["GWR", gwrAlloc], ["FIN", finAlloc], ["WDW", wdwAlloc]] as [string, string][];
+
+  // Live-compute Total Feed Ordered (sum of COL_E = col 4, rows 12–71)
+  let totalFeedOrdered = 0;
+  for (let r = 12; r <= 71; r++) {
+    const raw = safeEdits.has(`${r},4`) ? safeEdits.get(`${r},4`)! : (cells.get(`${r},4`)?.value ?? "");
+    const n = parseFloat(String(raw).replace(/,/g, ""));
+    if (!isNaN(n)) totalFeedOrdered += n;
+  }
+  const totalBirdsNum = parseFloat(String(totalBirds).replace(/,/g, ""));
+  const kgPerBird = totalFeedOrdered > 0 && !isNaN(totalBirdsNum) && totalBirdsNum > 0
+    ? (totalFeedOrdered / totalBirdsNum).toFixed(3)
+    : null;
 
   return (
     <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "14px 20px 12px", borderBottom: "3px solid #C9A227", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
@@ -394,8 +411,8 @@ function ShedInfoPanel({ sheet }: { sheet: SheetParsed }) {
           <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Birds</div>
         </div>
       </div>
-      {/* Bottom row: individual sheds + allocations */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      {/* Middle row: individual sheds + allocations */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
         {shed1Name && <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12 }}><span style={{ opacity: 0.7 }}>{shed1Name}: </span><strong>{fmt(shed1Birds)}</strong></div>}
         {shed2Name && <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12 }}><span style={{ opacity: 0.7 }}>{shed2Name}: </span><strong>{fmt(shed2Birds)}</strong></div>}
         <div style={{ flex: 1 }} />
@@ -405,6 +422,20 @@ function ShedInfoPanel({ sheet }: { sheet: SheetParsed }) {
             <div style={{ fontWeight: 700 }}>{fmt(val)} kg</div>
           </div>
         ) : null)}
+      </div>
+      {/* Bottom row: feed totals */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 8, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary:</div>
+        <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
+          <span style={{ opacity: 0.75 }}>Total Feed Ordered: </span>
+          <strong>{totalFeedOrdered > 0 ? fmt(totalFeedOrdered) + " kg" : "—"}</strong>
+        </div>
+        {kgPerBird && (
+          <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
+            <span style={{ opacity: 0.75 }}>kg/Bird: </span>
+            <strong>{kgPerBird}</strong>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -525,13 +556,16 @@ function SheetView({
           const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : (rowHeights[r] ?? 20);
 
           // Determine row-level background for shed sheets
-          const isShedHeader = isShedSheet && (r === 7 || r === 8);
-          const isShedTotals = isShedSheet && r === 11;
-          const isShedData   = isShedSheet && r >= 12;
+          const isShedHeader  = isShedSheet && (r === 7 || r === 8);
+          const isShedTotals  = isShedSheet && r === 11;
+          const isShedData    = isShedSheet && r >= 12 && r <= 71;
+          const isShedSummary = isShedSheet && r >= 72;
           const rowBg = isShedHeader
             ? "#1a5c36"
             : isShedTotals
             ? "#f5f0dc"
+            : isShedSummary
+            ? "#eef4ee"
             : isShedData
             ? (r % 2 === 0 ? "#f9f9f9" : "#ffffff")
             : undefined;
@@ -1150,7 +1184,7 @@ export default function App() {
           const activeEdits = edits[active] ?? new Map();
           return (
             <>
-              {isShed && <ShedInfoPanel sheet={current} />}
+              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <SheetView
                 sheet={current}
