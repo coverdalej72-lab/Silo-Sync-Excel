@@ -75,8 +75,17 @@ for (const ws of wb.worksheets) {
     remapSheet(ws);
     ws.properties = ws.properties ?? {};
     ws.properties.tabColor = { argb: SHED_TAB_COLORS[shedIndex % SHED_TAB_COLORS.length] };
+    // Make Shed 3 & 4 the active tab when file opens
+    const isStartSheet = n.includes("3") && n.includes("4");
+    ws.state = "visible";
+    if (isStartSheet) {
+      wb.views = [{ activeTab: wb.worksheets.indexOf(ws) }];
+      ws.views = [{ tabSelected: true }];
+    } else {
+      ws.views = ws.views?.map(v => ({ ...v, tabSelected: false })) ?? [];
+    }
     shedIndex++;
-    console.log(`✓ Shed:    ${ws.name.trim()}  tab:${ws.properties.tabColor.argb}`);
+    console.log(`✓ Shed:    ${ws.name.trim()}  tab:${ws.properties.tabColor.argb}${isStartSheet ? "  ← ACTIVE" : ""}`);
     continue;
   }
 
