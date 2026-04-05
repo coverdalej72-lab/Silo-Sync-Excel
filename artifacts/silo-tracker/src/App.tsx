@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,6 +14,30 @@ import SettingsPage from "@/pages/settings";
 import Photos from "@/pages/photos";
 
 const queryClient = new QueryClient();
+
+const BATCH_LOCAL_KEYS = [
+  "silo-batch-catches",
+  "silo-batch-farm-name",
+  "silo-morts-log",
+  "silo-culls-log",
+];
+
+function useBatchVersionSync() {
+  useEffect(() => {
+    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+    fetch(`${BASE}/api/batch/version`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { version: string | null } | null) => {
+        if (!data || !data.version) return;
+        const stored = localStorage.getItem("silo-batch-version");
+        if (stored !== data.version) {
+          BATCH_LOCAL_KEYS.forEach(k => localStorage.removeItem(k));
+          localStorage.setItem("silo-batch-version", data.version);
+        }
+      })
+      .catch(() => {});
+  }, []);
+}
 
 function Router() {
   return (
@@ -30,7 +55,8 @@ function Router() {
 }
 
 function App() {
-  useTheme(); // initialize theme class on document root
+  useTheme();
+  useBatchVersionSync();
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

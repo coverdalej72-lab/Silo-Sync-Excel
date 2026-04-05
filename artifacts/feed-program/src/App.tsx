@@ -2426,6 +2426,29 @@ export default function App() {
     return () => window.removeEventListener("storage", onThemeStorage);
   }, []);
 
+  // Detect if a batch reset was triggered from Silo Tracker (cross-device sync)
+  useEffect(() => {
+    fetch(`${BASE}api/batch/version`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { version: string | null } | null) => {
+        if (!data || !data.version) return;
+        const stored = localStorage.getItem("silo-batch-version");
+        if (stored !== null && stored !== data.version) {
+          // A reset happened elsewhere — clear the Silo Tracker-originated batch data
+          localStorage.removeItem("silo-batch-catches");
+          localStorage.removeItem("silo-batch-farm-name");
+          localStorage.removeItem("silo-morts-log");
+          localStorage.removeItem("silo-culls-log");
+          localStorage.setItem("silo-batch-new", "1");
+        }
+        if (stored !== data.version) {
+          localStorage.setItem("silo-batch-version", data.version);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Sync farm config whenever Silo Tracker updates localStorage
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -2705,6 +2728,12 @@ export default function App() {
     if (batchInput === null) return; // user cancelled
     try {
       await fetch("/api/batch/reset", { method: "DELETE" });
+      // Fetch and store the new batch version so Silo Tracker syncs on next load
+      const vRes = await fetch(`${BASE}api/batch/version`);
+      if (vRes.ok) {
+        const vData = await vRes.json() as { version: string | null };
+        if (vData.version) localStorage.setItem("silo-batch-version", vData.version);
+      }
     } catch {
       // best effort — still clear locally even if API fails
     }

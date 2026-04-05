@@ -94,8 +94,19 @@ export default function Settings() {
     )) return;
     setResetting(true);
     try {
-      const res = await fetch("/api/batch/reset", { method: "DELETE" });
+      const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const res = await fetch(`${BASE}/api/batch/reset`, { method: "DELETE" });
       if (res.ok) {
+        // Fetch and store the new batch version so Feed Program syncs on next load
+        try {
+          const vRes = await fetch(`${BASE}/api/batch/version`);
+          if (vRes.ok) {
+            const vData = await vRes.json() as { version: string | null };
+            if (vData.version) localStorage.setItem("silo-batch-version", vData.version);
+          }
+        } catch { /* best effort */ }
+        // Clear local batch data on this device too
+        ["silo-batch-catches", "silo-batch-farm-name", "silo-morts-log", "silo-culls-log"].forEach(k => localStorage.removeItem(k));
         toast({ title: "New batch started", description: "All readings and deliveries cleared." });
       } else {
         toast({ variant: "destructive", title: "Reset failed", description: "Please try again." });
@@ -457,7 +468,7 @@ export default function Settings() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">Start New Batch</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Clears all silo readings and delivery records so you can start fresh for the next batch. The Feed Program spreadsheet should also be reset separately.
+                  The <span className="font-semibold text-foreground">Feed Program</span> is the primary place to start a new batch. Use this button only if you need to reset from the field — it will clear all readings, deliveries, and both apps' local data automatically.
                 </p>
               </div>
             </div>
