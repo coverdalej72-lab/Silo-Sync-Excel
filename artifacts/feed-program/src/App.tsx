@@ -988,8 +988,7 @@ export default function App() {
           }
 
           const isActive = i === active;
-          const isShedTab = tabName.includes("SHED");
-          const bg = isShedTab ? "#C9A227" : (s.tabColor ?? "#217346");
+          const bg = "#C9A227";
           const fg = contrastColor(bg);
           const hasEdits = edits[i]?.size > 0;
           return (
