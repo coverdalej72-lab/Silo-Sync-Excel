@@ -1202,24 +1202,24 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
               </thead>
               <tbody>
                 {activeSheds.map((shed, i) => (
-                  <tr key={shed.shedNum} style={{ background: i % 2 === 0 ? "#fafafa" : "#fff", borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: "8px 12px", fontWeight: 600 }}>Shed {shed.shedNum}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.placement.toLocaleString()}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.totalCaught > 0 ? shed.totalCaught.toLocaleString() : "—"}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", color: shed.morts > 0 ? "#c0392b" : undefined }}>{shed.morts.toLocaleString()}</td>
+                  <tr key={shed.shedNum} style={{ background: i % 2 === 0 ? "#f4f9f6" : "#fff", borderBottom: "1px solid #dde8e0", color: "#1a1a1a" }}>
+                    <td style={{ padding: "8px 12px", fontWeight: 600, color: "#1a1a1a" }}>Shed {shed.shedNum}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#1a1a1a" }}>{shed.placement.toLocaleString()}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#1a1a1a" }}>{shed.totalCaught > 0 ? shed.totalCaught.toLocaleString() : "—"}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", color: shed.morts > 0 ? "#c0392b" : "#1a1a1a" }}>{shed.morts.toLocaleString()}</td>
                     <td style={{ padding: "8px 12px", textAlign: "right", color: "#e67e22", fontWeight: 600 }}>{shed.mortPct > 0 ? shed.mortPct.toFixed(2) + "%" : "—"}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.aveWeight > 0 ? shed.aveWeight.toFixed(3) + " kg" : "—"}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#1a1a1a" }}>{shed.aveWeight > 0 ? shed.aveWeight.toFixed(3) + " kg" : "—"}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr style={{ background: "#1a5c3615", borderTop: "2px solid #1a5c36" }}>
+                <tr style={{ background: "#d4eddf", borderTop: "2px solid #1a5c36", color: "#1a1a1a" }}>
                   <td style={{ padding: "9px 12px", fontWeight: 800, color: "#1a5c36" }}>TOTAL</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalPlaced.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#1a1a1a" }}>{totalPlaced.toLocaleString()}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#1a1a1a" }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#c0392b" }}>{totalMorts.toLocaleString()}</td>
                   <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#e67e22" }}>{overallMortPct}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{summary && summary.aveWeight > 0 ? summary.aveWeight.toFixed(3) + " kg" : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#1a1a1a" }}>{summary && summary.aveWeight > 0 ? summary.aveWeight.toFixed(3) + " kg" : "—"}</td>
                 </tr>
               </tfoot>
             </table>
