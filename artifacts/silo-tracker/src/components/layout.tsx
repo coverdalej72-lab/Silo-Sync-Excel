@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ClipboardList, History, Truck } from "lucide-react";
+import { ClipboardList, History, Truck, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetTodayProgress, getGetTodayProgressQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
@@ -26,6 +26,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/",            label: "Today",      icon: ClipboardList },
     { href: "/history",     label: "History",    icon: History },
     { href: "/deliveries",  label: "Deliveries", icon: Truck },
+    { href: "/settings",    label: "Settings",   icon: Settings },
   ];
 
   const savedCount = progress?.savedCount ?? 0;

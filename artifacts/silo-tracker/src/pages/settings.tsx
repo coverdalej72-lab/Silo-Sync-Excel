@@ -1,116 +1,134 @@
 import { useState } from "react";
-import { FileSpreadsheet, Moon, Sun, Download, ChevronDown, ChevronUp } from "lucide-react";
-import { useTheme } from "@/hooks/use-theme";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
-import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
-function SectionHeader({ title }: { title: string }) {
+function SectionLabel({ title }: { title: string }) {
   return (
-    <div className="px-4 py-3 border-b border-border">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
-    </div>
+    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1 mb-2 mt-1">
+      {title}
+    </p>
   );
 }
 
-function SettingsCard({ children }: { children: React.ReactNode }) {
+function SettingsRow({ label, children, last }: { label: string; children: React.ReactNode; last?: boolean }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className={cn("flex items-center justify-between px-4 py-3 gap-3", !last && "border-b border-border/40")}>
+      <span className="text-sm font-medium text-foreground shrink-0">{label}</span>
       {children}
     </div>
   );
 }
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+function DarkInput({ value, onBlur, placeholder, type = "text" }: {
+  value?: string | number;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  type?: string;
+}) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-border last:border-0 gap-3">
-      <span className="text-sm font-medium text-foreground shrink-0 min-w-[80px]">{label}</span>
-      {children}
-    </div>
+    <input
+      type={type}
+      defaultValue={value}
+      onBlur={onBlur}
+      placeholder={placeholder}
+      className="bg-secondary border border-border/50 rounded-lg px-3 py-2 text-sm text-right text-foreground w-36 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50"
+    />
   );
 }
 
 export default function Settings() {
-  const { theme, toggle } = useTheme();
   const { config, updateFarmName, updateShedName, updateSiloTonnage } = useFarmConfig();
   const [expandedSheds, setExpandedSheds] = useState<Record<number, boolean>>({});
 
   const toggleShed = (id: number) =>
-    setExpandedSheds((prev) => ({ ...prev, [id]: !prev[id] }));
+    setExpandedSheds(prev => ({ ...prev, [id]: !prev[id] }));
 
   return (
-    <div className="flex flex-col min-h-full bg-background">
-      <div className="bg-primary px-4 pt-12 pb-6">
-        <h1 className="text-2xl font-bold text-primary-foreground">Settings</h1>
-        <p className="text-primary-foreground/70 text-sm mt-1">Customise Silo Mate for your farm</p>
+    <div className="px-3 py-3 pb-8 space-y-5">
+
+      {/* Farm */}
+      <div>
+        <SectionLabel title="Farm" />
+        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+          <SettingsRow label="Farm Name" last>
+            <DarkInput
+              value={config.farmName}
+              onBlur={e => updateFarmName(e.target.value.trim() || config.farmName)}
+            />
+          </SettingsRow>
+        </div>
       </div>
 
-      <div className="flex-1 px-4 py-6 space-y-4">
-
-        {/* Farm */}
-        <SettingsCard>
-          <SectionHeader title="Farm" />
-          <FieldRow label="Farm Name">
-            <Input
-              className="text-right h-9 text-sm"
-              defaultValue={config.farmName}
-              onBlur={(e) => updateFarmName(e.target.value.trim() || config.farmName)}
-            />
-          </FieldRow>
-        </SettingsCard>
-
-        {/* Sheds & Silos */}
-        <SettingsCard>
-          <SectionHeader title="Sheds & Silo Tonnages" />
-          {config.shedGroups.map((group) => {
+      {/* Sheds & Silos */}
+      <div>
+        <SectionLabel title="Sheds & Silo Capacity" />
+        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+          {config.shedGroups.map((group, gi) => {
             const isOpen = !!expandedSheds[group.shedGroupId];
+            const isLast = gi === config.shedGroups.length - 1;
             return (
-              <div key={group.shedGroupId} className="border-b border-border last:border-0">
-                {/* Shed header row */}
+              <div key={group.shedGroupId} className={cn(!isLast && "border-b border-border/40")}>
                 <button
                   onClick={() => toggleShed(group.shedGroupId)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/40 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-secondary/50 transition-colors"
                 >
-                  <span className="font-medium text-foreground text-sm">{group.customName}</span>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{group.silos.map((s) => `${s.letter}: ${s.tonnesCapacity || "—"}t`).join("  ")}</span>
+                  <span className="font-semibold text-sm text-foreground">{group.customName}</span>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="hidden sm:block">
+                      {group.silos.map(s => `${s.letter}: ${s.tonnesCapacity || "—"}t`).join("  ")}
+                    </span>
                     {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </div>
                 </button>
 
                 {isOpen && (
-                  <div className="bg-muted/20 px-4 pb-4 pt-1 space-y-3">
-                    {/* Shed name */}
+                  <div className="bg-secondary/30 px-4 pt-2 pb-4 space-y-4 border-t border-border/30">
+                    {/* Shed custom name */}
                     <div>
-                      <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">Shed Name</label>
-                      <Input
-                        className="h-9 text-sm"
+                      <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block mb-1.5">
+                        Shed Name
+                      </label>
+                      <input
+                        type="text"
                         defaultValue={group.customName}
-                        onBlur={(e) => updateShedName(group.shedGroupId, e.target.value.trim() || group.customName)}
+                        onBlur={e => updateShedName(group.shedGroupId, e.target.value.trim() || group.customName)}
+                        className="w-full bg-secondary border border-border/50 rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                       />
                     </div>
-                    {/* Silo tonnages */}
+
+                    {/* Silo capacities */}
                     <div>
-                      <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">Silo Capacity (tonnes)</label>
+                      <label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest block mb-1.5">
+                        Silo Capacity (tonnes)
+                      </label>
                       <div className="grid grid-cols-3 gap-2">
-                        {group.silos.map((silo) => (
-                          <div key={silo.letter} className="flex flex-col items-center gap-1">
-                            <span className="text-xs font-bold text-primary bg-primary/10 w-7 h-7 rounded-md flex items-center justify-center">
-                              {silo.letter}
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.5"
-                              className="h-9 text-sm text-center"
-                              defaultValue={silo.tonnesCapacity || ""}
-                              placeholder="0"
-                              onBlur={(e) => {
-                                const val = parseFloat(e.target.value);
-                                updateSiloTonnage(group.shedGroupId, silo.letter, isNaN(val) ? 0 : val);
-                              }}
-                            />
-                          </div>
-                        ))}
+                        {group.silos.map((silo, si) => {
+                          const badgeCls = si === 0
+                            ? "bg-primary/20 text-primary"
+                            : si === 1
+                            ? "bg-blue-500/20 text-blue-400"
+                            : "bg-amber-500/20 text-amber-400";
+                          return (
+                            <div key={silo.letter} className="flex flex-col items-center gap-1.5">
+                              <span className={cn("text-xs font-extrabold w-7 h-7 rounded-md flex items-center justify-center", badgeCls)}>
+                                {silo.letter}
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                defaultValue={silo.tonnesCapacity || ""}
+                                placeholder="0"
+                                onBlur={e => {
+                                  const val = parseFloat(e.target.value);
+                                  updateSiloTonnage(group.shedGroupId, silo.letter, isNaN(val) ? 0 : val);
+                                }}
+                                className="w-full bg-secondary border border-border/50 rounded-xl px-2 py-2 text-sm text-center font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/40"
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -118,62 +136,42 @@ export default function Settings() {
               </div>
             );
           })}
-        </SettingsCard>
+        </div>
+      </div>
 
-        {/* Appearance */}
-        <SettingsCard>
-          <SectionHeader title="Appearance" />
-          <button
-            onClick={toggle}
-            className="w-full flex items-center justify-between px-4 py-4 hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              {theme === "dark"
-                ? <Moon className="h-5 w-5 text-primary" />
-                : <Sun className="h-5 w-5 text-primary" />}
-              <div className="text-left">
-                <p className="font-medium text-foreground">Dark Mode</p>
-                <p className="text-sm text-muted-foreground">
-                  {theme === "dark" ? "On — tap to switch to light" : "Off — tap to switch to dark"}
-                </p>
-              </div>
-            </div>
-            <div className={`w-11 h-6 rounded-full transition-colors ${theme === "dark" ? "bg-primary" : "bg-muted"} flex items-center px-1`}>
-              <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${theme === "dark" ? "translate-x-5" : "translate-x-0"}`} />
-            </div>
-          </button>
-        </SettingsCard>
-
-        {/* Downloads */}
-        <SettingsCard>
-          <SectionHeader title="Downloads" />
+      {/* Downloads */}
+      <div>
+        <SectionLabel title="Downloads" />
+        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
           <a
             href="/silo-mate-feed-program.xlsx"
             download="Silo-Mate-Feed-Program.xlsx"
-            className="flex items-center justify-between px-4 py-4 hover:bg-muted/50 transition-colors"
+            className="flex items-center justify-between px-4 py-4 hover:bg-secondary/50 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <FileSpreadsheet className="h-5 w-5 text-primary" />
+              <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
+                <FileSpreadsheet className="h-5 w-5 text-primary" />
+              </div>
               <div>
-                <p className="font-medium text-foreground">Feed Program Spreadsheet</p>
-                <p className="text-sm text-muted-foreground">Download the styled Excel workbook</p>
+                <p className="font-semibold text-sm text-foreground">Feed Program Spreadsheet</p>
+                <p className="text-xs text-muted-foreground">Download the styled Excel workbook</p>
               </div>
             </div>
             <Download className="h-4 w-4 text-muted-foreground" />
           </a>
-        </SettingsCard>
-
-        {/* About */}
-        <SettingsCard>
-          <SectionHeader title="About" />
-          <div className="px-4 py-4 space-y-1">
-            <p className="font-medium text-foreground">Silo Mate</p>
-            <p className="text-sm text-muted-foreground">Daily silo reading tracker — {config.farmName}</p>
-            <p className="text-xs text-muted-foreground pt-2">6 shed groups · 18 silos · A/B/C per shed</p>
-          </div>
-        </SettingsCard>
-
+        </div>
       </div>
+
+      {/* About */}
+      <div>
+        <SectionLabel title="About" />
+        <div className="bg-card border border-border/50 rounded-2xl px-4 py-4 space-y-1">
+          <p className="font-bold text-foreground">Silo Mate</p>
+          <p className="text-sm text-muted-foreground">Daily silo reading tracker — {config.farmName}</p>
+          <p className="text-xs text-muted-foreground pt-1">6 shed groups · 18 silos · A/B/C per shed</p>
+        </div>
+      </div>
+
     </div>
   );
 }
