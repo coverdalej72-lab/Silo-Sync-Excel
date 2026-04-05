@@ -1603,13 +1603,13 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
           </div>
         )}
-        {hasCatchData && summary && summary.fcr > 0 && (
+        {summary && summary.fcr > 0 && (
           <div style={cardStyle("#2980b9")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr.toFixed(3)}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
           </div>
         )}
-        {hasCatchData && summary && summary.cfcr > 0 && (
+        {summary && summary.cfcr > 0 && (
           <div style={cardStyle("#16a085")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr.toFixed(3)}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
@@ -1627,7 +1627,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
           </div>
         )}
-        {hasCatchData && summary && summary.cage > 0 && (
+        {summary && summary.cage > 0 && (
           <div style={cardStyle("#7f8c8d")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE Eff.</div>
