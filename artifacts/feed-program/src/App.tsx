@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 
@@ -2122,45 +2122,48 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
   const handlePrint = () => {
     const farmName = farmConfig.farmName ?? "Farm";
     const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-    const shedHeaders = shedNums.map(s => `<th colspan="2" style="background:#8b1a1a;color:#fff;border:1px solid #6b1414;text-align:center;padding:6px 4px;font-size:11px">Shed ${s}</th>`).join("");
-    const subHeaders = shedNums.map(() => `<th style="background:#6b1414;color:#ffcccc;border:1px solid #5a0e0e;font-size:10px;padding:4px 2px">M</th><th style="background:#4a4a1a;color:#ffffcc;border:1px solid #3a3a0e;font-size:10px;padding:4px 2px">C</th>`).join("");
-    const totalSubHeaders = `<th style="background:#5a0e0e;color:#ffcccc;border:1px solid #4a0a0a;font-size:10px;padding:4px 2px">M</th><th style="background:#2a2a0a;color:#ffffcc;border:1px solid #1a1a0a;font-size:10px;padding:4px 2px">C</th>`;
-    const trs = days.map((d, i) => {
-      const dayNum = getDayNum(d);
-      const iso = isoDate(d);
-      const dm = mortsLog[iso] ?? {};
-      const dc = cullsLog[iso] ?? {};
-      const rowM = shedNums.reduce((a, s) => a + (dm[s] ?? 0), 0);
-      const rowC = shedNums.reduce((a, s) => a + (dc[s] ?? 0), 0);
-      const cells = shedNums.map(s => `<td>${dm[s] ?? ""}</td><td style="background:#fefef0">${dc[s] ?? ""}</td>`).join("");
-      return `<tr><td style="font-weight:700;white-space:nowrap">${DAYS[i]}${dayNum ? ` / D${dayNum}` : ""}</td><td style="white-space:nowrap">${d.toLocaleDateString("en-AU",{day:"numeric",month:"short"})}</td>${cells}<td style="font-weight:700">${rowM > 0 ? rowM : ""}</td><td style="font-weight:700;background:#fefef0">${rowC > 0 ? rowC : ""}</td></tr>`;
+    const dayHeaders = days.map((d, i) => {
+      const dn = getDayNum(d);
+      return `<th style="background:#8b1a1a;color:#fff;border:1px solid #6b1414;padding:6px 4px;font-size:11px;text-align:center;min-width:44px">${DAYS[i]}<br/><span style="font-size:9px;opacity:0.8">${d.toLocaleDateString("en-AU",{day:"numeric",month:"short"})}${dn ? ` D${dn}` : ""}</span></th>`;
     }).join("");
-    const totalsRow = `<tr style="background:#ffe8e8;font-weight:700"><td>TOTAL</td><td></td>${shedNums.map((_,i) => `<td>${shedMortWeekTotals[i] > 0 ? shedMortWeekTotals[i] : ""}</td><td style="background:#fefef0">${shedCullWeekTotals[i] > 0 ? shedCullWeekTotals[i] : ""}</td>`).join("")}<td>${weekMortTotal > 0 ? weekMortTotal : ""}</td><td style="background:#fefef0">${weekCullTotal > 0 ? weekCullTotal : ""}</td></tr>`;
+    const shedRows = shedNums.map((s, si) => {
+      const mCells = days.map(d => { const v = mortsLog[isoDate(d)]?.[s]; return `<td style="border:1px solid #ddd;padding:6px 4px;text-align:center;min-height:24px">${v ?? ""}</td>`; }).join("");
+      const cCells = days.map(d => { const v = cullsLog[isoDate(d)]?.[s]; return `<td style="border:1px solid #ddd;padding:6px 4px;text-align:center;min-height:24px;background:#fefef4">${v ?? ""}</td>`; }).join("");
+      const mTotal = shedMortWeekTotals[si]; const cTotal = shedCullWeekTotals[si];
+      const shBg = si % 2 === 0 ? "#fff" : "#f9f9f9";
+      return `<tr style="background:${shBg}">
+        <td rowspan="2" style="background:#f8e8e8;border:1px solid #e5c5c5;font-weight:800;font-size:13px;text-align:center;padding:4px 6px;vertical-align:middle">S${s}</td>
+        <td style="background:#fff8f8;border:1px solid #e5c5c5;font-size:10px;font-weight:700;color:#8b1a1a;text-align:center;padding:4px 3px;width:20px">M</td>
+        ${mCells}
+        <td style="border:1px solid #ddd;font-weight:700;text-align:center;padding:6px 4px;background:#fdf0f0">${mTotal > 0 ? mTotal : ""}</td>
+      </tr><tr style="background:${shBg}">
+        <td style="background:#fffff0;border:1px solid #d5d5a0;font-size:10px;font-weight:700;color:#666;text-align:center;padding:4px 3px;width:20px">C</td>
+        ${cCells}
+        <td style="border:1px solid #ddd;font-weight:700;text-align:center;padding:6px 4px;background:#fafae0">${cTotal > 0 ? cTotal : ""}</td>
+      </tr>`;
+    }).join("");
+    const dayMTotals = days.map(d => shedNums.reduce((a, s) => a + (mortsLog[isoDate(d)]?.[s] ?? 0), 0));
+    const dayCTotals = days.map(d => shedNums.reduce((a, s) => a + (cullsLog[isoDate(d)]?.[s] ?? 0), 0));
+    const totalMRow = dayMTotals.map(t => `<td style="border:1px solid #ddd;font-weight:700;text-align:center;padding:6px 4px;background:#fdf0f0">${t > 0 ? t : ""}</td>`).join("");
+    const totalCRow = dayCTotals.map(t => `<td style="border:1px solid #ddd;font-weight:700;text-align:center;padding:6px 4px;background:#fafae0">${t > 0 ? t : ""}</td>`).join("");
+    const totalsRows = `<tr style="background:#ffe8e8"><td rowspan="2" style="background:#efd0d0;border:1px solid #e5c5c5;font-weight:800;font-size:10px;text-align:center;padding:4px;vertical-align:middle">TOTAL</td><td style="background:#fff8f8;border:1px solid #e5c5c5;font-size:10px;font-weight:700;color:#8b1a1a;text-align:center;padding:4px 3px">M</td>${totalMRow}<td style="border:1px solid #ddd;font-weight:800;text-align:center;padding:6px 4px;background:#fdf0f0">${weekMortTotal > 0 ? weekMortTotal : ""}</td></tr><tr style="background:#fffff0"><td style="background:#fffff0;border:1px solid #d5d5a0;font-size:10px;font-weight:700;color:#666;text-align:center;padding:4px 3px">C</td>${totalCRow}<td style="border:1px solid #ddd;font-weight:800;text-align:center;padding:6px 4px;background:#fafae0">${weekCullTotal > 0 ? weekCullTotal : ""}</td></tr>`;
     const win = window.open("", "_blank");
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Morts & Culls — ${weekLabel}</title><style>
-      body{font-family:Arial,sans-serif;padding:16px;font-size:12px}
-      h2{color:#8b1a1a;margin:0 0 2px}p{margin:0 0 12px;color:#555;font-size:11px}
+      body{font-family:Arial,sans-serif;padding:14px;font-size:12px}
+      h2{color:#8b1a1a;margin:0 0 2px}p{margin:0 0 10px;color:#555;font-size:11px}
       table{border-collapse:collapse;width:100%}
-      th{padding:6px 4px;text-align:center;border:1px solid #ccc}
-      td{border:1px solid #ccc;padding:6px 4px;text-align:center;min-width:36px;min-height:24px}
-      tr:nth-child(even) td{background:#f9f9f9}tr:nth-child(even) td[style*="fefef0"]{background:#fafaf0!important}
-      .sticky-col{background:#f8e8e8!important;font-weight:700}
       @media print{@page{margin:8mm;size:landscape}}
     </style></head><body>
       <h2>${farmName} — Daily Morts &amp; Culls</h2>
       <p>Week: ${weekLabel} &nbsp;|&nbsp; <b>M</b> = Morts &nbsp; <b>C</b> = Culls</p>
       <table>
-        <thead>
-          <tr>
-            <th rowspan="2" style="background:#8b1a1a;color:#fff;border:1px solid #6b1414;padding:6px 8px">Day</th>
-            <th rowspan="2" style="background:#8b1a1a;color:#fff;border:1px solid #6b1414;padding:6px 8px">Date</th>
-            ${shedHeaders}
-            <th colspan="2" style="background:#5a0e0e;color:#fff;border:1px solid #4a0a0a;padding:6px 4px;font-size:11px">Total</th>
-          </tr>
-          <tr>${subHeaders}${totalSubHeaders}</tr>
-        </thead>
-        <tbody>${trs}${totalsRow}</tbody>
+        <thead><tr>
+          <th colspan="2" style="background:#8b1a1a;color:#fff;border:1px solid #6b1414;padding:6px 8px;text-align:center">Shed</th>
+          ${dayHeaders}
+          <th style="background:#5a0e0e;color:#fff;border:1px solid #4a0a0a;padding:6px 4px;text-align:center;min-width:40px">Total</th>
+        </tr></thead>
+        <tbody>${shedRows}${totalsRows}</tbody>
       </table>
     </body></html>`);
     win.document.close();
@@ -2229,63 +2232,58 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
             <div style={{ marginLeft: "auto", fontSize: 10, color: "#aaa" }}>Tap a cell to edit</div>
           </div>
 
-          {/* Scrollable table */}
+          {/* Scrollable table — Sheds as rows, Days as columns */}
           <div style={{ flex: 1, overflowX: "auto", overflowY: "auto" }}>
             <table style={{ borderCollapse: "collapse", fontSize: 11, minWidth: "max-content", width: "100%" }}>
               <thead>
-                {/* Row 1 — Shed group headers (colspan 2 each) */}
                 <tr>
-                  <th rowSpan={2} style={{ ...TH_STICKY, verticalAlign: "middle" }}>Day</th>
-                  <th rowSpan={2} style={{ ...TH, minWidth: 60, verticalAlign: "middle" }}>Date</th>
-                  {shedNums.map(s => (
-                    <th key={s} colSpan={2} style={{ ...TH, minWidth: 80, borderBottom: "1px solid rgba(255,255,255,0.3)" }}>
-                      Shed {s}
-                    </th>
-                  ))}
-                  <th colSpan={2} style={{ ...TH, background: "#5a0e0e", minWidth: 72, borderBottom: "1px solid rgba(255,255,255,0.3)" }}>Total</th>
-                </tr>
-                {/* Row 2 — M / C sub-headers */}
-                <tr>
-                  {shedNums.map(s => (
-                    <React.Fragment key={s}>
-                      <th style={{ ...TH, background: "#7a1010", fontSize: 10, padding: "4px 2px", minWidth: 38 }}>M</th>
-                      <th style={{ ...TH, background: "#5a5a00", fontSize: 10, padding: "4px 2px", minWidth: 38 }}>C</th>
-                    </React.Fragment>
-                  ))}
-                  <th style={{ ...TH, background: "#4a0808", fontSize: 10, padding: "4px 2px", minWidth: 34 }}>M</th>
-                  <th style={{ ...TH, background: "#3a3a00", fontSize: 10, padding: "4px 2px", minWidth: 34 }}>C</th>
+                  {/* Shed col + M/C col — both sticky */}
+                  <th colSpan={2} style={{ ...TH_STICKY, minWidth: 68, verticalAlign: "middle", borderRight: "2px solid rgba(255,255,255,0.4)" }}>Shed</th>
+                  {days.map((d, i) => {
+                    const dayNum = getDayNum(d);
+                    const isToday = isoDate(d) === isoDate(new Date());
+                    return (
+                      <th key={i} style={{ ...TH, minWidth: 52, background: isToday ? "#b8640a" : "#8b1a1a" }}>
+                        {DAY_LABELS[i]}
+                        <div style={{ fontSize: 9, fontWeight: 400, opacity: 0.85 }}>
+                          {d.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                          {dayNum ? ` D${dayNum}` : ""}
+                        </div>
+                      </th>
+                    );
+                  })}
+                  <th style={{ ...TH, background: "#5a0e0e", minWidth: 46 }}>Total</th>
                 </tr>
               </thead>
               <tbody>
-                {days.map((d, i) => {
-                  const iso = isoDate(d);
-                  const dayNum = getDayNum(d);
-                  const isToday = iso === isoDate(new Date());
-                  const dm = mortsLog[iso] ?? {};
-                  const dc = cullsLog[iso] ?? {};
-                  const rowM = shedNums.reduce((a, s) => a + (dm[s] ?? 0), 0);
-                  const rowC = shedNums.reduce((a, s) => a + (dc[s] ?? 0), 0);
-                  const rowBg = isToday ? "#fffde7" : i % 2 === 0 ? "#fff" : "#fcfcfc";
-                  const cullBg = isToday ? "#fffde0" : i % 2 === 0 ? "#fffff8" : "#fafaf0";
-
+                {shedNums.map((s, si) => {
+                  const shedBg = si % 2 === 0 ? "#fff" : "#fcfcfc";
+                  const mortTotal = shedMortWeekTotals[si];
+                  const cullTotal = shedCullWeekTotals[si];
                   return (
-                    <tr key={iso}>
-                      <td style={{ ...TD_STICKY, background: isToday ? "#fff8e1" : "#f8f0f0", color: isToday ? "#b8860b" : "#8b1a1a", borderRight: "2px solid #e5c5c5" }}>
-                        {DAY_LABELS[i]}
-                        {dayNum && <div style={{ fontSize: 9, color: "#aaa", fontWeight: 400 }}>D{dayNum}</div>}
-                      </td>
-                      <td style={{ ...TD, padding: "6px 4px", background: rowBg, color: "#666", whiteSpace: "nowrap" }}>
-                        {d.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
-                      </td>
-                      {shedNums.map(s => {
-                        const isMEditing = editCell?.date === iso && editCell?.shed === s && editCell?.type === "m";
-                        const isCEditing = editCell?.date === iso && editCell?.shed === s && editCell?.type === "c";
-                        const mVal = dm[s]; const cVal = dc[s];
-                        return (
-                          <React.Fragment key={s}>
-                            {/* Morts cell */}
-                            <td style={{ ...TD, background: rowBg, borderRight: "none" }}>
-                              {isMEditing ? (
+                    <React.Fragment key={s}>
+                      {/* Morts row */}
+                      <tr>
+                        <td rowSpan={2} style={{
+                          ...TD_STICKY, width: 44, background: "#f8e8e8", color: "#8b1a1a",
+                          fontWeight: 800, fontSize: 13, verticalAlign: "middle",
+                          borderRight: "none", borderBottom: "2px solid #e0c0c0",
+                        }}>
+                          S{s}
+                        </td>
+                        <td style={{
+                          ...TD_STICKY, left: 44, width: 24, background: "#fff8f8", color: "#8b1a1a",
+                          fontWeight: 700, fontSize: 10, verticalAlign: "middle",
+                          borderLeft: "none", borderRight: "2px solid #e5c5c5",
+                        }}>M</td>
+                        {days.map((d, di) => {
+                          const iso = isoDate(d);
+                          const isToday = iso === isoDate(new Date());
+                          const val = mortsLog[iso]?.[s];
+                          const isEditing = editCell?.date === iso && editCell?.shed === s && editCell?.type === "m";
+                          return (
+                            <td key={di} style={{ ...TD, background: isToday ? "#fffde7" : shedBg }}>
+                              {isEditing ? (
                                 <input type="number" inputMode="numeric" value={editVal} autoFocus
                                   onChange={e => setEditVal(e.target.value)}
                                   onBlur={() => saveMorts(iso, s, editVal)}
@@ -2293,15 +2291,34 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
                                   style={{ width: "100%", border: "2px solid #8b1a1a", borderRadius: 2, padding: "4px 1px", textAlign: "center", fontSize: 12, outline: "none", background: "#fff8f8", fontWeight: 700 }}
                                 />
                               ) : (
-                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "m" }); setEditVal(mVal !== undefined ? String(mVal) : ""); }}
-                                  style={{ padding: "7px 3px", cursor: "pointer", minHeight: 28, textAlign: "center", color: mVal ? (mVal > 30 ? "#c0392b" : "#8b1a1a") : "#ddd", fontWeight: mVal ? 700 : 400 }}>
-                                  {mVal !== undefined ? mVal : "·"}
+                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "m" }); setEditVal(val !== undefined ? String(val) : ""); }}
+                                  style={{ padding: "7px 3px", cursor: "pointer", minHeight: 28, textAlign: "center", color: val ? (val > 30 ? "#c0392b" : "#8b1a1a") : "#ddd", fontWeight: val ? 700 : 400 }}>
+                                  {val !== undefined ? val : "·"}
                                 </div>
                               )}
                             </td>
-                            {/* Culls cell */}
-                            <td style={{ ...TD, background: cullBg, borderLeft: "1px dashed #e0e0a0" }}>
-                              {isCEditing ? (
+                          );
+                        })}
+                        <td style={{ ...TD, background: "#fdf0f0", padding: "7px 5px", fontWeight: 700, color: mortTotal > 0 ? "#8b1a1a" : "#ccc", borderLeft: "2px solid #e5c5c5" }}>
+                          {mortTotal > 0 ? mortTotal : "—"}
+                        </td>
+                      </tr>
+                      {/* Culls row */}
+                      <tr>
+                        <td style={{
+                          ...TD_STICKY, left: 44, width: 24, background: "#fffff0", color: "#666",
+                          fontWeight: 700, fontSize: 10, verticalAlign: "middle",
+                          borderLeft: "none", borderRight: "2px solid #e5c5c5", borderBottom: "2px solid #e0c0c0",
+                        }}>C</td>
+                        {days.map((d, di) => {
+                          const iso = isoDate(d);
+                          const isToday = iso === isoDate(new Date());
+                          const val = cullsLog[iso]?.[s];
+                          const isEditing = editCell?.date === iso && editCell?.shed === s && editCell?.type === "c";
+                          const bg = isToday ? "#fffde0" : si % 2 === 0 ? "#fffff8" : "#fafaf0";
+                          return (
+                            <td key={di} style={{ ...TD, background: bg, borderBottom: "2px solid #e0c0c0" }}>
+                              {isEditing ? (
                                 <input type="number" inputMode="numeric" value={editVal} autoFocus
                                   onChange={e => setEditVal(e.target.value)}
                                   onBlur={() => saveCulls(iso, s, editVal)}
@@ -2309,46 +2326,53 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
                                   style={{ width: "100%", border: "2px solid #8b8b00", borderRadius: 2, padding: "4px 1px", textAlign: "center", fontSize: 12, outline: "none", background: "#fffff0", fontWeight: 700 }}
                                 />
                               ) : (
-                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "c" }); setEditVal(cVal !== undefined ? String(cVal) : ""); }}
-                                  style={{ padding: "7px 3px", cursor: "pointer", minHeight: 28, textAlign: "center", color: cVal ? "#666" : "#ddd", fontWeight: cVal ? 700 : 400 }}>
-                                  {cVal !== undefined ? cVal : "·"}
+                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "c" }); setEditVal(val !== undefined ? String(val) : ""); }}
+                                  style={{ padding: "7px 3px", cursor: "pointer", minHeight: 28, textAlign: "center", color: val ? "#666" : "#ddd", fontWeight: val ? 700 : 400 }}>
+                                  {val !== undefined ? val : "·"}
                                 </div>
                               )}
                             </td>
-                          </React.Fragment>
-                        );
-                      })}
-                      {/* Row totals */}
-                      <td style={{ ...TD, background: rowBg, padding: "7px 4px", fontWeight: 700, color: rowM > 0 ? "#8b1a1a" : "#ccc", borderLeft: "2px solid #e5c5c5" }}>
-                        {rowM > 0 ? rowM : "—"}
-                      </td>
-                      <td style={{ ...TD, background: cullBg, padding: "7px 4px", fontWeight: 700, color: rowC > 0 ? "#666" : "#ccc", borderLeft: "1px dashed #e0e0a0" }}>
-                        {rowC > 0 ? rowC : "—"}
-                      </td>
-                    </tr>
+                          );
+                        })}
+                        <td style={{ ...TD, background: "#fafae0", padding: "7px 5px", fontWeight: 700, color: cullTotal > 0 ? "#666" : "#ccc", borderLeft: "2px solid #e5c5c5", borderBottom: "2px solid #e0c0c0" }}>
+                          {cullTotal > 0 ? cullTotal : "—"}
+                        </td>
+                      </tr>
+                    </React.Fragment>
                   );
                 })}
-                {/* Week totals row */}
-                <tr style={{ background: "#f8e8e8" }}>
-                  <td style={{ ...TD_STICKY, background: "#efd0d0", color: "#8b1a1a", fontWeight: 800, fontSize: 9, textTransform: "uppercase" }}>Week<br />Total</td>
-                  <td style={{ ...TD, background: "#f8e8e8" }} />
-                  {shedNums.map((s, i) => (
-                    <React.Fragment key={s}>
-                      <td style={{ ...TD, background: "#f8e8e8", fontWeight: 700, color: shedMortWeekTotals[i] > 0 ? "#8b1a1a" : "#ccc", padding: "7px 3px", borderRight: "none" }}>
-                        {shedMortWeekTotals[i] > 0 ? shedMortWeekTotals[i] : ""}
-                      </td>
-                      <td style={{ ...TD, background: "#f8f8e0", fontWeight: 700, color: shedCullWeekTotals[i] > 0 ? "#666" : "#ccc", padding: "7px 3px", borderLeft: "1px dashed #e0e0a0" }}>
-                        {shedCullWeekTotals[i] > 0 ? shedCullWeekTotals[i] : ""}
-                      </td>
+                {/* Day totals — 2 rows: M and C */}
+                {(() => {
+                  const dayMTotals = days.map(d => shedNums.reduce((a, s) => a + (mortsLog[isoDate(d)]?.[s] ?? 0), 0));
+                  const dayCTotals = days.map(d => shedNums.reduce((a, s) => a + (cullsLog[isoDate(d)]?.[s] ?? 0), 0));
+                  return (
+                    <React.Fragment>
+                      <tr style={{ background: "#f8e8e8" }}>
+                        <td rowSpan={2} style={{ ...TD_STICKY, width: 44, background: "#efd0d0", color: "#8b1a1a", fontWeight: 800, fontSize: 9, textTransform: "uppercase", verticalAlign: "middle", textAlign: "center", borderRight: "none", letterSpacing: 0.3 }}>Day<br/>Total</td>
+                        <td style={{ ...TD_STICKY, left: 44, width: 24, background: "#fff0f0", color: "#8b1a1a", fontWeight: 700, fontSize: 10, borderLeft: "none", borderRight: "2px solid #e5c5c5" }}>M</td>
+                        {dayMTotals.map((t, i) => (
+                          <td key={i} style={{ ...TD, background: "#f8e8e8", fontWeight: 700, color: t > 0 ? "#8b1a1a" : "#ccc", padding: "7px 4px" }}>
+                            {t > 0 ? t : ""}
+                          </td>
+                        ))}
+                        <td style={{ ...TD, background: "#efd0d0", fontWeight: 800, color: "#8b1a1a", padding: "7px 5px", borderLeft: "2px solid #e5c5c5" }}>
+                          {weekMortTotal > 0 ? weekMortTotal : ""}
+                        </td>
+                      </tr>
+                      <tr style={{ background: "#f8f8e0" }}>
+                        <td style={{ ...TD_STICKY, left: 44, width: 24, background: "#fffff0", color: "#666", fontWeight: 700, fontSize: 10, borderLeft: "none", borderRight: "2px solid #e5c5c5" }}>C</td>
+                        {dayCTotals.map((t, i) => (
+                          <td key={i} style={{ ...TD, background: "#f8f8e0", fontWeight: 700, color: t > 0 ? "#666" : "#ccc", padding: "7px 4px" }}>
+                            {t > 0 ? t : ""}
+                          </td>
+                        ))}
+                        <td style={{ ...TD, background: "#f0f0d0", fontWeight: 800, color: "#666", padding: "7px 5px", borderLeft: "2px solid #e5c5c5" }}>
+                          {weekCullTotal > 0 ? weekCullTotal : ""}
+                        </td>
+                      </tr>
                     </React.Fragment>
-                  ))}
-                  <td style={{ ...TD, background: "#efd0d0", fontWeight: 800, color: "#8b1a1a", padding: "7px 4px", borderLeft: "2px solid #e5c5c5" }}>
-                    {weekMortTotal > 0 ? weekMortTotal : ""}
-                  </td>
-                  <td style={{ ...TD, background: "#f0f0d0", fontWeight: 800, color: "#666", padding: "7px 4px", borderLeft: "1px dashed #d0d080" }}>
-                    {weekCullTotal > 0 ? weekCullTotal : ""}
-                  </td>
-                </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>
