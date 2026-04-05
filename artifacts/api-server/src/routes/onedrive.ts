@@ -1,15 +1,26 @@
 import { Router, type IRouter } from "express";
-import { isGdriveConnected, getGdriveFileId } from "../lib/onedrive";
+import {
+  isGdriveConnected,
+  getGdriveFileId,
+  isOnedriveConnected,
+  getOnedriveFileId,
+} from "../lib/onedrive";
 
 const router: IRouter = Router();
 
 router.get("/onedrive/status", async (_req, res): Promise<void> => {
-  const connected = isGdriveConnected();
-  const fileId = getGdriveFileId();
+  const onedriveConnected = isOnedriveConnected();
+  const gdriveConnected = isGdriveConnected();
+  const onedriveFileId = getOnedriveFileId();
+  const gdriveFileId = getGdriveFileId();
+
   res.json({
-    connected,
-    fileId: fileId ?? null,
-    fileName: fileId ? "Silo Feed Readings" : null,
+    onedriveConnected,
+    onedriveFileId: onedriveFileId ?? null,
+    onedriveFileName: onedriveFileId ? "SiloReadings.csv" : null,
+    gdriveConnected,
+    gdriveFileId: gdriveFileId ?? null,
+    gdriveFileName: gdriveFileId ? "Silo Feed Readings" : null,
   });
 });
 

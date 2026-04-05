@@ -58,11 +58,16 @@ export interface SiloSummary {
 }
 
 export interface OnedriveStatus {
-  connected: boolean;
+  onedriveConnected: boolean;
   /** @nullable */
-  fileId: string | null;
+  onedriveFileId: string | null;
   /** @nullable */
-  fileName: string | null;
+  onedriveFileName: string | null;
+  gdriveConnected: boolean;
+  /** @nullable */
+  gdriveFileId: string | null;
+  /** @nullable */
+  gdriveFileName: string | null;
 }
 
 export type ListReadingsParams = {

@@ -314,13 +314,22 @@ components:
     OnedriveStatus:
       type: object
       properties:
-        connected:
+        onedriveConnected:
           type: boolean
-        fileId:
+        onedriveFileId:
           type: ["string", "null"]
-        fileName:
+        onedriveFileName:
+          type: ["string", "null"]
+        gdriveConnected:
+          type: boolean
+        gdriveFileId:
+          type: ["string", "null"]
+        gdriveFileName:
           type: ["string", "null"]
       required:
-        - connected
-        - fileId
-        - fileName
+        - onedriveConnected
+        - onedriveFileId
+        - onedriveFileName
+        - gdriveConnected
+        - gdriveFileId
+        - gdriveFileName

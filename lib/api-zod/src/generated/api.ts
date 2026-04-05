@@ -120,7 +120,10 @@ export const DeleteReadingParams = zod.object({
  * @summary Check if OneDrive is connected
  */
 export const GetOnedriveStatusResponse = zod.object({
-  connected: zod.boolean(),
-  fileId: zod.string().nullable(),
-  fileName: zod.string().nullable(),
+  onedriveConnected: zod.boolean(),
+  onedriveFileId: zod.string().nullable(),
+  onedriveFileName: zod.string().nullable(),
+  gdriveConnected: zod.boolean(),
+  gdriveFileId: zod.string().nullable(),
+  gdriveFileName: zod.string().nullable(),
 });

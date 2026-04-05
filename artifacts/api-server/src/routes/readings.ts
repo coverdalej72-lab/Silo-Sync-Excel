@@ -8,7 +8,7 @@ import {
   GetReadingsSummaryResponse,
   DeleteReadingParams,
 } from "@workspace/api-zod";
-import { pushReadingsToGdrive } from "../lib/onedrive";
+import { pushReadingsToCloud } from "../lib/onedrive";
 
 const router: IRouter = Router();
 
@@ -80,9 +80,9 @@ router.post("/readings", async (req, res): Promise<void> => {
 
   const [reading] = await db.insert(readingsTable).values(insertData).returning();
 
-  // Fire and forget — sync to Google Drive if connected
-  pushReadingsToGdrive().catch((err) => {
-    req.log.warn({ err }, "Failed to sync to Google Drive");
+  // Fire and forget — sync to any connected cloud services
+  pushReadingsToCloud().catch((err) => {
+    req.log.warn({ err }, "Failed to sync to cloud");
   });
 
   res.status(201).json({
