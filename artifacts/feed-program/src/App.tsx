@@ -1103,7 +1103,7 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH RESULTS</div>
         {summary && (
           <>
-            {summary.farmName && <div style={{ fontSize: 16, fontWeight: 700 }}>{summary.farmName}</div>}
+            {(farmConfig.farmName || summary.farmName) && <div style={{ fontSize: 16, fontWeight: 700 }}>{farmConfig.farmName || summary.farmName}</div>}
             {summary.batchNum > 0 && <div style={{ fontSize: 16, opacity: 0.85 }}>Batch #{summary.batchNum}</div>}
           </>
         )}
