@@ -2113,10 +2113,6 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
   const saveMorts = (date: string, shed: number, val: string) => saveEntry(mortsLog, setMortsLog, MORTS_LOG_KEY, date, shed, val);
   const saveCulls = (date: string, shed: number, val: string) => saveEntry(cullsLog, setCullsLog, CULLS_LOG_KEY, date, shed, val);
 
-  const shedMortWeekTotals = shedNums.map(s => days.reduce((a, d) => a + (mortsLog[isoDate(d)]?.[s] ?? 0), 0));
-  const shedCullWeekTotals = shedNums.map(s => days.reduce((a, d) => a + (cullsLog[isoDate(d)]?.[s] ?? 0), 0));
-  const weekMortTotal = shedMortWeekTotals.reduce((a, v) => a + v, 0);
-  const weekCullTotal = shedCullWeekTotals.reduce((a, v) => a + v, 0);
 
   const handlePrint = () => {
     const farmName = farmConfig.farmName ?? "Farm";
@@ -2136,9 +2132,8 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
     }
 
     // ── Shared style strings ──────────────────────────────────────────────────
-    const colWidths = `<col style="width:5%"><col style="width:4%">${days.map(() => `<col style="width:12.4%">`).join("")}<col style="width:7%">`;
+    const colWidths = `<col style="width:6%"><col style="width:5%">${days.map(() => `<col style="width:12.7%">`).join("")}`;
     const TH  = `background:#8b1a1a;color:#fff;border:1.5px solid #000;padding:3pt 4pt;font-size:8pt;text-align:center;`;
-    const TH2 = `background:#5a0e0e;color:#fff;border:1.5px solid #000;padding:3pt 4pt;font-size:8pt;text-align:center;`;
     const TD  = `border:1px solid #000;padding:4pt 3pt;text-align:center;font-size:8pt;`;
 
     const dayHeaders = days.map((d, i) => {
@@ -2153,44 +2148,18 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
       const pageLabel = numPages > 1 ? ` &nbsp;|&nbsp; Sheet ${pageIdx + 1} of ${numPages} (Sheds ${chunk[0]}–${chunk[chunk.length - 1]})` : "";
 
       const shedRows = chunk.map((s, ci) => {
-        const si = shedNums.indexOf(s);
         const mCells = days.map(d => { const v = mortsLog[isoDate(d)]?.[s]; return `<td style="${TD}">${v ?? ""}</td>`; }).join("");
         const cCells = days.map(d => { const v = cullsLog[isoDate(d)]?.[s]; return `<td style="${TD}background:#fefef4;">${v ?? ""}</td>`; }).join("");
-        const mTotal = shedMortWeekTotals[si];
-        const cTotal = shedCullWeekTotals[si];
         const shBg = ci % 2 === 0 ? "#fff" : "#f7f7f7";
         return `<tr style="background:${shBg}">
           <td rowspan="2" style="${TD}background:#f8e8e8;font-weight:800;font-size:9pt;vertical-align:middle;">S${s}</td>
           <td style="${TD}background:#fff8f8;font-weight:700;color:#8b1a1a;font-size:7pt;">M</td>
           ${mCells}
-          <td style="${TD}background:#fdf0f0;font-weight:700;">${mTotal > 0 ? mTotal : ""}</td>
         </tr><tr style="background:${shBg}">
           <td style="${TD}background:#fffff0;font-weight:700;color:#555;font-size:7pt;">C</td>
           ${cCells}
-          <td style="${TD}background:#fafae0;font-weight:700;">${cTotal > 0 ? cTotal : ""}</td>
         </tr>`;
       }).join("");
-
-      // Page-level day totals (only for this page's sheds)
-      const dayMTotals = days.map(d => chunk.reduce((a, s) => a + (mortsLog[isoDate(d)]?.[s] ?? 0), 0));
-      const dayCTotals = days.map(d => chunk.reduce((a, s) => a + (cullsLog[isoDate(d)]?.[s] ?? 0), 0));
-      const pageMort = dayMTotals.reduce((a, v) => a + v, 0);
-      const pageCull = dayCTotals.reduce((a, v) => a + v, 0);
-      const totalMRow = dayMTotals.map(t => `<td style="${TD}background:#fdf0f0;font-weight:700;">${t > 0 ? t : ""}</td>`).join("");
-      const totalCRow = dayCTotals.map(t => `<td style="${TD}background:#fafae0;font-weight:700;">${t > 0 ? t : ""}</td>`).join("");
-
-      const totalsRows = `
-        <tr style="background:#ffe8e8">
-          <td rowspan="2" style="${TD}background:#efd0d0;font-weight:800;font-size:7.5pt;vertical-align:middle;">TOTAL</td>
-          <td style="${TD}background:#fff8f8;font-weight:700;color:#8b1a1a;font-size:7pt;">M</td>
-          ${totalMRow}
-          <td style="${TD}background:#fdf0f0;font-weight:800;">${pageMort > 0 ? pageMort : ""}</td>
-        </tr>
-        <tr style="background:#fffff0">
-          <td style="${TD}background:#fffff0;font-weight:700;color:#555;font-size:7pt;">C</td>
-          ${totalCRow}
-          <td style="${TD}background:#fafae0;font-weight:800;">${pageCull > 0 ? pageCull : ""}</td>
-        </tr>`;
 
       return `
         <div style="${isLast ? "" : "page-break-after:always"}">
@@ -2201,9 +2170,8 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
             <thead><tr>
               <th colspan="2" style="${TH}font-size:9pt;">Shed</th>
               ${dayHeaders}
-              <th style="${TH2}font-size:9pt;">Total</th>
             </tr></thead>
-            <tbody>${shedRows}${totalsRows}</tbody>
+            <tbody>${shedRows}</tbody>
           </table>
         </div>`;
     }).join("");
