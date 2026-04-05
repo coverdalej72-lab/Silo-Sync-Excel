@@ -83,8 +83,10 @@ function styleShedInPlace(ws, isBig) {
       const cell = row.getCell(cn);
       if (isMergeOverflow(cell)) continue; // skip non-anchor merged cells
 
-      // Reset shared style index so our overrides are written independently
+      // Save numFmt before resetting (resetStyle clears it, but we need it for dates/numbers)
+      const savedNumFmt = cell.numFmt;
       resetStyle(cell);
+      if (savedNumFmt) cell.numFmt = savedNumFmt;
 
       const raw = cell.value;
       const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
@@ -231,7 +233,9 @@ function styleEOBInPlace(ws) {
     for (let cn = 1; cn <= COLS; cn++) {
       const cell = row.getCell(cn);
       if (isMergeOverflow(cell)) continue;
+      const savedNumFmt = cell.numFmt;
       resetStyle(cell);
+      if (savedNumFmt) cell.numFmt = savedNumFmt;
       const raw = cell.value;
       const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
       const isL = cn === 1; const isR = cn === COLS;
