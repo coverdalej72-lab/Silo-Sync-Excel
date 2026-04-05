@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp } from "lucide-react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 function SectionLabel({ title }: { title: string }) {
   return (
@@ -39,7 +40,28 @@ function DarkInput({ value, onBlur, placeholder, type = "text" }: {
 
 export default function Settings() {
   const { config, updateFarmName, updateShedName, updateSiloTonnage } = useFarmConfig();
+  const { toast } = useToast();
   const [expandedSheds, setExpandedSheds] = useState<Record<number, boolean>>({});
+  const [resetting, setResetting] = useState(false);
+
+  const handleNewBatch = async () => {
+    if (!confirm(
+      "Start New Batch?\n\nThis will delete ALL silo readings and delivery records.\n\nThis cannot be undone."
+    )) return;
+    setResetting(true);
+    try {
+      const res = await fetch("/api/batch/reset", { method: "DELETE" });
+      if (res.ok) {
+        toast({ title: "New batch started", description: "All readings and deliveries cleared." });
+      } else {
+        toast({ variant: "destructive", title: "Reset failed", description: "Please try again." });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Reset failed", description: "Could not reach server." });
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const toggleShed = (id: number) =>
     setExpandedSheds(prev => ({ ...prev, [id]: !prev[id] }));
@@ -159,6 +181,33 @@ export default function Settings() {
             </div>
             <Download className="h-4 w-4 text-muted-foreground" />
           </a>
+        </div>
+      </div>
+
+      {/* New Batch */}
+      <div>
+        <SectionLabel title="Batch" />
+        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+          <div className="px-4 py-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-destructive/15 flex items-center justify-center shrink-0 mt-0.5">
+                <RefreshCw className="h-5 w-5 text-destructive" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm text-foreground">Start New Batch</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Clears all silo readings and delivery records so you can start fresh for the next batch. The Feed Program spreadsheet should also be reset separately.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleNewBatch}
+              disabled={resetting}
+              className="w-full py-3 rounded-xl text-sm font-bold border-2 border-destructive text-destructive hover:bg-destructive hover:text-white active:scale-95 transition-all disabled:opacity-50"
+            >
+              {resetting ? "Clearing…" : "Start New Batch"}
+            </button>
+          </div>
         </div>
       </div>
 

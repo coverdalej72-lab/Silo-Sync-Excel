@@ -764,6 +764,21 @@ export default function App() {
     setHasChanges(true);
   }, [sheets]);
 
+  const resetForNewBatch = async () => {
+    if (!confirm(
+      "Start New Batch?\n\nThis will clear ALL delivery and silo reading records from the app, and reset the spreadsheet to its base state.\n\nThis cannot be undone."
+    )) return;
+    try {
+      await fetch("/api/batch/reset", { method: "DELETE" });
+    } catch {
+      // best effort — still clear locally even if API fails
+    }
+    seedDoneRef.current = false;
+    deliverySeedDoneRef.current = false;
+    setEdits(sheets.map(() => new Map()));
+    setHasChanges(false);
+  };
+
   const downloadFile = async () => {
     if (!rawBufferRef.current) return;
     const zip = await JSZip.loadAsync(rawBufferRef.current.slice(0));
@@ -818,6 +833,13 @@ export default function App() {
         <span className="text-lg font-bold tracking-wide">Double B Farm — Feed Program</span>
         <div className="ml-auto flex items-center gap-2">
           {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
+          <button
+            onClick={resetForNewBatch}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
+            title="Clear all data and start a new batch"
+          >
+            ↺ New Batch
+          </button>
           <button
             onClick={downloadFile}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors"
