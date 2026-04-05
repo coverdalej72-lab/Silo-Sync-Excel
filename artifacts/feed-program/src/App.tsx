@@ -940,7 +940,11 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
 }
 
 // ── BatchResultsView ──────────────────────────────────────────────────────
-function BatchResultsView({ sheets, edits }: { sheets: SheetParsed[]; edits: Map<string, string>[] }) {
+function BatchResultsView({ sheets, edits, farmConfig }: {
+  sheets: SheetParsed[];
+  edits: Map<string, string>[];
+  farmConfig: FarmConfigData;
+}) {
   const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
   if (eobIdx === -1) {
     return (
@@ -963,33 +967,44 @@ function BatchResultsView({ sheets, edits }: { sheets: SheetParsed[]; edits: Map
     return isNaN(n) ? "—" : n.toLocaleString();
   };
 
+  // Determine which shed group each shed number belongs to.
+  // Sheds are paired: sheds 1-2 → group 1, 3-4 → group 2, etc.
+  const isGroupActive = (shedNumber: number): boolean => {
+    const groupId = Math.ceil(shedNumber / 2); // shed 1→grp1, shed 2→grp1, shed 3→grp2 …
+    const cfg = farmConfig.shedGroups?.find(g => g.shedGroupId === groupId);
+    return cfg ? cfg.active !== false : groupId <= 6;
+  };
+
   const batchNum       = g(1, 2);
-  const totalPurchased = g(11, 18);
   const feedUsed       = g(18, 18);
   const feedLeft       = g(15, 18);
   const lastBatchLeft  = g(7, 18);
-  const totalCatched   = g(16, 23);
-  const totalMorts     = g(16, 24);
 
-  const totalPlacedNum  = num(totalPurchased);
-  const totalCatchedNum = num(totalCatched);
-  const totalMortsNum   = num(totalMorts);
-  const mortPct = totalPlacedNum > 0
-    ? ((totalMortsNum / totalPlacedNum) * 100).toFixed(2) + "%"
-    : "—";
-
-  // Per-shed rows: cols 21-24, data starts row 4
-  const shedRows: { shedNum: string; placed: number; catched: number; morts: number }[] = [];
+  // Per-shed rows: cols 21-24, data starts row 4 — filtered to active sheds only
+  const allShedRows: { shedNum: string; shedInt: number; placed: number; catched: number; morts: number }[] = [];
   for (let r = 4; r <= 25; r++) {
     const shedNum = g(r, 21);
     if (!shedNum || shedNum.trim() === "") break;
-    shedRows.push({
+    const shedInt = parseInt(shedNum, 10);
+    allShedRows.push({
       shedNum,
+      shedInt,
       placed:  num(g(r, 22)),
       catched: num(g(r, 23)),
       morts:   num(g(r, 24)),
     });
   }
+
+  // Filter to active sheds only
+  const shedRows = allShedRows.filter(row => !isNaN(row.shedInt) && isGroupActive(row.shedInt));
+
+  // Recompute totals from active sheds only
+  const totalPlacedNum  = shedRows.reduce((s, r) => s + r.placed, 0);
+  const totalCatchedNum = shedRows.reduce((s, r) => s + r.catched, 0);
+  const totalMortsNum   = shedRows.reduce((s, r) => s + r.morts, 0);
+  const mortPct = totalPlacedNum > 0
+    ? ((totalMortsNum / totalPlacedNum) * 100).toFixed(2) + "%"
+    : "—";
 
   const cardStyle = (color: string): React.CSSProperties => ({
     background: "#fff",
@@ -1013,15 +1028,15 @@ function BatchResultsView({ sheets, edits }: { sheets: SheetParsed[]; edits: Map
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
         <div style={cardStyle("#1a5c36")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#1a5c36" }}>{fmt(totalPurchased)}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#1a5c36" }}>{totalPlacedNum > 0 ? totalPlacedNum.toLocaleString() : "—"}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Purchased</div>
         </div>
         <div style={cardStyle("#217346")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#217346" }}>{fmt(totalCatched)}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#217346" }}>{totalCatchedNum > 0 ? totalCatchedNum.toLocaleString() : "—"}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Caught</div>
         </div>
         <div style={cardStyle("#c0392b")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#c0392b" }}>{fmt(totalMorts)}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#c0392b" }}>{totalMortsNum > 0 ? totalMortsNum.toLocaleString() : "—"}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Total Morts</div>
         </div>
         <div style={cardStyle("#e67e22")}>
@@ -1080,9 +1095,9 @@ function BatchResultsView({ sheets, edits }: { sheets: SheetParsed[]; edits: Map
               <tfoot>
                 <tr style={{ background: "#1a5c3615", borderTop: "2px solid #1a5c36" }}>
                   <td style={{ padding: "9px 12px", fontWeight: 800, color: "#1a5c36" }}>TOTAL</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{fmt(totalPurchased)}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{fmt(totalCatched)}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#c0392b" }}>{fmt(totalMorts)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalPlacedNum.toLocaleString()}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalCatchedNum.toLocaleString()}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#c0392b" }}>{totalMortsNum.toLocaleString()}</td>
                   <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#e67e22" }}>{mortPct}</td>
                 </tr>
               </tfoot>
@@ -1639,7 +1654,7 @@ export default function App() {
           </div>
         ) : activeView === "batchResults" ? (
           <div className="flex-1 overflow-auto">
-            <BatchResultsView sheets={sheets} edits={edits} />
+            <BatchResultsView sheets={sheets} edits={edits} farmConfig={farmConfig} />
           </div>
         ) : current && (() => {
           const tabName = current.name.trim().toUpperCase();
