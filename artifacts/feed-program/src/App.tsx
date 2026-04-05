@@ -1608,18 +1608,18 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
           </div>
         )}
-        {summary && summary.fcr > 0 && (
-          <div style={cardStyle("#2980b9")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr.toFixed(3)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
+        <div style={cardStyle("#2980b9")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: hasCatchData && summary && summary.fcr > 0 ? "#2980b9" : "#ccc" }}>
+            {hasCatchData && summary && summary.fcr > 0 ? summary.fcr.toFixed(3) : "—"}
           </div>
-        )}
-        {summary && summary.cfcr > 0 && (
-          <div style={cardStyle("#16a085")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr.toFixed(3)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
+        </div>
+        <div style={cardStyle("#16a085")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: hasCatchData && summary && summary.cfcr > 0 ? "#16a085" : "#ccc" }}>
+            {hasCatchData && summary && summary.cfcr > 0 ? summary.cfcr.toFixed(3) : "—"}
           </div>
-        )}
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
+        </div>
         {hasCatchData && summary && summary.actualAge > 0 && (
           <div style={cardStyle("#5b6fa6")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#5b6fa6" }}>{summary.actualAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
