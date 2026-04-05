@@ -456,8 +456,8 @@ function SheetView({
                 const numVal = parseFloat(displayVal.replace(/,/g, ""));
                 const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0;
 
-                // Column E (FEED ORDERED) — strip XLSX yellow highlight, show plain background
-                const cellBg = c === COL_E ? null : info.bgColor;
+                // Columns E & F (FEED ORDERED / SILO) — strip XLSX yellow highlight, show plain background
+                const cellBg = (c === COL_E || c === 5) ? null : info.bgColor;
 
                 return (
                   <td
