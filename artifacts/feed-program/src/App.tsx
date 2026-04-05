@@ -65,6 +65,22 @@ const COL_K = 10;  // Silo A
 const COL_L = 11;  // Silo B
 const COL_M = 12;  // Silo C
 
+// ── Farm config (shared localStorage with Silo Tracker) ─────────────────────
+const FARM_CONFIG_KEY = "silo-farm-config";
+
+interface FarmShedConfig { shedGroupId: number; active: boolean; silos: { letter: string }[] }
+interface FarmConfigData { shedGroups?: FarmShedConfig[] }
+
+function readFarmConfig(): FarmConfigData {
+  try {
+    const raw = localStorage.getItem(FARM_CONFIG_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+// Maps shed sheet index (0-based, counting only SHED sheets) → shedGroupId (1–6)
+const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6];
+
 // Cobb 500 grams per bird per day (day 1 → day 54)
 const COBB500_GRAMS = [22,24,26,28,30,32,34,36,40,45,50,55,60,65,74,75,80,87,93,97,103,107,113,118,122,128,134,139,140,142,149,153,158,163,165,168,171,174,176,178,180,181,188,190,192,193,194,195,196,197,197,197,198,197];
 
@@ -509,10 +525,20 @@ export default function App() {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [edits, setEdits] = useState<Map<string, string>[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [farmConfig, setFarmConfig] = useState<FarmConfigData>(readFarmConfig);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
   const deliverySeedDoneRef = useRef(false);
+
+  // Sync farm config whenever Silo Tracker updates localStorage
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === FARM_CONFIG_KEY) setFarmConfig(readFarmConfig());
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   useEffect(() => {
     const xlsxUrl = `${BASE}feed-program.xlsx`;
@@ -929,9 +955,20 @@ export default function App() {
 
       {/* Sheet tabs */}
       <div className="flex items-end gap-0.5 px-3 pt-2 bg-gray-200 overflow-x-auto shrink-0">
-        {sheets.map((s, i) => {
+        {(() => {
+          let shedCount = 0;
+          return sheets.map((s, i) => {
           const tabName = s.name.trim().toUpperCase();
           if (tabName === "WEEKLY STOCK TAKE" || tabName === "CONSUMPTION GUIDE") return null;
+
+          // Check if this is a shed tab and if its group is active
+          if (tabName.includes("SHED")) {
+            const shedGroupId = SHED_SHEET_ORDER[shedCount];
+            shedCount++;
+            const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+            if (groupCfg && groupCfg.active === false) return null;
+          }
+
           const isActive = i === active;
           const bg = s.tabColor ?? "#217346";
           const fg = contrastColor(s.tabColor);
@@ -952,7 +989,8 @@ export default function App() {
               {s.name}{hasEdits ? " •" : ""}
             </button>
           );
-        })}
+        });
+        })()}
       </div>
 
       {/* Spreadsheet */}

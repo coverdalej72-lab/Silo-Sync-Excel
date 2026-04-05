@@ -48,7 +48,7 @@ export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const batchCreate = useBatchCreateReadings();
-  const { getShedName } = useFarmConfig();
+  const { getShedName, isShedActive, getActiveSiloLetters } = useFarmConfig();
 
   const { data: progress, isLoading } = useGetTodayProgress({
     query: { queryKey: getGetTodayProgressQueryKey() }
@@ -84,15 +84,18 @@ export default function Home() {
     if (!progress) return;
     const shed = progress.sheds.find(s => s.shedGroupId === shedId);
     if (!shed) return;
-    const readingsToSave = shed.silos.map(silo => {
-      const state = formState[shedId]?.[silo.siloId];
-      return {
-        siloId: silo.siloId,
-        feedType: state?.feedType || "",
-        amountRemaining: parseFloat(state?.amountRemaining || "0") || 0,
-        unit: state?.unit || "kg",
-      };
-    });
+    const activeSiloLetters = getActiveSiloLetters(shedId);
+    const readingsToSave = shed.silos
+      .filter(silo => activeSiloLetters.includes(silo.letter))
+      .map(silo => {
+        const state = formState[shedId]?.[silo.siloId];
+        return {
+          siloId: silo.siloId,
+          feedType: state?.feedType || "",
+          amountRemaining: parseFloat(state?.amountRemaining || "0") || 0,
+          unit: state?.unit || "kg",
+        };
+      });
     batchCreate.mutate({ data: { readings: readingsToSave } }, {
       onSuccess: () => {
         toast({ title: `${getShedName(shedId, shed.shedGroupName)} saved` });
@@ -116,8 +119,10 @@ export default function Home() {
 
   return (
     <div className="px-3 py-3 space-y-3 pb-8">
-      {progress.sheds.map(shed => {
-        const isSaved = shed.allSaved;
+      {progress.sheds.filter(shed => isShedActive(shed.shedGroupId)).map(shed => {
+        const activeLetters = getActiveSiloLetters(shed.shedGroupId);
+        const visibleSilos = shed.silos.filter(s => activeLetters.includes(s.letter));
+        const isSaved = visibleSilos.length > 0 && visibleSilos.every(s => s.saved);
 
         return (
           <div
@@ -152,7 +157,7 @@ export default function Home() {
 
             {/* Silos row */}
             <div className="flex gap-2 px-3 py-3">
-              {shed.silos.map((silo, idx) => {
+              {visibleSilos.map((silo, idx) => {
                 const colors = badgeColors(idx);
                 const state = formState[shed.shedGroupId]?.[silo.siloId];
                 const savedVal = silo.amountRemaining?.toString() ?? "";
@@ -195,12 +200,17 @@ export default function Home() {
         );
       })}
 
-      {/* Save all floating button if not all saved */}
-      {progress.savedCount < progress.totalCount && (
+      {/* Save all floating button — only if any active shed has unsaved silos */}
+      {progress.sheds
+        .filter(shed => isShedActive(shed.shedGroupId))
+        .some(shed => {
+          const letters = getActiveSiloLetters(shed.shedGroupId);
+          return shed.silos.filter(s => letters.includes(s.letter)).some(s => !s.saved);
+        }) && (
         <button
           onClick={() => {
             progress.sheds
-              .filter(s => !s.allSaved)
+              .filter(s => isShedActive(s.shedGroupId))
               .forEach(s => handleSaveShed(s.shedGroupId));
           }}
           disabled={batchCreate.isPending}
