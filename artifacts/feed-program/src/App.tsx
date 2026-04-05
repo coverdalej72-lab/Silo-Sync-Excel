@@ -1250,6 +1250,49 @@ function parseCatches(map: CatchMap, shedNum: number) {
   return { rows, totalCaught, totalWgtKg, aveWgt };
 }
 
+interface ParsedEmailRow { shedNum: number; age: string; birds: string; aveWgt: string; totalWgt: string; }
+
+function parseEmailCatchText(text: string): ParsedEmailRow[] {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  let headerIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const upper = lines[i].toUpperCase();
+    if (upper.includes('SHED') && (upper.includes('BIRD') || upper.includes('AGE')) && upper.includes('ACTUAL')) {
+      headerIdx = i; break;
+    }
+  }
+  if (headerIdx === -1) return [];
+  const headerLine = lines[headerIdx];
+  const splitRow = (line: string) => line.includes('\t') ? line.split('\t').map(c => c.trim()) : line.split(/\s{2,}/).map(c => c.trim());
+  const headerCols = splitRow(headerLine).map(c => c.toUpperCase());
+  const findCol = (kw: string) => headerCols.findIndex(c => c.includes(kw));
+  const shedIdx   = findCol('SHED');
+  const ageIdx    = headerCols.findIndex(c => c === 'AGE');
+  const birdIdx   = findCol('BIRD');
+  const actualIdx = headerCols.findIndex(c => c === 'ACTUAL');
+  const totalIdx  = findCol('TOTAL');
+  if (shedIdx === -1 || birdIdx === -1) return [];
+  const results: ParsedEmailRow[] = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cols = splitRow(lines[i]);
+    const shedNum = parseInt(cols[shedIdx]?.replace(/[^\d]/g, ''), 10);
+    const birds   = parseInt((cols[birdIdx] ?? '').replace(/,/g, ''), 10);
+    const aveWgt  = actualIdx >= 0 ? parseFloat((cols[actualIdx] ?? '').replace(/,/g, '')) : NaN;
+    const totalKg = totalIdx  >= 0 ? parseFloat((cols[totalIdx]  ?? '').replace(/,/g, '')) : NaN;
+    const age     = ageIdx    >= 0 ? (cols[ageIdx] ?? '') : '';
+    if (!isNaN(shedNum) && shedNum > 0 && !isNaN(birds) && birds > 0) {
+      results.push({
+        shedNum,
+        age,
+        birds: String(birds),
+        aveWgt: isNaN(aveWgt) ? '' : aveWgt.toFixed(3),
+        totalWgt: !isNaN(totalKg) && totalKg > 0 ? (totalKg / 1000).toFixed(3) : '',
+      });
+    }
+  }
+  return results;
+}
+
 function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number> }) {
   const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
@@ -1271,6 +1314,11 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
   );
   const [editingHeader, setEditingHeader] = useState<"farm" | "batch" | null>(null);
   const [headerEditVal, setHeaderEditVal] = useState("");
+  const [showEmailImport, setShowEmailImport] = useState(false);
+  const [emailText, setEmailText] = useState("");
+  const [emailParsed, setEmailParsed] = useState<ParsedEmailRow[] | null>(null);
+  const [emailParseError, setEmailParseError] = useState("");
+  const [emailImportMode, setEmailImportMode] = useState<"add" | "replace">("add");
 
   useEffect(() => {
     loadBatchResultsXlsx(import.meta.env.BASE_URL)
@@ -1477,6 +1525,13 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
             {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? `Batch #${bn}` : <span style={{ opacity: 0.5 }}>Batch #</span>; })()}
           </div>
         )}
+        <button
+          onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setShowEmailImport(true); }}
+          style={{ marginLeft: "auto", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+          title="Import catch data from a Baiada weighbridge email"
+        >
+          📧 Import Catches
+        </button>
       </div>
 
       {/* Top stat cards */}
@@ -1764,6 +1819,154 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
           </div>
         );
       })()}
+
+      {/* ── Email Import Modal ── */}
+      {showEmailImport && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={() => setShowEmailImport(false)}>
+          <div style={{ background: "#fff", borderRadius: 14, maxWidth: 560, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 12px 50px rgba(0,0,0,0.35)" }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Modal header */}
+            <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "16px 20px", borderRadius: "14px 14px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontSize: 22 }}>📧</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>Import Catches from Email</div>
+                <div style={{ fontSize: 12, opacity: 0.85 }}>Paste the weighbridge email table below</div>
+              </div>
+              <button onClick={() => setShowEmailImport(false)}
+                style={{ marginLeft: "auto", background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 6, width: 30, height: 30, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: "20px 24px" }}>
+
+              {/* Instructions */}
+              <div style={{ background: "#f0f7f3", border: "1px solid #c8e6d4", borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontSize: 13, color: "#333", lineHeight: 1.6 }}>
+                <strong>How to paste:</strong> Open the Adelaide Weighbridge email → select all the table text → copy → paste below.<br/>
+                <span style={{ color: "#666", fontSize: 12 }}>Works with the Baiada format: GROWER · SHED # · AGE · BIRD # · ESTIMATE · ACTUAL · TOTAL KG</span>
+              </div>
+
+              {/* Paste area */}
+              <textarea
+                value={emailText}
+                onChange={e => { setEmailText(e.target.value); setEmailParsed(null); setEmailParseError(""); }}
+                placeholder={"GROWER\tSHED #\tAGE\tBIRD #\tESTIMATE\tACTUAL\tTOTAL KG\nDouble B\t10\t45\t26208\t3.44\t3.66\t96013\n..."}
+                rows={7}
+                style={{ width: "100%", border: "1.5px solid #c8e6d4", borderRadius: 8, padding: "10px 12px", fontSize: 12, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box", outline: "none", color: "#222" }}
+              />
+
+              {/* Parse button */}
+              <button
+                onClick={() => {
+                  const rows = parseEmailCatchText(emailText);
+                  if (rows.length === 0) {
+                    setEmailParseError("Could not detect the weighbridge table. Make sure you copied the full table including the header row (GROWER, SHED #, AGE, BIRD #, ACTUAL, TOTAL KG).");
+                    setEmailParsed(null);
+                  } else {
+                    setEmailParsed(rows);
+                    setEmailParseError("");
+                  }
+                }}
+                style={{ width: "100%", background: "#1a5c36", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", marginTop: 10 }}
+              >
+                🔍 Parse Email Table
+              </button>
+
+              {/* Error message */}
+              {emailParseError && (
+                <div style={{ background: "#fff0f0", border: "1px solid #f5c6cb", borderRadius: 8, padding: "12px 14px", marginTop: 12, fontSize: 13, color: "#c0392b" }}>
+                  ⚠️ {emailParseError}
+                </div>
+              )}
+
+              {/* Parsed preview */}
+              {emailParsed && emailParsed.length > 0 && (
+                <>
+                  <div style={{ marginTop: 18, marginBottom: 10 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 4 }}>
+                      ✅ Found {emailParsed.length} catch row{emailParsed.length !== 1 ? "s" : ""}
+                    </div>
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "Inter,'Segoe UI',sans-serif" }}>
+                        <thead>
+                          <tr style={{ background: "#1a5c36", color: "#fff" }}>
+                            {["Shed", "Age (days)", "Birds", "Ave Wgt (kg)", "Total Wgt (t)"].map(h => (
+                              <th key={h} style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {emailParsed.map((r, i) => (
+                            <tr key={i} style={{ background: i % 2 === 0 ? "#f4f9f6" : "#fff" }}>
+                              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1a5c36" }}>SHED {r.shedNum}</td>
+                              <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.age || "—"}</td>
+                              <td style={{ padding: "5px 10px", textAlign: "right" }}>{parseInt(r.birds).toLocaleString()}</td>
+                              <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.aveWgt || "—"}</td>
+                              <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.totalWgt || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Import mode */}
+                  <div style={{ background: "#fffde7", border: "1px solid #ffe082", borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: "#333", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>How to import</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {([
+                        { val: "add", label: "Add to existing catches", desc: "Keeps any current catch rows and adds these on top" },
+                        { val: "replace", label: "Replace per-shed catches", desc: "Removes existing rows for matching sheds and replaces with these" },
+                      ] as const).map(opt => (
+                        <label key={opt.val} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                          <input type="radio" name="emailImportMode" value={opt.val}
+                            checked={emailImportMode === opt.val}
+                            onChange={() => setEmailImportMode(opt.val)}
+                            style={{ marginTop: 3 }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 13 }}>{opt.label}</div>
+                            <div style={{ fontSize: 11, color: "#666" }}>{opt.desc}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Confirm import */}
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button onClick={() => setShowEmailImport(false)}
+                      style={{ flex: 1, background: "#f0f0f0", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#333" }}>
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!emailParsed) return;
+                        const next = { ...catchMap };
+                        emailParsed.forEach(row => {
+                          const newCatch: EditableCatch = { date: "", age: row.age, birds: row.birds, aveWgt: row.aveWgt, totalWgt: row.totalWgt };
+                          if (emailImportMode === "replace") {
+                            next[row.shedNum] = [newCatch];
+                          } else {
+                            next[row.shedNum] = [...(next[row.shedNum] ?? []), newCatch];
+                          }
+                        });
+                        saveCatchMap(next);
+                        setShowEmailImport(false);
+                      }}
+                      style={{ flex: 2, background: "#1a5c36", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
+                    >
+                      ✅ Import {emailParsed.length} Catch Row{emailParsed.length !== 1 ? "s" : ""}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
