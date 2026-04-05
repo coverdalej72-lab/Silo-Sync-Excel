@@ -786,6 +786,167 @@ function SummaryInputField({ label, value, onSave, wide }: { label: string; valu
   );
 }
 
+// ── Feed Alert System ────────────────────────────────────────────────────────
+
+const FEED_ORDER_LEAD_DAYS = 7; // days needed to receive a feed order
+
+interface FeedAlert {
+  shedGroupName: string;
+  feedOnHand: number;       // kg currently available
+  dailyUsage: number;       // kg/day (avg recent days)
+  daysRemaining: number;
+  urgency: "critical" | "warning" | "watch"; // ≤3d, ≤7d, ≤14d
+  sheetIdx: number;
+}
+
+function computeFeedAlerts(
+  sheets: SheetParsed[],
+  edits: Map<string, string>[],
+  farmConfig: FarmConfigData,
+): FeedAlert[] {
+  const alerts: FeedAlert[] = [];
+  let shedCount = 0;
+
+  for (let i = 0; i < sheets.length; i++) {
+    const tabName = sheets[i].name.trim().toUpperCase();
+    if (tabName === "WEEKLY STOCK TAKE" || tabName === "CONSUMPTION GUIDE") continue;
+    if (!tabName.includes("SHED")) continue;
+
+    const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
+    shedCount++;
+
+    const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+    const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+    if (!groupActive) continue;
+
+    const getV = (row: number, col: number): number => {
+      const key = `${row},${col}`;
+      const ev = edits[i]?.get(key);
+      const cv = String(sheets[i].cells.get(key)?.value ?? "");
+      const raw = ev !== undefined ? ev : cv;
+      return parseFloat(raw.replace(/,/g, "")) || 0;
+    };
+
+    const maxRow = sheets[i].numRows - 1;
+
+    // Walk from bottom to find latest row with a valid age AND feed usage
+    let latestRow = -1;
+    for (let r = maxRow; r >= 3; r--) {
+      const age = getV(r, 0);
+      const usage = getV(r, COL_H);
+      if (age >= 1 && usage > 0) { latestRow = r; break; }
+    }
+    if (latestRow < 0) continue;
+
+    // Feed on hand: use FEED ON HAND (COL_I); fall back to SILO TOTAL (COL_J)
+    let feedOnHand = getV(latestRow, COL_I);
+    if (feedOnHand <= 0) feedOnHand = getV(latestRow, COL_J);
+    if (feedOnHand <= 0) continue;
+
+    // Average daily usage over last 5 days
+    let usageSum = 0, usageDays = 0;
+    for (let r = latestRow; r >= Math.max(3, latestRow - 4); r--) {
+      const u = getV(r, COL_H);
+      if (u > 0) { usageSum += u; usageDays++; }
+    }
+    const avgDailyUsage = usageDays > 0 ? usageSum / usageDays : 0;
+    if (avgDailyUsage <= 0) continue;
+
+    const daysRemaining = feedOnHand / avgDailyUsage;
+
+    // Only surface alerts within 14-day horizon
+    if (daysRemaining > 14) continue;
+
+    const urgency = daysRemaining <= 3 ? "critical"
+      : daysRemaining <= FEED_ORDER_LEAD_DAYS ? "warning"
+      : "watch";
+
+    alerts.push({
+      shedGroupName: sheets[i].name.trim(),
+      feedOnHand,
+      dailyUsage: avgDailyUsage,
+      daysRemaining,
+      urgency,
+      sheetIdx: i,
+    });
+  }
+
+  return alerts.sort((a, b) => a.daysRemaining - b.daysRemaining);
+}
+
+function FeedAlertBanner({ alerts, onGoToShed }: { alerts: FeedAlert[]; onGoToShed: (sheetIdx: number) => void }) {
+  const [expanded, setExpanded] = useState(true);
+  if (alerts.length === 0) return null;
+
+  const hasCritical = alerts.some(a => a.urgency === "critical");
+  const hasWarning  = alerts.some(a => a.urgency === "warning");
+  const topUrgency  = hasCritical ? "critical" : hasWarning ? "warning" : "watch";
+
+  const colors = {
+    critical: { bg: "#fff0f0", border: "#f5c6cb", accent: "#c0392b", label: "🚨 FEED CRITICAL — ORDER IMMEDIATELY" },
+    warning:  { bg: "#fff8f0", border: "#ffe0b2", accent: "#e67e22", label: "⚠️ FEED LOW — ORDER NOW (within 7-day lead time)" },
+    watch:    { bg: "#fffde7", border: "#fff3cd", accent: "#f39c12", label: "📋 FEED WATCH — Order soon" },
+  };
+  const c = colors[topUrgency];
+
+  return (
+    <div style={{ background: c.bg, borderBottom: `3px solid ${c.accent}`, padding: "0", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
+      {/* Banner header row */}
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", cursor: "pointer" }}
+        onClick={() => setExpanded(e => !e)}
+      >
+        <div style={{ fontWeight: 800, fontSize: 12, color: c.accent, flex: 1 }}>{c.label}</div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {alerts.map((a, i) => (
+            <span key={i} style={{
+              background: a.urgency === "critical" ? "#c0392b" : a.urgency === "warning" ? "#e67e22" : "#f39c12",
+              color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700,
+            }}>
+              {a.shedGroupName} · {a.daysRemaining.toFixed(1)}d
+            </span>
+          ))}
+        </div>
+        <div style={{ fontSize: 12, color: c.accent, fontWeight: 700 }}>{expanded ? "▲" : "▼"}</div>
+      </div>
+
+      {/* Expanded detail cards */}
+      {expanded && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "0 14px 12px" }}>
+          {alerts.map((a, i) => {
+            const urgColor = a.urgency === "critical" ? "#c0392b" : a.urgency === "warning" ? "#e67e22" : "#f39c12";
+            const orderBy = new Date();
+            orderBy.setDate(orderBy.getDate() + Math.max(0, Math.floor(a.daysRemaining) - FEED_ORDER_LEAD_DAYS));
+            const orderByStr = a.daysRemaining <= FEED_ORDER_LEAD_DAYS
+              ? "Order TODAY"
+              : `Order by ${orderBy.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}`;
+            return (
+              <div
+                key={i}
+                onClick={() => onGoToShed(a.sheetIdx)}
+                style={{ background: "#fff", border: `2px solid ${urgColor}`, borderRadius: 10, padding: "10px 14px", minWidth: 180, cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}
+              >
+                <div style={{ fontWeight: 800, fontSize: 13, color: "#333", marginBottom: 4 }}>{a.shedGroupName}</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: urgColor, lineHeight: 1 }}>{a.daysRemaining.toFixed(1)}</div>
+                <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>days remaining</div>
+                <div style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>
+                  <strong>{Math.round(a.feedOnHand).toLocaleString()} kg</strong> on hand
+                </div>
+                <div style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>
+                  <strong>{Math.round(a.dailyUsage).toLocaleString()} kg</strong> / day
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: urgColor, background: `${urgColor}18`, borderRadius: 5, padding: "3px 8px", textAlign: "center" }}>
+                  {orderByStr}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ShedSummaryCard({
   sheetIdx, sheet, edits, onEdit, getCell, eobSheetIdx, shed1Num, shed2Num,
 }: {
@@ -1644,6 +1805,9 @@ export default function App() {
     return map;
   }, [sheets, edits]);
 
+  // Feed alert computation (recalculates whenever sheets/edits/farmConfig change)
+  const feedAlerts = useMemo(() => computeFeedAlerts(sheets, edits, farmConfig), [sheets, edits, farmConfig]);
+
   // Initialize and sync theme with Silo Tracker
   useEffect(() => {
     const applyTheme = (t: string | null) => {
@@ -2131,6 +2295,8 @@ export default function App() {
           const bg = "#C9A227";
           const fg = contrastColor(bg);
           const hasEdits = edits[i]?.size > 0;
+          const tabAlert = feedAlerts.find(a => a.sheetIdx === i);
+          const alertDotColor = tabAlert?.urgency === "critical" ? "#c0392b" : tabAlert?.urgency === "warning" ? "#e67e22" : tabAlert ? "#f39c12" : null;
           return (
             <button
               key={i}
@@ -2139,11 +2305,13 @@ export default function App() {
               style={{
                 backgroundColor: isActive ? bg : `${bg}aa`,
                 color: isActive ? fg : fg,
-                borderColor: bg,
+                borderColor: alertDotColor ?? bg,
+                borderWidth: alertDotColor ? 2 : 1,
                 opacity: isActive ? 1 : 0.72,
                 transform: isActive ? "translateY(1px)" : "translateY(3px)",
               }}
             >
+              {alertDotColor && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: alertDotColor, marginRight: 5, verticalAlign: "middle", animation: tabAlert?.urgency === "critical" ? "pulse 1.2s infinite" : "none" }} />}
               {s.name}{hasEdits ? " •" : ""}
             </button>
           );
@@ -2165,6 +2333,12 @@ export default function App() {
           📊 Batch Results
         </button>
       </div>
+
+      {/* Feed Alert Banner */}
+      <FeedAlertBanner
+        alerts={feedAlerts}
+        onGoToShed={(sheetIdx) => { setActive(sheetIdx); setActiveView(null); }}
+      />
 
       {/* Spreadsheet / Summary */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
