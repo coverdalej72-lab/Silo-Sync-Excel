@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen } from "lucide-react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -67,8 +67,24 @@ export default function Settings() {
   const [expandedSheds, setExpandedSheds] = useState<Record<number, boolean>>({});
   const [resetting, setResetting] = useState(false);
   const [farmNameInput, setFarmNameInput] = useState(config.farmName);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const locked = config.setupLocked;
+
+  const copyLink = async (key: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopiedLink(key);
+    setTimeout(() => setCopiedLink(null), 2500);
+  };
 
   const handleNewBatch = async () => {
     if (!confirm(
@@ -296,6 +312,77 @@ export default function Settings() {
             );
           })}
         </div>
+      </div>
+
+      {/* Share */}
+      <div>
+        <SectionLabel title="Share App Links" />
+        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+          {/* Feed Program link */}
+          {(() => {
+            const feedUrl = `${window.location.origin}/feed-program/`;
+            const feedCopied = copiedLink === "feed";
+            return (
+              <div className="flex items-center gap-3 px-4 py-4 border-b border-border/40">
+                <div className="w-9 h-9 rounded-xl bg-[#217346]/20 flex items-center justify-center shrink-0">
+                  <FileSpreadsheet className="h-5 w-5 text-[#4caf50]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground">Feed Program</p>
+                  <p className="text-xs text-muted-foreground truncate">{feedUrl}</p>
+                </div>
+                <button
+                  onClick={() => copyLink("feed", feedUrl)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all shrink-0",
+                    feedCopied
+                      ? "border-primary/60 text-primary bg-primary/10"
+                      : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+                  )}
+                >
+                  {feedCopied
+                    ? <><Check className="w-3.5 h-3.5" /> Copied!</>
+                    : <><Link2 className="w-3.5 h-3.5" /> Copy Link</>
+                  }
+                </button>
+              </div>
+            );
+          })()}
+
+          {/* Silo Mate link */}
+          {(() => {
+            const siloUrl = `${window.location.origin}/`;
+            const siloCopied = copiedLink === "silo";
+            return (
+              <div className="flex items-center gap-3 px-4 py-4">
+                <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                  <LayoutGrid className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm text-foreground">Silo Mate</p>
+                  <p className="text-xs text-muted-foreground truncate">{siloUrl}</p>
+                </div>
+                <button
+                  onClick={() => copyLink("silo", siloUrl)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all shrink-0",
+                    siloCopied
+                      ? "border-primary/60 text-primary bg-primary/10"
+                      : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+                  )}
+                >
+                  {siloCopied
+                    ? <><Check className="w-3.5 h-3.5" /> Copied!</>
+                    : <><Link2 className="w-3.5 h-3.5" /> Copy Link</>
+                  }
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+        <p className="text-[10px] text-muted-foreground px-1 mt-1.5">
+          Paste either link in any browser on PC, Mac, tablet, or phone to open the app.
+        </p>
       </div>
 
       {/* Downloads */}
