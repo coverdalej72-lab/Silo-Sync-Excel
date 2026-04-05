@@ -1532,10 +1532,10 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         ) : (
           <div
             title="Click to edit farm name"
-            onClick={() => { setHeaderEditVal(overrideFarmName || farmConfig.farmName || summary?.farmName || ""); setEditingHeader("farm"); }}
+            onClick={() => { setHeaderEditVal(overrideFarmName || farmConfig.farmName || ""); setEditingHeader("farm"); }}
             style={{ fontSize: 15, fontWeight: 700, cursor: "pointer", borderBottom: "1px dashed rgba(255,255,255,0.5)", paddingBottom: 1 }}
           >
-            {overrideFarmName || farmConfig.farmName || summary?.farmName || <span style={{ opacity: 0.5 }}>Farm name</span>}
+            {overrideFarmName || farmConfig.farmName || <span style={{ opacity: 0.5 }}>Farm name</span>}
           </div>
         )}
 
@@ -1821,7 +1821,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         const shedsWithData = Object.values(catchMap).filter(r => r.length > 0).length;
         const totalRows = Object.values(catchMap).reduce((a, r) => a + r.length, 0);
         const batchLabel = summary?.batchNum && summary.batchNum > 0 ? `Batch #${summary.batchNum}` : "current batch";
-        const farmLabel = farmConfig.farmName || summary?.farmName || "";
+        const farmLabel = farmConfig.farmName || "";
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
             onClick={() => setShowClearConfirm(false)}>
