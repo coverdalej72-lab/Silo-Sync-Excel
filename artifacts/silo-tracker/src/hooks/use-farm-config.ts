@@ -15,12 +15,14 @@ export interface ShedGroupConfig {
 export interface FarmConfig {
   farmName: string;
   shedGroups: ShedGroupConfig[];
+  setupLocked: boolean;
 }
 
 const SILO_LETTERS = ["A", "B", "C"] as const;
 
 const DEFAULT_CONFIG: FarmConfig = {
   farmName: "Double B Farm",
+  setupLocked: false,
   shedGroups: [
     { shedGroupId: 1,  customName: "Sheds 1 & 2",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
     { shedGroupId: 2,  customName: "Sheds 3 & 4",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
@@ -44,6 +46,7 @@ function loadConfig(): FarmConfig {
     const parsed = JSON.parse(raw) as Partial<FarmConfig>;
     return {
       farmName: parsed.farmName ?? DEFAULT_CONFIG.farmName,
+      setupLocked: parsed.setupLocked ?? false,
       shedGroups: DEFAULT_CONFIG.shedGroups.map((def) => {
         const stored = parsed.shedGroups?.find((s) => s.shedGroupId === def.shedGroupId);
         if (!stored) return def;
@@ -136,6 +139,14 @@ export function useFarmConfig() {
     });
   }, []);
 
+  const toggleSetupLock = useCallback(() => {
+    setConfig((prev) => {
+      const next = { ...prev, setupLocked: !prev.setupLocked };
+      saveConfig(next);
+      return next;
+    });
+  }, []);
+
   const updateSiloTonnage = useCallback((shedGroupId: number, letter: string, tonnes: number) => {
     setConfig((prev) => {
       const next = {
@@ -191,6 +202,7 @@ export function useFarmConfig() {
     addSilo,
     removeSilo,
     updateSiloTonnage,
+    toggleSetupLock,
     getShedName,
     getSiloTonnage,
     isShedActive,

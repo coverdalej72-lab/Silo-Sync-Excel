@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus } from "lucide-react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -38,13 +38,15 @@ function DarkInput({ value, onBlur, placeholder, type = "text" }: {
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void; disabled?: boolean }) {
   return (
     <button
-      onClick={onChange}
+      onClick={disabled ? undefined : onChange}
+      disabled={disabled}
       className={cn(
         "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200",
-        on ? "bg-primary" : "bg-secondary border border-border/50"
+        on ? "bg-primary" : "bg-secondary border border-border/50",
+        disabled && "opacity-40 cursor-not-allowed"
       )}
       aria-checked={on}
       role="switch"
@@ -60,11 +62,13 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
 }
 
 export default function Settings() {
-  const { config, updateFarmName, updateShedName, updateSiloTonnage, toggleShedActive, addSilo, removeSilo } = useFarmConfig();
+  const { config, updateFarmName, updateShedName, updateSiloTonnage, toggleShedActive, addSilo, removeSilo, toggleSetupLock } = useFarmConfig();
   const { toast } = useToast();
   const [expandedSheds, setExpandedSheds] = useState<Record<number, boolean>>({});
   const [resetting, setResetting] = useState(false);
   const [farmNameInput, setFarmNameInput] = useState(config.farmName);
+
+  const locked = config.setupLocked;
 
   const handleNewBatch = async () => {
     if (!confirm(
@@ -91,16 +95,61 @@ export default function Settings() {
   return (
     <div className="px-3 py-3 pb-8 space-y-5">
 
+      {/* Farm Setup Lock */}
+      <div>
+        <SectionLabel title="Farm Setup" />
+        <div className={cn(
+          "rounded-2xl border overflow-hidden transition-colors",
+          locked
+            ? "bg-amber-500/10 border-amber-500/40"
+            : "bg-card border-border/50"
+        )}>
+          <div className="flex items-center gap-4 px-4 py-4">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+              locked ? "bg-amber-500/20" : "bg-secondary"
+            )}>
+              {locked
+                ? <Lock className="h-5 w-5 text-amber-400" />
+                : <LockOpen className="h-5 w-5 text-muted-foreground" />
+              }
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={cn("font-bold text-sm", locked ? "text-amber-400" : "text-foreground")}>
+                {locked ? "Setup Locked" : "Setup Unlocked"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {locked
+                  ? "Farm name and shed/silo configuration are protected."
+                  : "Farm name, sheds, and silos are editable below."}
+              </p>
+            </div>
+            <button
+              onClick={toggleSetupLock}
+              className={cn(
+                "px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all active:scale-95 shrink-0",
+                locked
+                  ? "border-amber-500/60 text-amber-400 hover:bg-amber-500/20"
+                  : "border-primary/60 text-primary hover:bg-primary/10"
+              )}
+            >
+              {locked ? "Unlock" : "Lock"}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Farm */}
       <div>
         <SectionLabel title="Farm" />
-        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+        <div className={cn("bg-card border border-border/50 rounded-2xl overflow-hidden", locked && "opacity-60")}>
           <SettingsRow label="Farm Name" last>
             <input
               type="text"
               value={farmNameInput}
-              onChange={e => setFarmNameInput(e.target.value)}
+              onChange={e => !locked && setFarmNameInput(e.target.value)}
               onBlur={() => {
+                if (locked) return;
                 const name = farmNameInput.trim();
                 if (name) {
                   updateFarmName(name);
@@ -108,8 +157,12 @@ export default function Settings() {
                   setFarmNameInput(config.farmName);
                 }
               }}
+              disabled={locked}
               placeholder="Enter farm name"
-              className="bg-secondary border border-border/50 rounded-lg px-3 py-2 text-sm text-right text-foreground w-40 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50"
+              className={cn(
+                "bg-secondary border border-border/50 rounded-lg px-3 py-2 text-sm text-right text-foreground w-40 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50",
+                locked && "cursor-not-allowed"
+              )}
             />
           </SettingsRow>
         </div>
@@ -118,7 +171,7 @@ export default function Settings() {
       {/* Sheds & Silos */}
       <div>
         <SectionLabel title="Sheds & Silo Capacity" />
-        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+        <div className={cn("bg-card border border-border/50 rounded-2xl overflow-hidden", locked && "opacity-60")}>
           {config.shedGroups.map((group, gi) => {
             const isOpen = !!expandedSheds[group.shedGroupId];
             const isLast = gi === config.shedGroups.length - 1;
@@ -130,6 +183,7 @@ export default function Settings() {
                   <Toggle
                     on={group.active}
                     onChange={() => toggleShedActive(group.shedGroupId)}
+                    disabled={locked}
                   />
 
                   {/* Expand/collapse button */}
@@ -165,8 +219,14 @@ export default function Settings() {
                       <input
                         type="text"
                         defaultValue={group.customName}
-                        onBlur={e => updateShedName(group.shedGroupId, e.target.value.trim() || group.customName)}
-                        className="w-full bg-secondary border border-border/50 rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        disabled={locked}
+                        onBlur={e => {
+                          if (!locked) updateShedName(group.shedGroupId, e.target.value.trim() || group.customName);
+                        }}
+                        className={cn(
+                          "w-full bg-secondary border border-border/50 rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50",
+                          locked && "cursor-not-allowed"
+                        )}
                       />
                     </div>
 
@@ -178,16 +238,16 @@ export default function Settings() {
                         </label>
                         <div className="flex items-center gap-1.5">
                           <button
-                            onClick={() => removeSilo(group.shedGroupId)}
-                            disabled={group.silos.length <= 1}
+                            onClick={() => !locked && removeSilo(group.shedGroupId)}
+                            disabled={locked || group.silos.length <= 1}
                             className="w-7 h-7 rounded-lg bg-secondary border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 transition-opacity"
                             title="Remove silo"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => addSilo(group.shedGroupId)}
-                            disabled={group.silos.length >= 3}
+                            onClick={() => !locked && addSilo(group.shedGroupId)}
+                            disabled={locked || group.silos.length >= 3}
                             className="w-7 h-7 rounded-lg bg-secondary border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30 transition-opacity"
                             title="Add silo"
                           >
@@ -213,11 +273,17 @@ export default function Settings() {
                                 step="0.5"
                                 defaultValue={silo.tonnesCapacity || ""}
                                 placeholder="0t"
+                                disabled={locked}
                                 onBlur={e => {
-                                  const val = parseFloat(e.target.value);
-                                  updateSiloTonnage(group.shedGroupId, silo.letter, isNaN(val) ? 0 : val);
+                                  if (!locked) {
+                                    const val = parseFloat(e.target.value);
+                                    updateSiloTonnage(group.shedGroupId, silo.letter, isNaN(val) ? 0 : val);
+                                  }
                                 }}
-                                className="w-full bg-secondary border border-border/50 rounded-xl px-2 py-2 text-sm text-center font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/40"
+                                className={cn(
+                                  "w-full bg-secondary border border-border/50 rounded-xl px-2 py-2 text-sm text-center font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/40",
+                                  locked && "cursor-not-allowed"
+                                )}
                               />
                             </div>
                           );
