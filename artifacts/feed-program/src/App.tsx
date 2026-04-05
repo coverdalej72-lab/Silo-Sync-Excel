@@ -1243,6 +1243,20 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
 }
 
 const BATCH_CATCHES_KEY = "silo-batch-catches";
+const EDITS_KEY = "silo-fp-edits";
+
+function loadEditsFromStorage(): Map<string, string>[] {
+  try {
+    const s = localStorage.getItem(EDITS_KEY);
+    if (!s) return [];
+    return (JSON.parse(s) as [string, string][][]).map(arr => new Map(arr));
+  } catch { return []; }
+}
+
+function saveEditsToStorage(edits: Map<string, string>[]) {
+  localStorage.setItem(EDITS_KEY, JSON.stringify(edits.map(m => [...m.entries()])));
+}
+
 interface EditableCatch { date: string; age: string; birds: string; aveWgt: string; totalWgt: string; }
 type CatchMap = Record<number, EditableCatch[]>;
 
@@ -2359,8 +2373,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
-  const [edits, setEdits] = useState<Map<string, string>[]>([]);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [edits, setEdits] = useState<Map<string, string>[]>(loadEditsFromStorage);
+  const [autoSaved, setAutoSaved] = useState(false);
   const [batchKey, setBatchKey] = useState(0);
   const batchNumCacheRef = useRef(parseInt(localStorage.getItem("silo-batch-num") || "0", 10));
   const [farmConfig, setFarmConfig] = useState<FarmConfigData>(readFarmConfig);
@@ -2416,6 +2430,16 @@ export default function App() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // Auto-save edits to localStorage whenever they change
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (edits.length === 0) return;
+    saveEditsToStorage(edits);
+    setAutoSaved(true);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => setAutoSaved(false), 2000);
+  }, [edits]);
+
   useEffect(() => {
     const xlsxUrl = `${BASE}feed-program.xlsx`;
     const styleUrl = `${BASE}style-data.json`;
@@ -2454,7 +2478,8 @@ export default function App() {
         });
 
         setSheets(result);
-        setEdits(result.map(() => new Map()));
+        // Preserve any edits already loaded from localStorage; only expand the array if more sheets
+        setEdits(prev => result.map((_, i) => prev[i] ?? new Map()));
         setActive(startIdx);
         setLoading(false);
       })
@@ -2663,7 +2688,6 @@ export default function App() {
       next[sheetIdx] = recalculated;
       return next;
     });
-    setHasChanges(true);
   }, [sheets]);
 
   const resetForNewBatch = async () => {
@@ -2750,7 +2774,6 @@ export default function App() {
     });
 
     setEdits(newEdits);
-    setHasChanges(false);
 
     // Clear Batch Results catch data so it resets cleanly
     localStorage.removeItem("silo-batch-catches");
@@ -2758,6 +2781,7 @@ export default function App() {
     // Clear per-shed morts & culls daily log
     localStorage.removeItem("silo-morts-log");
     localStorage.removeItem("silo-culls-log");
+    localStorage.removeItem(EDITS_KEY);
     // Auto-increment batch number
     const nextBatch = batchNumCacheRef.current > 0 ? batchNumCacheRef.current + 1 : 0;
     if (nextBatch > 0) {
@@ -2795,7 +2819,6 @@ export default function App() {
     a.download = "feed-program.xlsx";
     a.click();
     URL.revokeObjectURL(url);
-    setHasChanges(false);
   };
 
   if (loading) return (
@@ -2821,7 +2844,9 @@ export default function App() {
       <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
         <div className="ml-auto flex items-center gap-2">
-          {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
+          {autoSaved && (
+            <span className="text-green-300 text-xs font-semibold transition-opacity duration-500">✓ Saved</span>
+          )}
           <button
             onClick={resetForNewBatch}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
@@ -2831,10 +2856,9 @@ export default function App() {
           </button>
           <button
             onClick={downloadFile}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors"
-            style={{ background: hasChanges ? "#f59e0b" : "#2d8653", color: hasChanges ? "#000" : "#fff" }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors bg-[#2d8653] hover:bg-[#1a5c36] text-white"
           >
-            ⬇ Save & Download
+            ⬇ Download
           </button>
           <button
             onClick={() => {
