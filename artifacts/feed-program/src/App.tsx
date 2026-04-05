@@ -69,7 +69,7 @@ const COL_M = 12;  // Silo C
 const FARM_CONFIG_KEY = "silo-farm-config";
 
 interface FarmShedConfig { shedGroupId: number; active: boolean; silos: { letter: string }[] }
-interface FarmConfigData { shedGroups?: FarmShedConfig[] }
+interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[] }
 
 function readFarmConfig(): FarmConfigData {
   try {
@@ -928,7 +928,7 @@ export default function App() {
     <div className="flex flex-col h-screen bg-gray-100">
       {/* Header */}
       <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
-        <span className="text-lg font-bold tracking-wide">Double B Farm — Feed Program</span>
+        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
         <div className="ml-auto flex items-center gap-2">
           {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
           <button

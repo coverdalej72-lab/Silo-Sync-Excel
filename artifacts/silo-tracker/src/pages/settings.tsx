@@ -64,6 +64,7 @@ export default function Settings() {
   const { toast } = useToast();
   const [expandedSheds, setExpandedSheds] = useState<Record<number, boolean>>({});
   const [resetting, setResetting] = useState(false);
+  const [farmNameInput, setFarmNameInput] = useState(config.farmName);
 
   const handleNewBatch = async () => {
     if (!confirm(
@@ -95,9 +96,20 @@ export default function Settings() {
         <SectionLabel title="Farm" />
         <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
           <SettingsRow label="Farm Name" last>
-            <DarkInput
-              value={config.farmName}
-              onBlur={e => updateFarmName(e.target.value.trim() || config.farmName)}
+            <input
+              type="text"
+              value={farmNameInput}
+              onChange={e => setFarmNameInput(e.target.value)}
+              onBlur={() => {
+                const name = farmNameInput.trim();
+                if (name) {
+                  updateFarmName(name);
+                } else {
+                  setFarmNameInput(config.farmName);
+                }
+              }}
+              placeholder="Enter farm name"
+              className="bg-secondary border border-border/50 rounded-lg px-3 py-2 text-sm text-right text-foreground w-40 focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50"
             />
           </SettingsRow>
         </div>
