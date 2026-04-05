@@ -620,6 +620,10 @@ function SheetView({
       <tbody>
         {Array.from({ length: maxRow - effectiveStart + 1 }, (_, ri) => {
           const r = effectiveStart + ri;
+
+          // Skip blank setup rows in shed sheets (between the column headers and the data)
+          if (isShedSheet && (r === 9 || r === 10)) return null;
+
           const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : (rowHeights[r] ?? 20);
 
           // Determine row-level background
