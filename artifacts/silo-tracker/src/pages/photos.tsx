@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Trash2, ZoomIn, X, Camera, ImagePlus } from "lucide-react";
+import { Trash2, ZoomIn, X, Camera } from "lucide-react";
 import { format } from "date-fns";
 
 interface PhotoEntry {
@@ -23,8 +23,7 @@ export default function Photos() {
   const [note, setNote] = useState("");
   const [viewPhoto, setViewPhoto] = useState<PhotoEntry | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
-  const galleryRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const sortedPhotos = [...photos].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -45,8 +44,7 @@ export default function Photos() {
       setNote("");
     };
     reader.readAsDataURL(file);
-    if (cameraRef.current) cameraRef.current.value = "";
-    if (galleryRef.current) galleryRef.current.value = "";
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const deletePhoto = (id: string) => {
@@ -68,24 +66,14 @@ export default function Photos() {
           onChange={e => setNote(e.target.value)}
           className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background mb-2 outline-none focus:ring-2 focus:ring-primary/40"
         />
-        <div className="flex gap-2">
-          <button
-            onClick={() => cameraRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm active:opacity-80"
-          >
-            <Camera className="h-4 w-4" />
-            Take Photo
-          </button>
-          <button
-            onClick={() => galleryRef.current?.click()}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-secondary text-foreground font-semibold text-sm border border-border active:opacity-80"
-          >
-            <ImagePlus className="h-4 w-4" />
-            Upload
-          </button>
-        </div>
-        <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
-        <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
+        <button
+          onClick={() => fileRef.current?.click()}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm active:opacity-80"
+        >
+          <Camera className="h-4 w-4" />
+          Add Photo
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => handleFile(e.target.files?.[0])} />
       </div>
 
       {/* Gallery */}
