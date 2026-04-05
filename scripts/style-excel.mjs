@@ -60,6 +60,14 @@ function styleShedInPlace(ws, isBig) {
 
   ws.views = [{ state: "frozen", ySplit: 9, showGridLines: true }];
 
+  // Shed 1&2 has cols 2-14 merged as one date zone (B:N).
+  // Hide cols 3-13 so the layout is compact like the other shed sheets.
+  if (isBig) {
+    for (let c = 3; c <= 13; c++) {
+      ws.getColumn(c).hidden = true;
+    }
+  }
+
   ws.eachRow((row, rn) => {
     const isEven = rn % 2 === 0;
     const isLast = rn === lastR;
