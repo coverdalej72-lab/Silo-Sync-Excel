@@ -204,6 +204,7 @@ interface CellInfo {
   borderBottom?: string;
   borderLeft?: string;
   borderRight?: string;
+  isDateCell?: boolean;
 }
 
 interface RichStyle {
@@ -307,6 +308,7 @@ function parseSheet(
       const merge = mergeSet.get(key);
 
       let value = "";
+      const isDateCell = cell?.t === "d";
       if (cell) {
         if (cell.t === "d" && cell.v instanceof Date)
           value = cell.v.toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
@@ -351,6 +353,7 @@ function parseSheet(
         borderBottom: borderStyle(border?.bottom),
         borderLeft: borderStyle(border?.left),
         borderRight: borderStyle(border?.right),
+        isDateCell,
       });
     }
   }
@@ -645,7 +648,9 @@ function SheetView({
                 if (info.hidden) return null;
                 const key = `${r},${c}`;
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
-                const displayVal = edits.has(key) ? edits.get(key)! : info.value;
+                const rawVal = edits.has(key) ? edits.get(key)! : info.value;
+                // Hide template date values sitting in header rows (e.g. "Monday 16 July 2018")
+                const displayVal = (isAnyHeader && info.isDateCell) ? "" : rawVal;
                 const fs = isShedHeader ? (info.fontSize ?? 11) : (info.fontSize ?? 11);
 
                 // Column I (index 8) = FEED ON HAND — highlight red when negative (feed run out)
