@@ -2379,38 +2379,6 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
                     </React.Fragment>
                   );
                 })}
-                {/* Day totals — 2 rows: M and C */}
-                {(() => {
-                  const dayMTotals = days.map(d => shedNums.reduce((a, s) => a + (mortsLog[isoDate(d)]?.[s] ?? 0), 0));
-                  const dayCTotals = days.map(d => shedNums.reduce((a, s) => a + (cullsLog[isoDate(d)]?.[s] ?? 0), 0));
-                  return (
-                    <React.Fragment>
-                      <tr style={{ background: "#f8e8e8" }}>
-                        <td rowSpan={2} style={{ ...TD_STICKY, width: 44, background: "#efd0d0", color: "#8b1a1a", fontWeight: 800, fontSize: 9, textTransform: "uppercase", verticalAlign: "middle", textAlign: "center", borderRight: "none", letterSpacing: 0.3 }}>Day<br/>Total</td>
-                        <td style={{ ...TD_STICKY, left: 44, width: 24, background: "#fff0f0", color: "#8b1a1a", fontWeight: 700, fontSize: 10, borderLeft: "none", borderRight: "2px solid #e5c5c5" }}>M</td>
-                        {dayMTotals.map((t, i) => (
-                          <td key={i} style={{ ...TD, background: "#f8e8e8", fontWeight: 700, color: t > 0 ? "#8b1a1a" : "#ccc", padding: "7px 4px" }}>
-                            {t > 0 ? t : ""}
-                          </td>
-                        ))}
-                        <td style={{ ...TD, background: "#efd0d0", fontWeight: 800, color: "#8b1a1a", padding: "7px 5px", borderLeft: "2px solid #e5c5c5" }}>
-                          {weekMortTotal > 0 ? weekMortTotal : ""}
-                        </td>
-                      </tr>
-                      <tr style={{ background: "#f8f8e0" }}>
-                        <td style={{ ...TD_STICKY, left: 44, width: 24, background: "#fffff0", color: "#666", fontWeight: 700, fontSize: 10, borderLeft: "none", borderRight: "2px solid #e5c5c5" }}>C</td>
-                        {dayCTotals.map((t, i) => (
-                          <td key={i} style={{ ...TD, background: "#f8f8e0", fontWeight: 700, color: t > 0 ? "#666" : "#ccc", padding: "7px 4px" }}>
-                            {t > 0 ? t : ""}
-                          </td>
-                        ))}
-                        <td style={{ ...TD, background: "#f0f0d0", fontWeight: 800, color: "#666", padding: "7px 5px", borderLeft: "2px solid #e5c5c5" }}>
-                          {weekCullTotal > 0 ? weekCullTotal : ""}
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                  );
-                })()}
               </tbody>
             </table>
           </div>
