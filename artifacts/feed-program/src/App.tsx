@@ -1104,6 +1104,11 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
     const s = localStorage.getItem("silo-batch-num");
     return s ? parseInt(s, 10) || null : null;
   });
+  const [overrideFarmName, setOverrideFarmName] = useState<string>(() =>
+    localStorage.getItem("silo-batch-farm-name") ?? ""
+  );
+  const [editingHeader, setEditingHeader] = useState<"farm" | "batch" | null>(null);
+  const [headerEditVal, setHeaderEditVal] = useState("");
 
   useEffect(() => {
     loadBatchResultsXlsx(import.meta.env.BASE_URL)
@@ -1250,10 +1255,66 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH RESULTS</div>
-        {(farmConfig.farmName || summary?.farmName) && (
-          <div style={{ fontSize: 16, fontWeight: 700 }}>{farmConfig.farmName || summary?.farmName}</div>
+
+        {/* Editable farm name */}
+        {editingHeader === "farm" ? (
+          <input
+            autoFocus
+            value={headerEditVal}
+            onChange={e => setHeaderEditVal(e.target.value)}
+            onBlur={() => {
+              const v = headerEditVal.trim();
+              setOverrideFarmName(v);
+              if (v) localStorage.setItem("silo-batch-farm-name", v);
+              else localStorage.removeItem("silo-batch-farm-name");
+              setEditingHeader(null);
+            }}
+            onKeyDown={e => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") setEditingHeader(null);
+            }}
+            style={{ fontSize: 15, fontWeight: 700, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 6, color: "#fff", padding: "3px 10px", outline: "none", width: 160 }}
+          />
+        ) : (
+          <div
+            title="Click to edit farm name"
+            onClick={() => { setHeaderEditVal(overrideFarmName || farmConfig.farmName || summary?.farmName || ""); setEditingHeader("farm"); }}
+            style={{ fontSize: 15, fontWeight: 700, cursor: "pointer", borderBottom: "1px dashed rgba(255,255,255,0.5)", paddingBottom: 1 }}
+          >
+            {overrideFarmName || farmConfig.farmName || summary?.farmName || <span style={{ opacity: 0.5 }}>Farm name</span>}
+          </div>
         )}
-        {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? <div style={{ fontSize: 16, opacity: 0.85 }}>Batch #{bn}</div> : null; })()}
+
+        {/* Editable batch number */}
+        {editingHeader === "batch" ? (
+          <input
+            autoFocus
+            type="number"
+            value={headerEditVal}
+            onChange={e => setHeaderEditVal(e.target.value)}
+            onBlur={() => {
+              const parsed = parseInt(headerEditVal, 10);
+              if (!isNaN(parsed) && parsed > 0) {
+                setOverrideBatchNum(parsed);
+                localStorage.setItem("silo-batch-num", String(parsed));
+              }
+              setEditingHeader(null);
+            }}
+            onKeyDown={e => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              if (e.key === "Escape") setEditingHeader(null);
+            }}
+            style={{ fontSize: 15, fontWeight: 600, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 6, color: "#fff", padding: "3px 10px", outline: "none", width: 100 }}
+          />
+        ) : (
+          <div
+            title="Click to edit batch number"
+            onClick={() => { const bn = overrideBatchNum ?? summary?.batchNum; setHeaderEditVal(bn ? String(bn) : ""); setEditingHeader("batch"); }}
+            style={{ fontSize: 15, opacity: 0.9, cursor: "pointer", borderBottom: "1px dashed rgba(255,255,255,0.5)", paddingBottom: 1 }}
+          >
+            {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? `Batch #${bn}` : <span style={{ opacity: 0.5 }}>Batch #</span>; })()}
+          </div>
+        )}
         <div style={{ marginLeft: "auto" }}>
           <button onClick={openClearModal} style={{ background: "rgba(192,57,43,0.85)", color: "#fff", border: "none", borderRadius: 7, padding: "6px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
             Clear for New Batch
