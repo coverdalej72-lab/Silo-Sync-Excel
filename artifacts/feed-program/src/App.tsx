@@ -359,36 +359,56 @@ function parseSheet(
 
 interface EditingCell { r: number; c: number; sheetIdx: number }
 
-const thStyle: React.CSSProperties = {
-  position: "sticky",
-  top: 0,
-  zIndex: 2,
-  background: "#e8ede8",
-  border: "1px solid #b0b0b0",
-  height: 20,
-  fontSize: 10,
-  color: "#444",
-  textAlign: "center",
-  fontWeight: 600,
-  userSelect: "none",
-  padding: "1px 2px",
-};
+// ── ShedInfoPanel ──────────────────────────────────────────────────────────
+function ShedInfoPanel({ sheet }: { sheet: SheetParsed }) {
+  const { cells } = sheet;
+  const g = (r: number, c: number) => cells.get(`${r},${c}`)?.value ?? "";
+  const fmt = (v: string) => { const n = parseFloat(v.replace(/,/g, "")); return isNaN(n) ? v : n.toLocaleString(); };
 
-const rnStyle: React.CSSProperties = {
-  position: "sticky",
-  left: 0,
-  zIndex: 1,
-  background: "#e8ede8",
-  border: "1px solid #b0b0b0",
-  fontSize: 10,
-  color: "#555",
-  textAlign: "center",
-  userSelect: "none",
-  fontFamily: "Calibri,sans-serif",
-  padding: "0 3px",
-  minWidth: 42,
-  width: 42,
-};
+  const shedNum    = g(0, 6);
+  const totalBirds = g(1, 2);
+  const placement  = g(2, 2);
+  const shed1Name  = g(3, 1);  const shed1Birds = g(3, 2);
+  const shed2Name  = g(4, 1);  const shed2Birds = g(4, 2);
+  const strAlloc   = g(1, 7);
+  const gwrAlloc   = g(2, 7);
+  const finAlloc   = g(3, 7);
+  const wdwAlloc   = g(4, 7);
+
+  const allocations = [["STR", strAlloc], ["GWR", gwrAlloc], ["FIN", finAlloc], ["WDW", wdwAlloc]] as [string, string][];
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "14px 20px 12px", borderBottom: "3px solid #C9A227", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
+      {/* Top row: shed badge + date + bird count */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 18, letterSpacing: 0.5, whiteSpace: "nowrap" }}>
+          SHED {shedNum}
+        </div>
+        {placement && (
+          <div style={{ fontSize: 12, opacity: 0.85, whiteSpace: "nowrap" }}>
+            📅 <strong>{placement}</strong>
+          </div>
+        )}
+        <div style={{ marginLeft: "auto", background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
+          <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{fmt(totalBirds)}</div>
+          <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Birds</div>
+        </div>
+      </div>
+      {/* Bottom row: individual sheds + allocations */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+        {shed1Name && <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12 }}><span style={{ opacity: 0.7 }}>{shed1Name}: </span><strong>{fmt(shed1Birds)}</strong></div>}
+        {shed2Name && <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12 }}><span style={{ opacity: 0.7 }}>{shed2Name}: </span><strong>{fmt(shed2Birds)}</strong></div>}
+        <div style={{ flex: 1 }} />
+        {allocations.map(([lbl, val]) => val ? (
+          <div key={lbl} style={{ background: "rgba(201,162,39,0.25)", border: "1px solid rgba(201,162,39,0.45)", borderRadius: 5, padding: "4px 10px", textAlign: "center", fontSize: 12 }}>
+            <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>{lbl}</div>
+            <div style={{ fontWeight: 700 }}>{fmt(val)} kg</div>
+          </div>
+        ) : null)}
+      </div>
+    </div>
+  );
+}
 
 function SheetView({
   sheet,
@@ -397,6 +417,8 @@ function SheetView({
   onEdit,
   editingCell,
   setEditingCell,
+  startRow,
+  isShedSheet,
 }: {
   sheet: SheetParsed;
   sheetIdx: number;
@@ -404,8 +426,11 @@ function SheetView({
   onEdit: (key: string, value: string) => void;
   editingCell: EditingCell | null;
   setEditingCell: (c: EditingCell | null) => void;
+  startRow?: number;
+  isShedSheet?: boolean;
 }) {
   const { cells, minRow, maxRow, minCol, maxCol, colWidths, rowHeights } = sheet;
+  const effectiveStart = startRow ?? minRow;
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -418,58 +443,78 @@ function SheetView({
   };
 
   return (
-    <table style={{ borderCollapse: "collapse", fontFamily: "Arial,sans-serif", tableLayout: "fixed" }}>
+    <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "100%" }}>
       <colgroup>
-        <col style={{ width: 42, minWidth: 42 }} />
         {Array.from({ length: maxCol - minCol + 1 }, (_, i) => {
           const c = minCol + i;
           return <col key={c} style={{ width: colWidths[c] ?? 80, minWidth: 24 }} />;
         })}
       </colgroup>
-      <thead>
-        <tr>
-          <th style={thStyle} />
-          {Array.from({ length: maxCol - minCol + 1 }, (_, i) => {
-            const c = minCol + i;
-            return <th key={c} style={thStyle}>{colLetter(c)}</th>;
-          })}
-        </tr>
-      </thead>
       <tbody>
-        {Array.from({ length: maxRow - minRow + 1 }, (_, ri) => {
-          const r = minRow + ri;
-          const rowH = rowHeights[r] ?? 20;
+        {Array.from({ length: maxRow - effectiveStart + 1 }, (_, ri) => {
+          const r = effectiveStart + ri;
+          const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : (rowHeights[r] ?? 20);
+
+          // Determine row-level background for shed sheets
+          const isShedHeader = isShedSheet && (r === 7 || r === 8);
+          const isShedTotals = isShedSheet && r === 11;
+          const isShedData   = isShedSheet && r >= 12;
+          const rowBg = isShedHeader
+            ? "#1a5c36"
+            : isShedTotals
+            ? "#f5f0dc"
+            : isShedData
+            ? (r % 2 === 0 ? "#f9f9f9" : "#ffffff")
+            : undefined;
+
           return (
-            <tr key={r} style={{ height: rowH }}>
-              <td style={rnStyle}>{r + 1}</td>
+            <tr key={r} style={{ height: rowH, background: rowBg }}>
               {Array.from({ length: maxCol - minCol + 1 }, (_, ci) => {
                 const c = minCol + ci;
                 const info = cells.get(`${r},${c}`);
-                if (!info) return <td key={c} style={{ border: "1px solid #e0e0e0", height: rowH, background: "#fff" }} />;
+                if (!info) return <td key={c} style={{ height: rowH, background: isShedHeader ? "#1a5c36" : (rowBg ?? "#fff"), borderRight: "1px solid rgba(0,0,0,0.07)" }} />;
                 if (info.hidden) return null;
                 const key = `${r},${c}`;
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
                 const displayVal = edits.has(key) ? edits.get(key)! : info.value;
-                const fs = info.fontSize ?? 11;
+                const fs = isShedHeader ? (info.fontSize ?? 11) : (info.fontSize ?? 11);
 
                 // Column I (index 8) = FEED ON HAND — highlight red when negative (feed run out)
                 const numVal = parseFloat(displayVal.replace(/,/g, ""));
-                const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0;
+                const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0 && !isShedHeader;
 
-                // Columns E & F (FEED ORDERED / SILO) — strip XLSX yellow highlight, show plain background
-                const cellBg = (c === COL_E || c === 5) ? null : info.bgColor;
+                // Columns E & F (FEED ORDERED / SILO) — strip XLSX yellow highlight
+                // Header rows override everything; otherwise strip E/F yellow
+                let cellBg: string | null;
+                if (isShedHeader) {
+                  cellBg = "#1a5c36";
+                } else if (c === COL_E || c === 5) {
+                  cellBg = null;
+                } else {
+                  cellBg = info.bgColor;
+                }
+
+                const cellTextColor = isShedHeader
+                  ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
+                  : isFeedRunOut
+                  ? "#ffffff"
+                  : (info.fontColor ?? "#000");
+
+                const borderStyle = isShedHeader
+                  ? "1px solid rgba(255,255,255,0.15)"
+                  : "1px solid rgba(0,0,0,0.08)";
 
                 return (
                   <td
                     key={c}
                     colSpan={info.colSpan}
                     rowSpan={info.rowSpan}
-                    onDoubleClick={() => setEditingCell({ r, c, sheetIdx })}
+                    onDoubleClick={() => !isShedHeader && setEditingCell({ r, c, sheetIdx })}
                     title={isFeedRunOut ? "⚠ FEED RUN OUT" : "Double-click to edit"}
                     style={{
-                      background: isFeedRunOut ? "#dc2626" : (cellBg ?? "#fff"),
-                      color: isFeedRunOut ? "#ffffff" : (info.fontColor ?? "#000"),
-                      fontWeight: info.bold ? "bold" : "normal",
+                      background: isFeedRunOut ? "#dc2626" : (cellBg ?? (rowBg ?? "#fff")),
+                      color: cellTextColor,
+                      fontWeight: info.bold || isShedHeader ? "bold" : "normal",
                       fontStyle: info.italic ? "italic" : "normal",
                       fontSize: fs,
                       textAlign: (info.hAlign as any) ?? "left",
@@ -477,15 +522,16 @@ function SheetView({
                       whiteSpace: info.wrapText ? "pre-wrap" : "nowrap",
                       overflow: "hidden",
                       textOverflow: isEditing ? "clip" : "ellipsis",
-                      padding: isEditing ? 0 : "1px 3px",
-                      borderTop: info.borderTop ?? "1px solid #e0e0e0",
-                      borderBottom: info.borderBottom ?? "1px solid #e0e0e0",
-                      borderLeft: info.borderLeft ?? "1px solid #e0e0e0",
-                      borderRight: info.borderRight ?? "1px solid #e0e0e0",
+                      padding: isEditing ? 0 : isShedHeader ? "2px 5px" : "1px 3px",
+                      borderTop: isShedHeader ? "none" : (info.borderTop ?? borderStyle),
+                      borderBottom: isShedHeader ? "none" : (info.borderBottom ?? borderStyle),
+                      borderLeft: isShedHeader ? borderStyle : (info.borderLeft ?? borderStyle),
+                      borderRight: isShedHeader ? borderStyle : (info.borderRight ?? borderStyle),
                       height: rowH,
                       maxWidth: 400,
-                      cursor: "default",
+                      cursor: isShedHeader ? "default" : "pointer",
                       outline: isEditing ? "2px solid #1a5c36" : "none",
+                      letterSpacing: isShedHeader ? 0.3 : 0,
                     }}
                   >
                     {isEditing ? (
@@ -504,7 +550,7 @@ function SheetView({
                           width: "100%", height: "100%", border: "none", outline: "none",
                           background: cellBg ?? "#fff", color: info.fontColor ?? "#000",
                           fontWeight: info.bold ? "bold" : "normal",
-                          fontSize: fs, fontFamily: "Arial,sans-serif",
+                          fontSize: fs, fontFamily: "Calibri,sans-serif",
                           padding: "1px 3px", boxSizing: "border-box",
                         }}
                       />
@@ -1013,16 +1059,24 @@ export default function App() {
 
       {/* Spreadsheet */}
       <div className="flex-1 overflow-auto bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
-        {current && (
-          <SheetView
-            sheet={current}
-            sheetIdx={active}
-            edits={edits[active] ?? new Map()}
-            onEdit={(key, val) => handleEdit(active, key, val)}
-            editingCell={editingCell}
-            setEditingCell={setEditingCell}
-          />
-        )}
+        {current && (() => {
+          const isShed = current.name.trim().toUpperCase().includes("SHED");
+          return (
+            <>
+              {isShed && <ShedInfoPanel sheet={current} />}
+              <SheetView
+                sheet={current}
+                sheetIdx={active}
+                edits={edits[active] ?? new Map()}
+                onEdit={(key, val) => handleEdit(active, key, val)}
+                editingCell={editingCell}
+                setEditingCell={setEditingCell}
+                startRow={isShed ? 7 : undefined}
+                isShedSheet={isShed}
+              />
+            </>
+          );
+        })()}
       </div>
     </div>
   );
