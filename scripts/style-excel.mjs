@@ -361,7 +361,7 @@ for (const srcWs of srcWb.worksheets) {
   if      (n.match(/SHED\s*1\s*&\s*2/))              type = "shed1";
   else if (n.includes("SHED"))                        type = "shed";
   else if (n.includes("END") || n.includes("BATCH")) type = "eob";
-  else if (n.includes("STOCK"))                       type = "stock";
+  else if (n.includes("STOCK"))                       { console.log(`⊘ Skipped: ${srcWs.name.trim()}`); continue; }
   else                                                type = "guide";
 
   const keepCols = Math.min(MAX[type], getLastCol(srcWs));
