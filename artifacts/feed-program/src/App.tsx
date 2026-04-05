@@ -2691,9 +2691,13 @@ export default function App() {
   }, [sheets]);
 
   const resetForNewBatch = async () => {
-    if (!confirm(
-      "Start New Batch?\n\nThis will clear ALL delivery and silo reading records from the app, and reset the spreadsheet to its base state.\n\nThis cannot be undone."
-    )) return;
+    const currentBatch = batchNumCacheRef.current;
+    const suggestedNext = currentBatch > 0 ? String(currentBatch + 1) : "";
+    const batchInput = window.prompt(
+      "Start New Batch?\n\nThis will clear ALL delivery and silo reading records and reset the spreadsheet.\n\nEnter the new batch number (or leave blank to skip numbering):",
+      suggestedNext
+    );
+    if (batchInput === null) return; // user cancelled
     try {
       await fetch("/api/batch/reset", { method: "DELETE" });
     } catch {
@@ -2784,12 +2788,14 @@ export default function App() {
     localStorage.removeItem("silo-morts-log");
     localStorage.removeItem("silo-culls-log");
     localStorage.removeItem(EDITS_KEY);
-    // Auto-increment batch number
-    const nextBatch = batchNumCacheRef.current > 0 ? batchNumCacheRef.current + 1 : 0;
-    if (nextBatch > 0) {
+    // Save the batch number the user typed (or clear if left blank)
+    const nextBatch = parseInt(batchInput.trim(), 10);
+    if (!isNaN(nextBatch) && nextBatch > 0) {
       localStorage.setItem("silo-batch-num", String(nextBatch));
+      batchNumCacheRef.current = nextBatch;
     } else {
       localStorage.removeItem("silo-batch-num");
+      batchNumCacheRef.current = 0;
     }
     setBatchKey(k => k + 1);
   };
