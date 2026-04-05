@@ -1301,7 +1301,7 @@ function parseEmailCatchText(text: string): ParsedEmailRow[] {
   return results;
 }
 
-function BatchResultsView({ farmConfig, shedPlacement, onEobCatch }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void }) {
+function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void }) {
   const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
@@ -1609,24 +1609,47 @@ function BatchResultsView({ farmConfig, shedPlacement, onEobCatch }: { sheets: S
         )}
       </div>
 
-      {/* Feed summary */}
-      {summary && (
-        <div style={{ background: "#f4f9f6", border: "1px solid #c8e6d4", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 10, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
-            {[
-              { label: "Feed Delivered", value: fmtN(summary.feedDelivered) + " kg" },
-              { label: "Feed Consumed",  value: fmtN(summary.feedConsumed)  + " kg" },
-              { label: "Feed on Hand",   value: fmtN(summary.feedOnHand)    + " kg" },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#217346" }}>{value}</div>
-              </div>
-            ))}
+      {/* Feed summary — live values from End of Batch sheet, fall back to xlsx */}
+      {summary && (() => {
+        // Read a cell from the EOB sheet: edits override base value
+        const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
+        const getEobNum = (row: number, col: number): number => {
+          if (eobIdx < 0) return 0;
+          const key = `${row},${col}`;
+          const editVal = edits[eobIdx]?.get(key);
+          if (editVal !== undefined) return parseFloat(editVal) || 0;
+          const cell = sheets[eobIdx].cells.get(key);
+          return parseFloat(String(cell?.value ?? 0)) || 0;
+        };
+        // EOB rows (0-indexed): 18=on-hand-last, 19=delivered, 20=on-hand-now, 21=consumed; col 23
+        const eobDelivered = getEobNum(19, 23);
+        const eobOnHand    = getEobNum(20, 23);
+        const eobConsumed  = getEobNum(21, 23);
+        const feedDelivered = eobDelivered > 0 ? eobDelivered : summary.feedDelivered;
+        const feedOnHand    = eobOnHand    > 0 ? eobOnHand    : summary.feedOnHand;
+        const feedConsumed  = eobConsumed  > 0 ? eobConsumed  : summary.feedConsumed;
+        const fromEob = eobDelivered > 0;
+        return (
+          <div style={{ background: "#f4f9f6", border: "1px solid #c8e6d4", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary</div>
+              {fromEob && <div style={{ fontSize: 10, color: "#888", background: "#e8f5ee", borderRadius: 4, padding: "2px 7px" }}>live from End of Batch</div>}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+              {[
+                { label: "Feed Delivered", value: fmtN(feedDelivered) + " kg" },
+                { label: "Feed Consumed",  value: fmtN(feedConsumed)  + " kg" },
+                { label: "Feed on Hand",   value: fmtN(feedOnHand)    + " kg" },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#217346" }}>{value}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Per-shed cards */}
       {activeShedNums.length > 0 && (
