@@ -60,7 +60,7 @@
   --popover: 0 0% 100%;
   --popover-foreground: 24 20% 15%;
   --popover-border: 36 20% 85%;
-  --primary: 215 25% 27%; /* Dark Slate */
+  --primary: 143 55% 28%; /* Excel Green */
   --primary-foreground: 0 0% 100%;
   --secondary: 36 20% 90%;
   --secondary-foreground: 24 20% 20%;
@@ -71,7 +71,7 @@
   --destructive: 0 70% 50%;
   --destructive-foreground: 0 0% 100%;
   --input: 36 20% 80%;
-  --ring: 215 25% 27%;
+  --ring: 143 55% 28%;
 
   --app-font-sans: 'Inter', sans-serif;
   --radius: 0.5rem;
@@ -87,7 +87,7 @@
   --popover: 24 15% 15%;
   --popover-foreground: 36 33% 97%;
   --popover-border: 24 10% 25%;
-  --primary: 215 30% 55%;
+  --primary: 143 45% 40%;
   --primary-foreground: 0 0% 100%;
   --secondary: 24 10% 25%;
   --secondary-foreground: 36 33% 97%;
