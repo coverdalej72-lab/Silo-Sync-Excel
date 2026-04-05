@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon } from "lucide-react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
@@ -59,6 +59,57 @@ function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void;
         )}
       />
     </button>
+  );
+}
+
+function BatchNumberRow() {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(() => localStorage.getItem("silo-batch-num") ?? "");
+  const { toast } = useToast();
+
+  const save = () => {
+    const parsed = parseInt(val, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      localStorage.setItem("silo-batch-num", String(parsed));
+      toast({ title: `Batch #${parsed} saved` });
+    } else {
+      setVal(localStorage.getItem("silo-batch-num") ?? "");
+    }
+    setEditing(false);
+  };
+
+  const current = localStorage.getItem("silo-batch-num");
+  const displayNum = current ? parseInt(current, 10) : null;
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3.5">
+      <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+        <Hash className="h-5 w-5 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-sm text-foreground">Current Batch</p>
+        <p className="text-xs text-muted-foreground mt-0.5">Batch number shown in Batch Results</p>
+      </div>
+      {editing ? (
+        <input
+          autoFocus
+          type="number"
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onBlur={save}
+          onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") { setVal(current ?? ""); setEditing(false); } }}
+          className="w-20 bg-secondary border border-border/50 rounded-lg px-3 py-2 text-sm text-right font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+      ) : (
+        <button
+          onClick={() => { setVal(current ?? ""); setEditing(true); }}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold border border-border/50 text-foreground hover:bg-secondary transition-colors"
+        >
+          {displayNum ? `#${displayNum}` : <span className="text-muted-foreground">Not set</span>}
+          <span className="text-[10px] text-muted-foreground">✏</span>
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -456,11 +507,15 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* New Batch */}
+      {/* Batch */}
       <div>
         <SectionLabel title="Batch" />
         <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
-          <div className="px-4 py-4 space-y-3">
+
+          {/* Batch number */}
+          <BatchNumberRow />
+
+          <div className="border-t border-border/40 px-4 py-4 space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-destructive/15 flex items-center justify-center shrink-0 mt-0.5">
                 <RefreshCw className="h-5 w-5 text-destructive" />

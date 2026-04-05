@@ -1552,6 +1552,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               if (!isNaN(parsed) && parsed > 0) {
                 setOverrideBatchNum(parsed);
                 localStorage.setItem("silo-batch-num", String(parsed));
+                if (onBatchNum) onBatchNum(parsed);
               }
               setEditingHeader(null);
             }}
@@ -1559,21 +1560,23 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
               if (e.key === "Escape") setEditingHeader(null);
             }}
-            style={{ fontSize: 15, fontWeight: 600, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 6, color: "#fff", padding: "3px 10px", outline: "none", width: 100 }}
+            style={{ fontSize: 15, fontWeight: 600, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 6, color: "#fff", padding: "3px 10px", outline: "none", width: 110 }}
           />
         ) : (
-          <div
-            title="Click to edit batch number"
+          <button
+            type="button"
+            title="Tap to set batch number"
             onClick={() => { const bn = overrideBatchNum ?? summary?.batchNum; setHeaderEditVal(bn ? String(bn) : ""); setEditingHeader("batch"); }}
-            style={{ fontSize: 15, opacity: 0.9, cursor: "pointer", borderBottom: "1px dashed rgba(255,255,255,0.5)", paddingBottom: 1 }}
+            style={{ fontSize: 15, opacity: 0.9, cursor: "pointer", background: "rgba(255,255,255,0.12)", border: "1px dashed rgba(255,255,255,0.5)", borderRadius: 6, color: "#fff", padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}
           >
             {(() => {
               const bn = overrideBatchNum ?? summary?.batchNum;
               if (bn && bn > 0) return `Batch #${bn}`;
               const hint = summary?.batchNum ? summary.batchNum + 1 : null;
-              return <span style={{ opacity: 0.5 }}>{hint ? `e.g. Batch #${hint}` : "Batch #"}</span>;
+              return <span style={{ opacity: 0.6 }}>{hint ? `e.g. Batch #${hint}` : "Set Batch #"}</span>;
             })()}
-          </div>
+            <span style={{ fontSize: 11, opacity: 0.6 }}>✏</span>
+          </button>
         )}
         <button
           onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setShowEmailImport(true); }}
