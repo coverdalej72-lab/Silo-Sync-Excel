@@ -12,16 +12,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { QrScanner, type DocketData } from "@/components/qr-scanner";
 
 const deliverySchema = z.object({
   shedGroupId: z.coerce.number().optional(),
-  feedType: z.string().min(1, "Feed type is required"),
-  amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
-  unit: z.string().min(1, "Unit is required"),
+  feedType: z.string().default("Feed"),
+  amount: z.coerce.number().min(0.01, "Enter the kg amount"),
+  unit: z.string().default("kg"),
   notes: z.string().optional(),
   deliveryDate: z.string().optional(),
 });
@@ -49,7 +48,7 @@ export default function Deliveries() {
     defaultValues: {
       amount: 0,
       unit: "kg",
-      feedType: "",
+      feedType: "Feed",
       notes: "",
       deliveryDate: new Date().toISOString().split("T")[0],
     },
@@ -57,53 +56,41 @@ export default function Deliveries() {
 
   const handleScanResult = (data: DocketData) => {
     setShowScanner(false);
-
-    if (data.feedType) form.setValue("feedType", data.feedType);
-    if (data.amountKg != null) {
-      form.setValue("amount", data.amountKg);
-      form.setValue("unit", "kg");
-    }
+    if (data.amountKg != null) form.setValue("amount", data.amountKg);
     if (data.deliveryDate) form.setValue("deliveryDate", data.deliveryDate);
-
-    // Build a notes string from docket metadata
-    const parts: string[] = [];
-    if (data.ticketNo) parts.push(`Ticket: ${data.ticketNo}`);
-    if (data.dispatchNo) parts.push(`Dispatch: ${data.dispatchNo}`);
-    if (data.driverName) parts.push(`Driver: ${data.driverName}`);
-    if (parts.length > 0) form.setValue("notes", parts.join(" | "));
-
-    toast({ title: "Docket scanned — form pre-filled" });
+    if (data.docNumber) form.setValue("notes", `Doc: ${data.docNumber}`);
+    toast({ title: "Docket scanned" });
   };
 
   const onSubmit = (values: DeliveryFormValues) => {
     createDelivery.mutate({
       data: {
         ...values,
-        shedGroupId: values.shedGroupId ? values.shedGroupId : null,
+        shedGroupId: values.shedGroupId ?? null,
       }
     }, {
       onSuccess: () => {
-        toast({ title: "Delivery recorded" });
+        toast({ title: "Delivery saved" });
         form.reset({
           amount: 0,
           unit: "kg",
-          feedType: "",
+          feedType: "Feed",
           notes: "",
           deliveryDate: new Date().toISOString().split("T")[0],
         });
         queryClient.invalidateQueries({ queryKey: getListDeliveriesQueryKey() });
       },
       onError: () => {
-        toast({ variant: "destructive", title: "Failed to record delivery" });
+        toast({ variant: "destructive", title: "Failed to save delivery" });
       }
     });
   };
 
   const handleDelete = (id: number) => {
-    if (!confirm("Delete this delivery record?")) return;
+    if (!confirm("Delete this delivery?")) return;
     deleteDelivery.mutate({ id }, {
       onSuccess: () => {
-        toast({ title: "Delivery deleted" });
+        toast({ title: "Deleted" });
         queryClient.invalidateQueries({ queryKey: getListDeliveriesQueryKey() });
       }
     });
@@ -112,22 +99,16 @@ export default function Deliveries() {
   return (
     <>
       {showScanner && (
-        <QrScanner
-          onResult={handleScanResult}
-          onClose={() => setShowScanner(false)}
-        />
+        <QrScanner onResult={handleScanResult} onClose={() => setShowScanner(false)} />
       )}
 
       <div className="p-4 space-y-6 pt-6 pb-24">
         <header className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Deliveries</h1>
-            <p className="text-sm text-muted-foreground mt-1">Record feed drop-offs.</p>
+            <p className="text-sm text-muted-foreground mt-1">Record feed deliveries.</p>
           </div>
-          <Button
-            onClick={() => setShowScanner(true)}
-            className="flex items-center gap-2 h-12 px-4 font-bold"
-          >
+          <Button onClick={() => setShowScanner(true)} className="flex items-center gap-2 h-12 px-4 font-bold">
             <ScanLine className="h-5 w-5" />
             Scan Docket
           </Button>
@@ -142,80 +123,16 @@ export default function Deliveries() {
           <CardContent className="pt-4">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Amount</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" className="h-12 font-bold text-lg" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="unit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Unit</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-12 font-medium">
-                              <SelectValue placeholder="Unit" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="tons">Tons</SelectItem>
-                            <SelectItem value="kg">kg</SelectItem>
-                            <SelectItem value="lbs">lbs</SelectItem>
-                            <SelectItem value="bushels">Bushels</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
 
                 <FormField
                   control={form.control}
-                  name="feedType"
+                  name="amount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Feed Type</FormLabel>
+                      <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Kilograms</FormLabel>
                       <FormControl>
-                        <Input className="h-12 font-medium" placeholder="e.g. Broiler Grower" {...field} />
+                        <Input type="number" step="1" className="h-14 font-bold text-2xl" {...field} />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="shedGroupId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Destination (Optional)</FormLabel>
-                      <Select
-                        onValueChange={(val) => field.onChange(val ? parseInt(val, 10) : undefined)}
-                        value={field.value?.toString() || ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="h-12 font-medium">
-                            <SelectValue placeholder="Select shed group" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {shedGroups?.map(sg => (
-                            <SelectItem key={sg.id} value={sg.id.toString()}>{sg.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -240,10 +157,36 @@ export default function Deliveries() {
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Notes</FormLabel>
+                      <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Doc Number</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Driver name, docket number..." className="resize-none" {...field} />
+                        <Input className="h-12 font-medium" placeholder="e.g. Doc: 55104" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="shedGroupId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs uppercase font-bold text-muted-foreground">Shed (Optional)</FormLabel>
+                      <Select
+                        onValueChange={(val) => field.onChange(val ? parseInt(val, 10) : undefined)}
+                        value={field.value?.toString() || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-12 font-medium">
+                            <SelectValue placeholder="Select shed group" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {shedGroups?.map(sg => (
+                            <SelectItem key={sg.id} value={sg.id.toString()}>{sg.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -257,53 +200,41 @@ export default function Deliveries() {
           </CardContent>
         </Card>
 
-        <div className="space-y-4 pt-4">
+        <div className="space-y-4 pt-2">
           <h2 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Past Deliveries</h2>
 
           {deliveriesLoading ? (
             <div className="space-y-3">
-              {[1, 2].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+              {[1, 2].map(i => <Skeleton key={i} className="h-20 w-full" />)}
             </div>
           ) : deliveries?.length === 0 ? (
             <div className="text-center p-6 bg-muted/30 rounded-lg text-sm text-muted-foreground">
-              No deliveries recorded.
+              No deliveries recorded yet.
             </div>
           ) : (
             <div className="space-y-3">
               {deliveries?.map(delivery => (
                 <Card key={delivery.id} className="shadow-sm">
                   <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex justify-between items-center">
                       <div>
-                        <div className="font-bold text-lg">{delivery.amount.toLocaleString()} {delivery.unit}</div>
-                        <div className="text-sm font-medium">{delivery.feedType}</div>
+                        <div className="font-bold text-xl">{delivery.amount.toLocaleString()} kg</div>
+                        <div className="text-sm text-muted-foreground mt-0.5">
+                          {format(new Date(delivery.deliveryDate), "d MMM yyyy")}
+                          {delivery.notes ? ` — ${delivery.notes}` : ""}
+                        </div>
+                        {delivery.shedGroupName && (
+                          <div className="text-xs text-muted-foreground mt-0.5">{delivery.shedGroupName}</div>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        className="h-9 w-9 text-muted-foreground hover:text-destructive"
                         onClick={() => handleDelete(delivery.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-
-                    <div className="flex flex-col gap-1 text-xs text-muted-foreground mt-3 pt-3 border-t">
-                      <div className="flex justify-between">
-                        <span>Date:</span>
-                        <span className="font-medium text-foreground">{format(new Date(delivery.deliveryDate), "MMM d, yyyy")}</span>
-                      </div>
-                      {delivery.shedGroupName && (
-                        <div className="flex justify-between">
-                          <span>Destination:</span>
-                          <span className="font-medium text-foreground">{delivery.shedGroupName}</span>
-                        </div>
-                      )}
-                      {delivery.notes && (
-                        <div className="mt-1 text-foreground italic bg-muted/50 p-2 rounded">
-                          "{delivery.notes}"
-                        </div>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
