@@ -562,6 +562,9 @@ function SheetView({
     setEditingCell(null);
   };
 
+  // Pre-compute row7 height so row8 sticky top can be offset correctly
+  const row7Height = isShedSheet ? Math.max(rowHeights[7] ?? 20, 26) : 0;
+
   return (
     <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: "100%" }}>
       <colgroup>
@@ -595,7 +598,7 @@ function SheetView({
               {Array.from({ length: displayMaxCol - minCol + 1 }, (_, ci) => {
                 const c = minCol + ci;
                 const info = cells.get(`${r},${c}`);
-                if (!info) return <td key={c} style={{ height: rowH, background: isShedHeader ? "#1a5c36" : (rowBg ?? "#fff"), borderRight: "1px solid rgba(0,0,0,0.07)" }} />;
+                if (!info) return <td key={c} style={{ height: rowH, background: isShedHeader ? "#1a5c36" : (rowBg ?? "#fff"), borderRight: "1px solid rgba(0,0,0,0.07)", position: isShedHeader ? "sticky" : undefined, top: isShedHeader ? (r === 7 ? 0 : row7Height) : undefined, zIndex: isShedHeader ? 3 : undefined }} />;
                 if (info.hidden) return null;
                 const key = `${r},${c}`;
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
@@ -655,6 +658,9 @@ function SheetView({
                       cursor: isShedHeader ? "default" : "pointer",
                       outline: isEditing ? "2px solid #1a5c36" : "none",
                       letterSpacing: isShedHeader ? 0.3 : 0,
+                      position: isShedHeader ? "sticky" : undefined,
+                      top: isShedHeader ? (r === 7 ? 0 : row7Height) : undefined,
+                      zIndex: isShedHeader ? 3 : undefined,
                     }}
                   >
                     {isEditing ? (
@@ -1398,9 +1404,11 @@ export default function App() {
       </div>
 
       {/* Spreadsheet / Summary */}
-      <div className="flex-1 overflow-auto bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
+      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
         {showSummary ? (
-          <SummaryView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
+          <div className="flex-1 overflow-auto">
+            <SummaryView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
+          </div>
         ) : current && (() => {
           const tabName = current.name.trim().toUpperCase();
           const isShed = tabName.includes("SHED");
@@ -1410,16 +1418,18 @@ export default function App() {
             <>
               {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
-              <SheetView
-                sheet={current}
-                sheetIdx={active}
-                edits={activeEdits}
-                onEdit={(key, val) => handleEdit(active, key, val)}
-                editingCell={editingCell}
-                setEditingCell={setEditingCell}
-                startRow={isShed ? 7 : undefined}
-                isShedSheet={isShed}
-              />
+              <div className="flex-1 overflow-auto">
+                <SheetView
+                  sheet={current}
+                  sheetIdx={active}
+                  edits={activeEdits}
+                  onEdit={(key, val) => handleEdit(active, key, val)}
+                  editingCell={editingCell}
+                  setEditingCell={setEditingCell}
+                  startRow={isShed ? 7 : undefined}
+                  isShedSheet={isShed}
+                />
+              </div>
             </>
           );
         })()}
