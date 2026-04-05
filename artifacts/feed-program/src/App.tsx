@@ -960,6 +960,7 @@ interface ShedBatchData {
   totalCaught: number;
   aveWeight: number;
   totalWeight: number;
+  cages: number;
 }
 interface BatchSummary {
   farmName: string;
@@ -1025,6 +1026,12 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
       const c = COLS[gi];
       const placement = num(gv(pRow, c.p));
       if (!placement) continue; // empty shed slot — skip but keep counter
+      // Count cages: non-empty catch rows between morts and totals
+      let cages = 0;
+      for (let cr = mRow + 1; cr < tRow; cr++) {
+        const v = gv(cr, c.p);
+        if (v !== null && num(v) > 0) cages++;
+      }
       sheds.push({
         shedNum:     shedCounter,
         placement,
@@ -1033,6 +1040,7 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
         totalCaught: num(gv(tRow, c.tc)),
         aveWeight:   num(gv(tRow, c.aw)),
         totalWeight: num(gv(tRow, c.tw)),
+        cages,
       });
     }
   }
@@ -1179,6 +1187,7 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
                   <th style={{ padding: "9px 12px", textAlign: "left",  fontWeight: 700 }}>Shed</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Placed</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Caught</th>
+                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Cages</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Morts</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Mort %</th>
                   <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Ave Wgt</th>
@@ -1190,6 +1199,7 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
                     <td style={{ padding: "8px 12px", fontWeight: 600 }}>Shed {shed.shedNum}</td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.placement.toLocaleString()}</td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.totalCaught > 0 ? shed.totalCaught.toLocaleString() : "—"}</td>
+                    <td style={{ padding: "8px 12px", textAlign: "right", fontWeight: 600, color: "#1a5c36" }}>{shed.cages > 0 ? shed.cages : "—"}</td>
                     <td style={{ padding: "8px 12px", textAlign: "right", color: shed.morts > 0 ? "#c0392b" : undefined }}>{shed.morts.toLocaleString()}</td>
                     <td style={{ padding: "8px 12px", textAlign: "right", color: "#e67e22", fontWeight: 600 }}>{shed.mortPct > 0 ? shed.mortPct.toFixed(2) + "%" : "—"}</td>
                     <td style={{ padding: "8px 12px", textAlign: "right" }}>{shed.aveWeight > 0 ? shed.aveWeight.toFixed(3) + " kg" : "—"}</td>
@@ -1201,6 +1211,7 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
                   <td style={{ padding: "9px 12px", fontWeight: 800, color: "#1a5c36" }}>TOTAL</td>
                   <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalPlaced.toLocaleString()}</td>
                   <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#1a5c36" }}>{activeSheds.reduce((a, s) => a + s.cages, 0)}</td>
                   <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#c0392b" }}>{totalMorts.toLocaleString()}</td>
                   <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#e67e22" }}>{overallMortPct}</td>
                   <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800 }}>{summary && summary.aveWeight > 0 ? summary.aveWeight.toFixed(3) + " kg" : "—"}</td>
