@@ -971,6 +971,7 @@ interface BatchSummary {
   aveWeight: number;
   fcr: number;
   cfcr: number;
+  cage: number;
   feedOnHand: number;
   feedDelivered: number;
   feedConsumed: number;
@@ -999,6 +1000,7 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   const aveWeight      = num(gv(9, 34));
   const fcr            = num(gv(9, 38));
   const cfcr           = num(gv(11, 38));
+  const cage           = num(gv(6, 40));
   const feedOnHand     = num(gv(6, 38));
   const feedDelivered  = num(gv(5, 38));
   const feedConsumed   = num(gv(7, 38));
@@ -1045,7 +1047,7 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
     }
   }
 
-  return { sheds, summary: { farmName, batchNum, totalPlaced, totalOut, mortalityPct, aveWeight, fcr, cfcr, feedOnHand, feedDelivered, feedConsumed } };
+  return { sheds, summary: { farmName, batchNum, totalPlaced, totalOut, mortalityPct, aveWeight, fcr, cfcr, cage, feedOnHand, feedDelivered, feedConsumed } };
 }
 
 function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number> }) {
@@ -1153,10 +1155,10 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
           </div>
         )}
-        {activeSheds.reduce((a, s) => a + s.cages, 0) > 0 && (
+        {summary && summary.cage > 0 && (
           <div style={cardStyle("#7f8c8d")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{activeSheds.reduce((a, s) => a + s.cages, 0)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Total Cages</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Cage</div>
           </div>
         )}
       </div>
