@@ -367,8 +367,8 @@ for (const srcWs of srcWb.worksheets) {
   const keepCols = Math.min(MAX[type], getLastCol(srcWs));
   const dstWs = dstWb.addWorksheet(srcWs.name.trim(), {
     properties: { tabColor: { argb: C.primaryBg } },
-    ...(type === "guide" ? { state: "hidden" } : {}),
   });
+  if (type === "guide") dstWs.state = "hidden";
 
   copyData(srcWs, dstWs, keepCols);
 
