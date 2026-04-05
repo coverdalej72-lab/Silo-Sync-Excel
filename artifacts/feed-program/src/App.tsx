@@ -53,6 +53,69 @@ async function getSheetXmlPaths(zip: JSZip): Promise<string[]> {
   return paths;
 }
 
+// Column indices (0-based Excel column letters)
+const COL_E = 4;   // FEED ORDERED (deliveries)
+const COL_G = 6;   // FEED ALLOC remaining
+const COL_H = 7;   // FEED USAGE
+const COL_I = 8;   // FEED ON HAND
+const COL_J = 9;   // SILO TOTAL
+const COL_K = 10;  // Silo A
+const COL_L = 11;  // Silo B
+const COL_M = 12;  // Silo C
+
+function recalculate(
+  cells: Map<string, CellInfo>,
+  edits: Map<string, string>,
+  triggeredRow: number,
+  triggeredCol: number,
+  maxRow: number
+): Map<string, string> {
+  // Only cascade for silo columns (K,L,M) or delivery (E)
+  if (![COL_K, COL_L, COL_M, COL_E, COL_J].includes(triggeredCol)) return edits;
+
+  const newEdits = new Map(edits);
+
+  const getNum = (r: number, c: number): number => {
+    const key = `${r},${c}`;
+    const editVal = newEdits.get(key);
+    if (editVal !== undefined) return parseFloat(editVal) || 0;
+    return parseFloat(cells.get(key)?.value ?? "0") || 0;
+  };
+  const setNum = (r: number, c: number, val: number) => {
+    newEdits.set(`${r},${c}`, String(Math.round(val * 100) / 100));
+  };
+
+  // Cascade G (FEED ALLOC remaining) down when E (delivery) is edited
+  if (triggeredCol === COL_E) {
+    for (let r = triggeredRow; r <= maxRow; r++) {
+      const gPrev = getNum(r - 1, COL_G);
+      const e = getNum(r, COL_E);
+      if (e !== 0 || cells.has(`${r},${COL_E}`)) {
+        setNum(r, COL_G, gPrev - e);
+      }
+    }
+  }
+
+  // Cascade J (SILO TOTAL) and I (FEED ON HAND) from triggeredRow down
+  for (let r = triggeredRow; r <= maxRow; r++) {
+    const k = getNum(r, COL_K);
+    const l = getNum(r, COL_L);
+    const m = getNum(r, COL_M);
+    const j = k + l + m;
+    // Only set J if at least one silo column exists on this row
+    if (cells.has(`${r},${COL_K}`) || cells.has(`${r},${COL_L}`) || cells.has(`${r},${COL_M}`) || cells.has(`${r},${COL_J}`)) {
+      setNum(r, COL_J, j);
+      const h = getNum(r, COL_H);
+      const e = getNum(r, COL_E);
+      const iPrev = getNum(r - 1, COL_I);
+      const iNew = j > 0 ? j - h + e : iPrev - h + e;
+      setNum(r, COL_I, iNew);
+    }
+  }
+
+  return newEdits;
+}
+
 interface CellInfo {
   value: string;
   bold?: boolean;
@@ -444,11 +507,14 @@ export default function App() {
       const next = [...prev];
       const m = new Map(next[sheetIdx]);
       m.set(key, value);
-      next[sheetIdx] = m;
+      const [r, c] = key.split(",").map(Number);
+      const sheet = sheets[sheetIdx];
+      const recalculated = sheet ? recalculate(sheet.cells, m, r, c, sheet.maxRow) : m;
+      next[sheetIdx] = recalculated;
       return next;
     });
     setHasChanges(true);
-  }, []);
+  }, [sheets]);
 
   const downloadFile = async () => {
     if (!rawBufferRef.current) return;
