@@ -1627,12 +1627,6 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE</div>
           </div>
         )}
-        {summary && summary.cage > 0 && (
-          <div style={cardStyle("#7f8c8d")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE Eff.</div>
-          </div>
-        )}
       </div>
 
       {/* Feed summary — live values from End of Batch sheet, fall back to xlsx */}
