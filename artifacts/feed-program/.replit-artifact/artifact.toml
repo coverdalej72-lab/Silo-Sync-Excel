@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/feed-program/"
+title = "Feed Program"
+version = "1.0.0"
+id = "artifacts/feed-program"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/feed-program/" ]
+localPort = 23031
+
+[services.development]
+run = "pnpm --filter @workspace/feed-program run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/feed-program", "run", "build" ]
+publicDir = "artifacts/feed-program/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23031"
+BASE_PATH = "/feed-program/"

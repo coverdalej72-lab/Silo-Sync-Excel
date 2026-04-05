@@ -1,0 +1,54 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --font-sans: var(--app-font-sans);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: 138 30% 97%;
+  --foreground: 138 25% 12%;
+  --border: 138 20% 85%;
+  --input: 138 20% 85%;
+  --ring: 138 45% 32%;
+  --primary: 138 56% 28%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 138 20% 92%;
+  --muted-foreground: 138 15% 45%;
+  --app-font-sans: 'Calibri', 'Segoe UI', sans-serif;
+  --radius: 0.375rem;
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply font-sans antialiased bg-background text-foreground; }
+}
+
+/* Spreadsheet table styles */
+.sheet-table {
+  border-collapse: collapse;
+  font-family: Calibri, 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+.sheet-table td, .sheet-table th {
+  border: 1px solid #d0d0d0;
+  padding: 2px 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 300px;
+  text-overflow: ellipsis;
+}
