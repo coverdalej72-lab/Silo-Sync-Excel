@@ -1567,7 +1567,12 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             onClick={() => { const bn = overrideBatchNum ?? summary?.batchNum; setHeaderEditVal(bn ? String(bn) : ""); setEditingHeader("batch"); }}
             style={{ fontSize: 15, opacity: 0.9, cursor: "pointer", borderBottom: "1px dashed rgba(255,255,255,0.5)", paddingBottom: 1 }}
           >
-            {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? `Batch #${bn}` : <span style={{ opacity: 0.5 }}>Batch #</span>; })()}
+            {(() => {
+              const bn = overrideBatchNum ?? summary?.batchNum;
+              if (bn && bn > 0) return `Batch #${bn}`;
+              const hint = summary?.batchNum ? summary.batchNum + 1 : null;
+              return <span style={{ opacity: 0.5 }}>{hint ? `e.g. Batch #${hint}` : "Batch #"}</span>;
+            })()}
           </div>
         )}
         <button
