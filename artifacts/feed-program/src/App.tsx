@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 
@@ -533,6 +533,26 @@ function SheetView({
   const effectiveStart = startRow ?? minRow;
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Trim empty trailing columns — only consider visible rows (r >= effectiveStart)
+  const displayMaxCol = useMemo(() => {
+    let last = minCol;
+    for (const [key, info] of cells) {
+      if (info.hidden) continue;
+      const parts = key.split(",");
+      const r = parseInt(parts[0]);
+      const c = parseInt(parts[1]);
+      if (r >= effectiveStart && info.value !== "" && c > last) last = c;
+    }
+    // Also include any cells that have edits beyond our scanned range
+    for (const [key] of edits) {
+      const parts = key.split(",");
+      const r = parseInt(parts[0]);
+      const c = parseInt(parts[1]);
+      if (r >= effectiveStart && c > last) last = c;
+    }
+    return Math.min(last, maxCol);
+  }, [cells, edits, effectiveStart, minCol, maxCol]);
+
   useEffect(() => {
     if (editingCell && inputRef.current) inputRef.current.focus();
   }, [editingCell]);
@@ -543,9 +563,9 @@ function SheetView({
   };
 
   return (
-    <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "100%" }}>
+    <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: "100%" }}>
       <colgroup>
-        {Array.from({ length: maxCol - minCol + 1 }, (_, i) => {
+        {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
           const c = minCol + i;
           return <col key={c} style={{ width: colWidths[c] ?? 80, minWidth: 24 }} />;
         })}
@@ -572,7 +592,7 @@ function SheetView({
 
           return (
             <tr key={r} style={{ height: rowH, background: rowBg }}>
-              {Array.from({ length: maxCol - minCol + 1 }, (_, ci) => {
+              {Array.from({ length: displayMaxCol - minCol + 1 }, (_, ci) => {
                 const c = minCol + ci;
                 const info = cells.get(`${r},${c}`);
                 if (!info) return <td key={c} style={{ height: rowH, background: isShedHeader ? "#1a5c36" : (rowBg ?? "#fff"), borderRight: "1px solid rgba(0,0,0,0.07)" }} />;
