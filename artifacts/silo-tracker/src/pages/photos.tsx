@@ -1,12 +1,9 @@
 import { useState, useRef } from "react";
-import { useFarmConfig } from "@/hooks/use-farm-config";
 import { Trash2, ZoomIn, X, Camera, ImagePlus } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 
 interface PhotoEntry {
   id: string;
-  shedGroupId: number;
   date: string;
   dataUrl: string;
   note: string;
@@ -22,7 +19,6 @@ function savePhotos(photos: PhotoEntry[]) {
 }
 
 export default function Photos() {
-  const { config } = useFarmConfig();
   const [photos, setPhotos] = useState<PhotoEntry[]>(loadPhotos);
   const [note, setNote] = useState("");
   const [viewPhoto, setViewPhoto] = useState<PhotoEntry | null>(null);
@@ -30,12 +26,7 @@ export default function Photos() {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
-  const activeGroups = config.shedGroups.filter(g => g.active);
-  const [selectedGroupId, setSelectedGroupId] = useState<number>(activeGroups[0]?.shedGroupId ?? 1);
-
-  const groupPhotos = photos
-    .filter(p => p.shedGroupId === selectedGroupId)
-    .sort((a, b) => b.date.localeCompare(a.date));
+  const sortedPhotos = [...photos].sort((a, b) => b.date.localeCompare(a.date));
 
   const handleFile = (file: File | null | undefined) => {
     if (!file) return;
@@ -44,7 +35,6 @@ export default function Photos() {
       const dataUrl = ev.target?.result as string;
       const entry: PhotoEntry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        shedGroupId: selectedGroupId,
         date: new Date().toISOString(),
         dataUrl,
         note: note.trim(),
@@ -67,33 +57,8 @@ export default function Photos() {
     if (viewPhoto?.id === id) setViewPhoto(null);
   };
 
-  const selectedGroup = activeGroups.find(g => g.shedGroupId === selectedGroupId);
-
   return (
     <div className="flex flex-col h-full bg-background">
-
-      {/* Shed selector */}
-      <div className="shrink-0 px-3 pt-3 pb-2 border-b border-border bg-background">
-        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-          Shed Group
-        </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {activeGroups.map(g => (
-            <button
-              key={g.shedGroupId}
-              onClick={() => setSelectedGroupId(g.shedGroupId)}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors",
-                selectedGroupId === g.shedGroupId
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-secondary text-muted-foreground border-transparent hover:bg-primary/10"
-              )}
-            >
-              {g.customName}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Upload area */}
       <div className="shrink-0 px-3 py-3 border-b border-border bg-muted/30">
@@ -125,15 +90,15 @@ export default function Photos() {
 
       {/* Gallery */}
       <div className="flex-1 overflow-y-auto px-3 py-3">
-        {groupPhotos.length === 0 ? (
+        {sortedPhotos.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">
             <Camera className="h-12 w-12 opacity-20" />
-            <div className="text-sm font-medium">No photos for {selectedGroup?.customName}</div>
+            <div className="text-sm font-medium">No photos yet</div>
             <div className="text-xs opacity-60">Take or upload a photo above</div>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2">
-            {groupPhotos.map(p => (
+            {sortedPhotos.map(p => (
               <div
                 key={p.id}
                 className="relative rounded-xl overflow-hidden border border-border bg-muted shadow-sm group"
@@ -181,12 +146,7 @@ export default function Photos() {
           onClick={() => setViewPhoto(null)}
         >
           <div className="flex items-center justify-between px-4 py-3" onClick={e => e.stopPropagation()}>
-            <div>
-              <div className="text-white text-sm font-semibold">
-                {selectedGroup?.customName}
-              </div>
-              <div className="text-white/60 text-xs">{format(new Date(viewPhoto.date), "d MMM yyyy, h:mm a")}</div>
-            </div>
+            <div className="text-white/60 text-xs">{format(new Date(viewPhoto.date), "d MMM yyyy, h:mm a")}</div>
             <div className="flex gap-2">
               <button
                 onClick={() => { setConfirmDelete(viewPhoto.id); setViewPhoto(null); }}
