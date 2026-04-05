@@ -1355,10 +1355,15 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   }, []);
 
   // Seed catchMap from xlsx on first load (if localStorage was empty)
+  // Skip seeding when we've just done a New Batch reset
   useEffect(() => {
     if (loadState !== "ok") return;
     const stored = localStorage.getItem(BATCH_CATCHES_KEY);
     if (stored && stored !== "{}") return;
+    if (localStorage.getItem("silo-batch-new") === "1") {
+      localStorage.removeItem("silo-batch-new");
+      return;
+    }
     const init: CatchMap = {};
     xlSheds.forEach(s => {
       if (s.catches.length > 0) {
@@ -2776,6 +2781,8 @@ export default function App() {
     setEdits(newEdits);
 
     // Clear Batch Results catch data so it resets cleanly
+    // Flag prevents the seeding effect re-populating catches from the xlsx on remount
+    localStorage.setItem("silo-batch-new", "1");
     localStorage.removeItem("silo-batch-catches");
     localStorage.removeItem("silo-batch-farm-name");
     // Clear per-shed morts & culls daily log
