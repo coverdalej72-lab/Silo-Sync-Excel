@@ -1,14 +1,17 @@
 /**
- * Silo Mate – Feed Program Styler
- * Preserves all original structure (merges, widths, heights, formulas, numFmt)
- * and replaces colours to match the Silo Mate app theme.
+ * Silo Mate – Feed Program Colour Swap
  *
- * Column map (Shed 3–12, 22 data cols):
- *  1=AGE  2=DAY  3=DATE  4=FEED DEL  5=FEED ORDERED  6=SILO(ref)
- *  7=FEED ALLOC  8=FEED USAGE  9=FEED ON HAND  10=SILO TOTAL
- *  11=SILO A  12=SILO B  13=SILO C
- *  14=CATCH MORTS  15=BIRDS LEFT  16=SHED #  17=DIFF  18=DISCREPANCY
- *  19=SHED 1  20=Weight(Kg)  21=SHED 2  22=Weight(Kg)
+ * Keeps the original spreadsheet 100% intact (fonts, sizes, borders, merges,
+ * column widths, row heights, formulas, numFmt, alignment).
+ *
+ * ONLY changes fill (background) colours — nothing else.
+ *
+ * Original → App theme mapping
+ *   FFFFFF00  (bright yellow)  → FFFFC000  (app amber)
+ *   FF92D050  (lime green)     → FF217346  (app primary green)
+ *   FFFF0000  (red bg)         → FFFFC000  (app amber — used on Silo A header)
+ *   no fill on header rows 1-9 → FF217346  (app green)
+ *   no fill on data rows       → alternating FFE8F5E8 / FFF4FAF4
  */
 import ExcelJS from "exceljs";
 import path from "path";
@@ -18,251 +21,99 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(__dirname, "../../attached_assets/feed_program_batch_120_1775355933095.xlsx");
 const OUT = path.join(__dirname, "public/silo-mate-feed-program.xlsx");
 
-// ─── App Palette ──────────────────────────────────────────────────────────────
-const C = {
-  darkGreen:  "FF1A5C36",
-  green:      "FF217346",
-  midGreen:   "FF2E8B57",
-  lightGreen: "FFD6EAD6",
-  paleGreen:  "FFF0F7F0",
-  panelGreen: "FFE8F5E8",
-  white:      "FFFFFFFF",
-  offWhite:   "FFF9FDF9",
-  amber:      "FFFFC000",
-  amberLight: "FFFFF2CC",
-  amberPale:  "FFFEF8E0",
-  amberDark:  "FF7D5000",
-  darkText:   "FF1A2E1A",
-  midText:    "FF3A5C3A",
-  mutedText:  "FF5A6E5A",
+const solid = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+// ── Original colour → app colour map ─────────────────────────────────────────
+const FILL_MAP = {
+  "FFFFFF00": "FFFFC000",   // bright yellow  → amber
+  "FF92D050": "FF217346",   // lime green     → app green
+  "FFFF0000": "FFFFC000",   // red (silo hdr) → amber
+  "FFC00000": "FF1A5C36",   // dark red       → dark green
 };
 
-const solid = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
-const bdr   = (style, argb) => ({ style, color: { argb } });
+// Header rows get a dark-green banner fill when they have no original fill
+const HEADER_BG   = "FF217346";   // app primary green
+const HEADER_TOP  = "FF1A5C36";   // darker green for rows 1–2
+const DATA_EVEN   = "FFE8F5E8";   // pale green (even rows)
+const DATA_ODD    = "FFF4FAF4";   // near-white (odd rows)
+const AMBER_DATA  = "FFFFF2CC";   // amber tint for silo data rows (even)
+const AMBER_DATA2 = "FFFEF8E0";   // amber tint for silo data rows (odd)
 
-function applyFont(cell, opts = {}) {
-  const { bold = false, size = 10, argb = C.darkText } = opts;
-  cell.font = { name: "Calibri", size, bold, color: { argb } };
+function mapFill(argb) {
+  return FILL_MAP[argb] ?? argb;
 }
 
-// ─── Find the actual last column that has data (ignore trailing empty cols) ────
-function findLastDataCol(ws) {
-  let maxCol = 1;
-  // Scan header rows AND first few data rows to find rightmost real column
-  for (let r = 1; r <= Math.min(ws.rowCount, 20); r++) {
+function styleShed(ws) {
+  const headerRow = 8;   // the row with AGE / DATE / SILO labels
+  const subRow    = 9;   // second label row (DEL. / A / B / C)
+  const dataStart = 13;  // first actual data row (age = 1)
+  const COLS      = 23;  // data goes to col 23 (last real column)
+
+  // Detect silo columns from the header row (look for "A" / "C" labels)
+  let siloA = 11, siloC = 13; // defaults confirmed from source inspection
+  for (let r = headerRow; r <= subRow; r++) {
     const row = ws.getRow(r);
-    row.eachCell({ includeEmpty: false }, (cell, cn) => {
-      if (cell.type !== ExcelJS.ValueType.Merge) {
-        maxCol = Math.max(maxCol, cn);
-      }
-    });
-  }
-  return maxCol;
-}
-
-// ─── Find which row contains "AGE" + "DATE" (main column header row) ──────────
-function findHeaderRow(ws) {
-  for (let r = 1; r <= Math.min(ws.rowCount, 15); r++) {
-    let hasAge = false, hasDate = false;
-    ws.getRow(r).eachCell({ includeEmpty: false }, (cell) => {
-      const v = cell.value;
-      const d = v && typeof v === "object" && "result" in v ? v.result : v;
-      if (d === "AGE") hasAge = true;
-      if (d === "DATE") hasDate = true;
-    });
-    if (hasAge && hasDate) return r;
-  }
-  return 8; // fallback
-}
-
-// ─── Find silo A / C column numbers by scanning for "A" and "C" labels ────────
-function findSiloCols(ws, headerRow) {
-  let siloA = -1, siloC = -1;
-  // Check rows from headerRow to headerRow+2 for the A / B / C labels
-  for (let r = headerRow; r <= headerRow + 2; r++) {
-    const row = ws.getRow(r);
-    for (let c = 1; c <= ws.columnCount; c++) {
+    let foundA = false;
+    for (let c = 1; c <= COLS; c++) {
       const cell = row.getCell(c);
       if (cell.type === ExcelJS.ValueType.Merge) continue;
       const v = cell.value;
       const d = v && typeof v === "object" && "result" in v ? v.result : v;
-      if (d === "A" && siloA === -1) siloA = c;
-      if (d === "C" && siloA !== -1 && siloC === -1) siloC = c;
+      if (d === "A" && !foundA) { siloA = c; foundA = true; }
+      if (d === "C" && foundA)  { siloC = c; break; }
     }
-    if (siloA !== -1 && siloC !== -1) break;
+    if (foundA) break;
   }
-  return { siloA, siloB: siloA + 1, siloC };
-}
 
-// ─── Style a shed worksheet ───────────────────────────────────────────────────
-function styleShed(ws) {
-  const headerRow  = findHeaderRow(ws);
-  const subHeader  = headerRow + 1;           // second label row (DEL. / A / B / C etc.)
-  const dataStart  = headerRow + 2;           // first row that may have data
-  const lastR      = ws.rowCount;
-  const COLS       = findLastDataCol(ws);      // rightmost real data column
-  const { siloA, siloC } = findSiloCols(ws, headerRow);
-
-  // Green tab colour + freeze panes above data
   ws.properties = ws.properties ?? {};
-  ws.properties.tabColor = { argb: C.green };
-  ws.views = [{ state: "frozen", ySplit: dataStart - 1, showGridLines: true }];
-
-  console.log(`   lastCol=${COLS}  siloA=${siloA}  siloC=${siloC}  headerRow=${headerRow}  dataStart=${dataStart}`);
+  ws.properties.tabColor = { argb: "FF217346" };
 
   ws.eachRow((row, rn) => {
-    // Only style up to the last real data column; leave empty trailing columns alone
+    const isEven = rn % 2 === 0;
+
     for (let cn = 1; cn <= COLS; cn++) {
       const cell = row.getCell(cn);
       if (cell.type === ExcelJS.ValueType.Merge) continue;
 
-      // Save numFmt before reset (resetStyle clears it)
-      const savedNumFmt = cell.numFmt;
-      cell.style = {};
-      if (savedNumFmt) cell.numFmt = savedNumFmt;
+      const origFill = cell.fill?.fgColor?.argb;   // may be undefined (no fill)
 
-      const raw = cell.value;
-      const v   = raw && typeof raw === "object" && "result" in raw ? raw.result : raw;
-      const isL = cn === 1;
-      const isR = cn === COLS;
-
-      // ── Row 1: Grower banner ───────────────────────────────────────────────
-      if (rn === 1) {
-        row.height = 32;
-        cell.fill = solid(C.darkGreen);
-        applyFont(cell, { bold: true, argb: C.white, size: 13 });
-        cell.alignment = { horizontal: "left", vertical: "middle" };
-        cell.border = {
-          top: bdr("medium", C.darkGreen), bottom: bdr("thin", C.midGreen),
-          left: bdr("medium", C.darkGreen), right: bdr("medium", C.darkGreen),
-        };
+      // ── Rows 1–2: Dark green banner ───────────────────────────────────────
+      if (rn <= 2) {
+        cell.fill = origFill ? solid(mapFill(origFill)) : solid(HEADER_TOP);
         continue;
       }
 
-      // ── Row 2: No. of Birds / totals ──────────────────────────────────────
-      if (rn === 2) {
-        row.height = 22;
-        cell.fill = solid(C.green);
-        applyFont(cell, { bold: true, argb: C.white, size: 10 });
-        cell.alignment = { horizontal: "left", vertical: "middle" };
-        cell.border = {
-          top: bdr("thin", C.midGreen), bottom: bdr("thin", C.midGreen),
-          left: bdr("medium", C.darkGreen), right: bdr("medium", C.darkGreen),
-        };
-        continue;
-      }
-
-      // ── Rows 3 to headerRow-1: Info panel (Placement, feed types, sheds) ──
-      if (rn >= 3 && rn < headerRow) {
-        const isFeedType = typeof v === "string" && /^(STR|GWR|FIN|WDW)/i.test(v);
-        const isKg       = typeof v === "string" && v.trim() === "KG.";
-        const isLabel    = typeof v === "string" && v.trim().length > 0;
-        const isNum      = typeof v === "number";
-
-        if (isFeedType) {
-          // Feed type labels: amber highlight
-          cell.fill = solid(C.amber);
-          applyFont(cell, { bold: true, argb: C.amberDark, size: 10 });
-          cell.alignment = { horizontal: "left", vertical: "middle" };
-        } else if (isNum) {
-          // Qty values (80000, 26000…)
-          cell.fill = solid(C.panelGreen);
-          applyFont(cell, { bold: true, argb: C.midText, size: 10 });
-          cell.alignment = { horizontal: "right", vertical: "middle" };
-        } else if (isKg) {
-          cell.fill = solid(C.panelGreen);
-          applyFont(cell, { bold: false, argb: C.mutedText, size: 9 });
-          cell.alignment = { horizontal: "left", vertical: "middle" };
-        } else if (isLabel) {
-          cell.fill = solid(C.panelGreen);
-          applyFont(cell, { bold: true, argb: C.midText, size: 10 });
-          cell.alignment = { horizontal: "left", vertical: "middle" };
+      // ── Rows 3–9: Info panel / column headers → green background ─────────
+      if (rn >= 3 && rn <= subRow) {
+        if (origFill) {
+          cell.fill = solid(mapFill(origFill));
         } else {
-          cell.fill = solid(C.panelGreen);
+          cell.fill = solid(HEADER_BG);
         }
-        cell.border = {
-          top: bdr("hair", "FFCCE0CC"), bottom: bdr("hair", "FFCCE0CC"),
-          left: isL ? bdr("medium", C.darkGreen) : bdr("hair", "FFCCE0CC"),
-          right: isR ? bdr("medium", C.darkGreen) : bdr("hair", "FFCCE0CC"),
-        };
         continue;
       }
 
-      // ── Header rows (headerRow + subHeader): Column label rows ────────────
-      if (rn === headerRow || rn === subHeader) {
-        const isSilo = siloA > 0 && cn >= siloA && cn <= siloC;
-        row.height = Math.max(row.height || 0, 28);
-
-        if (isSilo) {
-          cell.fill = solid(C.amber);
-          applyFont(cell, { bold: true, argb: C.amberDark, size: 10 });
-          cell.border = {
-            top: bdr("medium", C.amberDark), bottom: bdr("medium", C.amberDark),
-            left: bdr("thin", C.amberDark),  right: bdr("thin", C.amberDark),
-          };
+      // ── Rows 10–12: Gap / initialisation rows → subtle green ──────────────
+      if (rn >= 10 && rn < dataStart) {
+        if (origFill) {
+          cell.fill = solid(mapFill(origFill));
         } else {
-          cell.fill = solid(C.green);
-          applyFont(cell, { bold: true, argb: C.white, size: 10 });
-          cell.border = {
-            top: bdr("medium", C.darkGreen),    bottom: bdr("medium", C.darkGreen),
-            left: isL ? bdr("medium", C.darkGreen) : bdr("thin", "FF9EC89E"),
-            right: isR ? bdr("medium", C.darkGreen) : bdr("thin", "FF9EC89E"),
-          };
+          cell.fill = solid(DATA_ODD);
         }
-        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
         continue;
       }
 
-      // ── Data rows (dataStart onward) ──────────────────────────────────────
+      // ── Data rows (13+) ───────────────────────────────────────────────────
       if (rn >= dataStart) {
-        const isEven  = rn % 2 === 0;
-        const isLast  = rn === lastR;
-        const isSilo  = siloA > 0 && cn >= siloA && cn <= siloC;
-        const isDateC = cn === 3; // DATE column always col 3
-
-        if (isSilo) {
-          // Silo A / B / C: amber tones
-          const bg = isEven ? C.amberLight : C.amberPale;
-          cell.fill = solid(bg);
-          applyFont(cell, {
-            bold: typeof v === "number" && v > 0,
-            argb: typeof v === "number" && v > 0 ? C.amberDark : C.mutedText,
-            size: 10,
-          });
-          cell.alignment = { horizontal: "center", vertical: "middle" };
-          cell.border = {
-            top:    bdr("hair", C.amber),
-            bottom: isLast ? bdr("medium", C.amberDark) : bdr("hair", C.amber),
-            left:   bdr("thin", C.amberDark),
-            right:  bdr("thin", C.amberDark),
-          };
-
+        if (origFill) {
+          // Cell already had a colour in the original → map it
+          cell.fill = solid(mapFill(origFill));
         } else {
-          // All other data columns: alternating pale green
-          const bg = isEven ? C.lightGreen : C.offWhite;
-          cell.fill = solid(bg);
-          cell.border = {
-            top:    bdr("hair", "FFCCE0CC"),
-            bottom: isLast ? bdr("medium", C.darkGreen) : bdr("hair", "FFCCE0CC"),
-            left:   isL ? bdr("medium", C.darkGreen) : bdr("hair", "FFCCE0CC"),
-            right:  isR ? bdr("medium", C.darkGreen) : bdr("hair", "FFCCE0CC"),
-          };
-
-          if (v instanceof Date) {
-            applyFont(cell, { argb: C.midText, size: 9 });
-            cell.alignment = { horizontal: "left", vertical: "middle" };
-          } else if (typeof v === "number") {
-            applyFont(cell, { bold: cn === 1, argb: cn === 1 ? C.darkText : C.midText, size: 10 });
-            cell.alignment = { horizontal: cn === 1 ? "center" : "right", vertical: "middle" };
-          } else if (typeof v === "string" && v.length > 0) {
-            applyFont(cell, { argb: C.darkText, size: 10 });
-            cell.alignment = { horizontal: "left", vertical: "middle" };
-          } else if (raw && typeof raw === "object" && raw.formula != null) {
-            // Formula cell (e.g. #REF! errors or calculated values)
-            applyFont(cell, { argb: C.midText, size: 10 });
-            cell.alignment = { horizontal: "right", vertical: "middle" };
+          const isSilo = cn >= siloA && cn <= siloC;
+          if (isSilo) {
+            cell.fill = solid(isEven ? AMBER_DATA : AMBER_DATA2);
           } else {
-            applyFont(cell, { argb: C.mutedText, size: 10 });
+            cell.fill = solid(isEven ? DATA_EVEN : DATA_ODD);
           }
         }
       }
@@ -270,60 +121,30 @@ function styleShed(ws) {
   });
 }
 
-// ─── Style End-of-Batch sheet ─────────────────────────────────────────────────
 function styleEOB(ws) {
-  const COLS = findLastDataCol(ws);
-  const lastR = ws.rowCount;
+  const headerEnd = 8;
+  const COLS = 23;
 
   ws.properties = ws.properties ?? {};
-  ws.properties.tabColor = { argb: C.green };
-  ws.views = [{ state: "frozen", ySplit: 8, showGridLines: true }];
+  ws.properties.tabColor = { argb: "FF217346" };
 
   ws.eachRow((row, rn) => {
+    const isEven = rn % 2 === 0;
     for (let cn = 1; cn <= COLS; cn++) {
       const cell = row.getCell(cn);
       if (cell.type === ExcelJS.ValueType.Merge) continue;
-      const savedNumFmt = cell.numFmt;
-      cell.style = {};
-      if (savedNumFmt) cell.numFmt = savedNumFmt;
+      const origFill = cell.fill?.fgColor?.argb;
 
-      const raw = cell.value;
-      const v   = raw && typeof raw === "object" && "result" in raw ? raw.result : raw;
-      const isL = cn === 1, isR = cn === COLS;
-      const isEven = rn % 2 === 0;
-
-      if (rn === 1) {
-        row.height = 32;
-        cell.fill = solid(C.darkGreen);
-        applyFont(cell, { bold: true, argb: C.white, size: 13 });
-        cell.alignment = { horizontal: "left", vertical: "middle" };
-      } else if (rn === 2) {
-        row.height = 22;
-        cell.fill = solid(C.green);
-        applyFont(cell, { bold: true, argb: C.white, size: 10 });
-        cell.alignment = { horizontal: "left", vertical: "middle" };
-      } else if (rn <= 8) {
-        const isFT = typeof v === "string" && /^(STR|GWR|FIN|WDW|STARTER|GROWER|FINISHER|WITHDRAW)/i.test(v);
-        if (isFT) {
-          cell.fill = solid(C.amber);
-          applyFont(cell, { bold: true, argb: C.amberDark });
-        } else if (typeof v === "string" && v.length > 0) {
-          cell.fill = solid(C.green);
-          applyFont(cell, { bold: true, argb: C.white });
-        } else {
-          cell.fill = solid(C.panelGreen);
-          applyFont(cell, { argb: C.darkText });
-        }
-        cell.alignment = { ...(cell.alignment ?? {}), vertical: "middle", wrapText: true };
+      if (rn <= 2) {
+        cell.fill = origFill ? solid(mapFill(origFill)) : solid(HEADER_TOP);
+      } else if (rn <= headerEnd) {
+        cell.fill = origFill ? solid(mapFill(origFill)) : solid(HEADER_BG);
       } else {
-        cell.fill = solid(isEven ? C.lightGreen : C.offWhite);
-        applyFont(cell, { argb: C.darkText });
-        cell.border = {
-          top: bdr("hair", "FFCCE0CC"), bottom: bdr("hair", "FFCCE0CC"),
-          left: isL ? bdr("medium", C.darkGreen) : bdr("hair", "FFCCE0CC"),
-          right: isR ? bdr("medium", C.darkGreen) : bdr("hair", "FFCCE0CC"),
-        };
-        if (typeof v === "number") cell.alignment = { horizontal: "right", vertical: "middle" };
+        if (origFill) {
+          cell.fill = solid(mapFill(origFill));
+        } else {
+          cell.fill = solid(isEven ? DATA_EVEN : DATA_ODD);
+        }
       }
     }
   });
@@ -338,21 +159,21 @@ for (const ws of wb.worksheets) {
 
   if (n.includes("STOCK") || n.includes("CONSUMPTION") || n.includes("GUIDE")) {
     ws.state = "hidden";
-    console.log(`⊘ Hidden:   ${ws.name.trim()}`);
+    console.log(`⊘ Hidden:  ${ws.name.trim()}`);
     continue;
   }
   if (n.includes("SHED")) {
     styleShed(ws);
-    console.log(`✓ Shed:     ${ws.name.trim()}`);
+    console.log(`✓ Shed:    ${ws.name.trim()}`);
     continue;
   }
   if (n.includes("END") || n.includes("BATCH")) {
     styleEOB(ws);
-    console.log(`✓ EOB:      ${ws.name.trim()}`);
+    console.log(`✓ EOB:     ${ws.name.trim()}`);
     continue;
   }
-  console.log(`  Skipped:  ${ws.name.trim()}`);
+  console.log(`  Skipped: ${ws.name.trim()}`);
 }
 
 await wb.xlsx.writeFile(OUT);
-console.log("\nDone →", OUT);
+console.log("Done →", OUT);
