@@ -54,6 +54,8 @@ async function getSheetXmlPaths(zip: JSZip): Promise<string[]> {
 }
 
 // Column indices (0-based Excel column letters)
+const COL_B = 1;   // DATE (per-day date)
+const COL_C = 2;   // Placement date (C3) / Bird count (C2)
 const COL_E = 4;   // FEED ORDERED (deliveries)
 const COL_G = 6;   // FEED ALLOC remaining
 const COL_H = 7;   // FEED USAGE
@@ -63,6 +65,25 @@ const COL_K = 10;  // Silo A
 const COL_L = 11;  // Silo B
 const COL_M = 12;  // Silo C
 
+// Cobb 500 grams per bird per day (day 1 → day 54)
+const COBB500_GRAMS = [22,24,26,28,30,32,34,36,40,45,50,55,60,65,74,75,80,87,93,97,103,107,113,118,122,128,134,139,140,142,149,153,158,163,165,168,171,174,176,178,180,181,188,190,192,193,194,195,196,197,197,197,198,197];
+
+function parseDateInput(str: string): Date | null {
+  if (!str) return null;
+  // DD/MM/YYYY or D/M/YYYY
+  const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) return new Date(parseInt(dmy[3]), parseInt(dmy[2]) - 1, parseInt(dmy[1]));
+  // YYYY-MM-DD (ISO)
+  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]));
+  // MM/DD/YYYY (US, fallback)
+  const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) return new Date(parseInt(mdy[3]), parseInt(mdy[1]) - 1, parseInt(mdy[2]));
+  // Natural language fallback
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function recalculate(
   cells: Map<string, CellInfo>,
   edits: Map<string, string>,
@@ -70,20 +91,54 @@ function recalculate(
   triggeredCol: number,
   maxRow: number
 ): Map<string, string> {
-  // Only cascade for silo columns (K,L,M) or delivery (E)
-  if (![COL_K, COL_L, COL_M, COL_E, COL_J].includes(triggeredCol)) return edits;
-
   const newEdits = new Map(edits);
 
   const getNum = (r: number, c: number): number => {
     const key = `${r},${c}`;
-    const editVal = newEdits.get(key);
-    if (editVal !== undefined) return parseFloat(editVal) || 0;
+    const ev = newEdits.get(key);
+    if (ev !== undefined) return parseFloat(ev) || 0;
     return parseFloat(cells.get(key)?.value ?? "0") || 0;
   };
   const setNum = (r: number, c: number, val: number) => {
     newEdits.set(`${r},${c}`, String(Math.round(val * 100) / 100));
   };
+
+  // ── Bird count (C2, r=1, c=2) → allocation headers + daily feed usage ──
+  if (triggeredRow === 1 && triggeredCol === COL_C) {
+    const birds = getNum(1, COL_C);
+    setNum(1, COL_H, Math.round(birds * 0.325));   // STR ALL
+    setNum(2, COL_H, Math.round(birds * 1.15));    // GWR ALL
+    setNum(3, COL_H, Math.round(birds * 1.7));     // FIN ALL
+    setNum(4, COL_H, Math.round(birds * 1.5));     // WDW ALL
+    // Cascade daily feed usage using Cobb 500 table: H = grams[age-1] × birds / 1000
+    for (let r = 0; r <= maxRow; r++) {
+      const age = parseInt(cells.get(`${r},0`)?.value ?? "");
+      if (!isNaN(age) && age >= 1 && age <= COBB500_GRAMS.length) {
+        setNum(r, COL_H, Math.round(COBB500_GRAMS[age - 1] * birds / 1000));
+      }
+    }
+    return newEdits;
+  }
+
+  // ── Placement date (C3, r=2, c=2) → all date cells in column B ──
+  if (triggeredRow === 2 && triggeredCol === COL_C) {
+    const dateStr = newEdits.get("2,2") ?? cells.get("2,2")?.value ?? "";
+    const placement = parseDateInput(dateStr);
+    if (placement) {
+      for (let r = 0; r <= maxRow; r++) {
+        const age = parseInt(cells.get(`${r},0`)?.value ?? "");
+        if (!isNaN(age) && age >= 1) {
+          const d = new Date(placement.getFullYear(), placement.getMonth(), placement.getDate() + (age - 1));
+          const formatted = d.toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+          newEdits.set(`${r},${COL_B}`, formatted);
+        }
+      }
+    }
+    return newEdits;
+  }
+
+  // Only cascade for silo columns (K,L,M) or delivery (E) below
+  if (![COL_K, COL_L, COL_M, COL_E, COL_J].includes(triggeredCol)) return newEdits;
 
   // Cascade G (FEED ALLOC remaining) down when E (delivery) is edited
   if (triggeredCol === COL_E) {
@@ -535,11 +590,11 @@ export default function App() {
 
           const sheet = sheets[sheetIdx];
 
-          // Find the row where column C's displayed value equals today's date string
+          // Find the row where column B (index 1, the DATE column) matches today's date
           let dateRow = -1;
           for (const [key, cell] of sheet.cells.entries()) {
             const parts = key.split(",");
-            if (parseInt(parts[1]) === 2 && cell.value === today) {
+            if (parseInt(parts[1]) === 1 && cell.value === today) {
               dateRow = parseInt(parts[0]);
               break;
             }
