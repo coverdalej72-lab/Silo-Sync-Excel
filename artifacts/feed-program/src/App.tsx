@@ -952,6 +952,14 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
 }
 
 // ── BatchResultsView ──────────────────────────────────────────────────────
+interface ShedCatch {
+  birds: number;
+  dateSerial: number;
+  age: number;
+  sex: string;
+  aveWeight: number;
+  totalWeight: number;
+}
 interface ShedBatchData {
   shedNum: number;
   placement: number;
@@ -961,7 +969,13 @@ interface ShedBatchData {
   aveWeight: number;
   totalWeight: number;
   cages: number;
+  catches: ShedCatch[];
 }
+const xlDateToStr = (serial: number) => {
+  if (!serial) return "—";
+  const d = new Date((serial - 25569) * 86400000);
+  return d.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric" });
+};
 interface BatchSummary {
   farmName: string;
   batchNum: number;
@@ -1028,11 +1042,19 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
       const c = COLS[gi];
       const placement = num(gv(pRow, c.p));
       if (!placement) continue; // empty shed slot — skip but keep counter
-      // Count cages: non-empty catch rows between morts and totals
-      let cages = 0;
+      // Parse individual catch rows between morts row and totals row
+      const catches: ShedCatch[] = [];
       for (let cr = mRow + 1; cr < tRow; cr++) {
-        const v = gv(cr, c.p);
-        if (v !== null && num(v) > 0) cages++;
+        const birds = num(gv(cr, c.p));
+        if (!birds) continue;
+        catches.push({
+          birds,
+          dateSerial: num(gv(cr, c.p + 1)),
+          age:        num(gv(cr, c.p + 2)),
+          sex:        String(gv(cr, c.p + 3) ?? "").toUpperCase(),
+          aveWeight:  num(gv(cr, c.aw)),
+          totalWeight: num(gv(cr, c.tw)),
+        });
       }
       sheds.push({
         shedNum:     shedCounter,
@@ -1042,7 +1064,8 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
         totalCaught: num(gv(tRow, c.tc)),
         aveWeight:   num(gv(tRow, c.aw)),
         totalWeight: num(gv(tRow, c.tw)),
-        cages,
+        cages:       catches.length,
+        catches,
       });
     }
   }
@@ -1182,47 +1205,68 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
         </div>
       )}
 
-      {/* Per-shed breakdown */}
+      {/* Per-shed cards */}
       {activeSheds.length > 0 && (
         <div>
-          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 10, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>
             Per-Shed Breakdown ({activeSheds.length} active shed{activeSheds.length !== 1 ? "s" : ""})
           </div>
-          <div style={{ overflowX: "auto", borderRadius: 10, border: "1px solid #e0e0e0" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#1a5c36", color: "#fff" }}>
-                  <th style={{ padding: "9px 12px", textAlign: "left",  fontWeight: 700 }}>Shed</th>
-                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Placed</th>
-                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Caught</th>
-                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Morts</th>
-                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Mort %</th>
-                  <th style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700 }}>Ave Wgt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeSheds.map((shed, i) => (
-                  <tr key={shed.shedNum} style={{ background: i % 2 === 0 ? "#f4f9f6" : "#fff", borderBottom: "1px solid #dde8e0", color: "#1a1a1a" }}>
-                    <td style={{ padding: "8px 12px", fontWeight: 600, color: "#1a1a1a" }}>Shed {shed.shedNum}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#1a1a1a" }}>{shed.placement.toLocaleString()}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#1a1a1a" }}>{shed.totalCaught > 0 ? shed.totalCaught.toLocaleString() : "—"}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", color: shed.morts > 0 ? "#c0392b" : "#1a1a1a" }}>{shed.morts.toLocaleString()}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#e67e22", fontWeight: 600 }}>{shed.mortPct > 0 ? shed.mortPct.toFixed(2) + "%" : "—"}</td>
-                    <td style={{ padding: "8px 12px", textAlign: "right", color: "#1a1a1a" }}>{shed.aveWeight > 0 ? shed.aveWeight.toFixed(3) + " kg" : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: "#d4eddf", borderTop: "2px solid #1a5c36", color: "#1a1a1a" }}>
-                  <td style={{ padding: "9px 12px", fontWeight: 800, color: "#1a5c36" }}>TOTAL</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#1a1a1a" }}>{totalPlaced.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#1a1a1a" }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#c0392b" }}>{totalMorts.toLocaleString()}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#e67e22" }}>{overallMortPct}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "#1a1a1a" }}>{summary && summary.aveWeight > 0 ? summary.aveWeight.toFixed(3) + " kg" : "—"}</td>
-                </tr>
-              </tfoot>
-            </table>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))", gap: 12 }}>
+            {activeSheds.map(shed => (
+              <div key={shed.shedNum} style={{ background: "#fff", borderRadius: 10, border: "1px solid #dde8e0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+                {/* Card header */}
+                <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14 }}>SHED {shed.shedNum}</div>
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 14, flexWrap: "wrap" }}>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 15, fontWeight: 800 }}>{shed.placement.toLocaleString()}</div>
+                      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Placed</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 15, fontWeight: 800 }}>{shed.totalCaught > 0 ? shed.totalCaught.toLocaleString() : "—"}</div>
+                      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Caught</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: shed.morts > 0 ? "#ffb3a7" : "#fff" }}>{shed.morts.toLocaleString()}</div>
+                      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Morts {shed.mortPct > 0 ? `(${shed.mortPct.toFixed(1)}%)` : ""}</div>
+                    </div>
+                  </div>
+                </div>
+                {/* Catches table */}
+                {shed.catches.length > 0 && (
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: "#f0f7f3" }}>
+                        <th style={{ padding: "6px 10px", textAlign: "left",  color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Date</th>
+                        <th style={{ padding: "6px 10px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Age</th>
+                        <th style={{ padding: "6px 10px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Birds</th>
+                        <th style={{ padding: "6px 10px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Ave Wgt</th>
+                        <th style={{ padding: "6px 10px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Total Wgt</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {shed.catches.map((ct, ci) => (
+                        <tr key={ci} style={{ borderTop: "1px solid #eef3ef", background: ci % 2 === 0 ? "#fff" : "#f9fcfa" }}>
+                          <td style={{ padding: "6px 10px", color: "#333" }}>{xlDateToStr(ct.dateSerial)}</td>
+                          <td style={{ padding: "6px 10px", textAlign: "right", color: "#333" }}>{ct.age}d</td>
+                          <td style={{ padding: "6px 10px", textAlign: "right", color: "#333", fontWeight: 600 }}>{ct.birds.toLocaleString()}</td>
+                          <td style={{ padding: "6px 10px", textAlign: "right", color: "#333" }}>{ct.aveWeight.toFixed(3)} kg</td>
+                          <td style={{ padding: "6px 10px", textAlign: "right", color: "#333" }}>{ct.totalWeight > 0 ? (ct.totalWeight / 1000).toFixed(2) + " t" : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ borderTop: "2px solid #1a5c36", background: "#d4eddf" }}>
+                        <td colSpan={2} style={{ padding: "6px 10px", color: "#1a5c36", fontWeight: 800, fontSize: 11 }}>TOTAL</td>
+                        <td style={{ padding: "6px 10px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{shed.totalCaught.toLocaleString()}</td>
+                        <td style={{ padding: "6px 10px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{shed.aveWeight.toFixed(3)} kg</td>
+                        <td style={{ padding: "6px 10px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{shed.totalWeight > 0 ? (shed.totalWeight / 1000).toFixed(2) + " t" : "—"}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
