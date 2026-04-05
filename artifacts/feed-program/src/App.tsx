@@ -1708,7 +1708,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                       <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "10%" }}>Age</th>
                       <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "16%" }}>Birds</th>
                       <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Ave Wgt</th>
-                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Total Wgt</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Total Wgt (kg)</th>
                       <th style={{ width: "8%" }} />
                     </tr>
                   </thead>
@@ -1756,7 +1756,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                               <input style={inputStyle} type="number" step="0.01" value={editVal} autoFocus
                                 onChange={e => setEditVal(e.target.value)}
                                 onBlur={commitEdit} onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditCell(null); }} />
-                            ) : (rowTw > 0 ? `${rowTw.toFixed(2)} t` : <span style={{ color: "#aaa" }}>—</span>)}
+                            ) : (rowTw > 0 ? `${Math.round(rowTw * 1000).toLocaleString()} kg` : <span style={{ color: "#aaa" }}>—</span>)}
                           </td>
                           <td style={{ padding: "5px 6px", textAlign: "center", whiteSpace: "nowrap" }}>
                             {pendingDelete?.shedNum === shedNum && pendingDelete?.rowIdx === ci ? (
@@ -1786,7 +1786,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                       <td colSpan={2} style={{ padding: "6px 8px", color: "#1a5c36", fontWeight: 800, fontSize: 11 }}>TOTAL</td>
                       <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{sc > 0 ? sc.toLocaleString() : "—"}</td>
                       <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{aveWgt > 0 ? `${aveWgt.toFixed(3)} kg` : "—"}</td>
-                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{totalWgtKg > 0 ? `${(totalWgtKg / 1000).toFixed(2)} t` : "—"}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{totalWgtKg > 0 ? `${Math.round(totalWgtKg).toLocaleString()} kg` : "—"}</td>
                       <td />
                     </tr>
                     <tr>
@@ -1966,7 +1966,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "Inter,'Segoe UI',sans-serif" }}>
                         <thead>
                           <tr style={{ background: "#1a5c36", color: "#fff" }}>
-                            {["Shed", "Age (days)", "Birds", "Ave Wgt (kg)", "Total Wgt (t)"].map(h => (
+                            {["Shed", "Age (days)", "Birds", "Ave Wgt (kg)", "Total Wgt (kg)"].map(h => (
                               <th key={h} style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
                             ))}
                           </tr>
@@ -1978,7 +1978,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.age || "—"}</td>
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{parseInt(r.birds).toLocaleString()}</td>
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.aveWgt || "—"}</td>
-                              <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.totalWgt || "—"}</td>
+                              <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.totalWgt ? `${Math.round(parseFloat(r.totalWgt) * 1000).toLocaleString()} kg` : "—"}</td>
                             </tr>
                           ))}
                         </tbody>
