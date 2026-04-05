@@ -60,10 +60,12 @@ function styleShedInPlace(ws, isBig) {
 
   ws.views = [{ state: "frozen", ySplit: 9, showGridLines: true }];
 
-  // Shed 1&2 has cols 2-14 merged as one date zone (B:N).
-  // Hide cols 3-13 so the layout is compact like the other shed sheets.
+  // Shed 1&2 has cols 2-14 merged as one wide date zone (B:N).
+  // Hide cols 3-14 so the date zone appears only as col 2, then widen col 2
+  // to match the combined DAY+DATE column width of the other sheds (~55px).
   if (isBig) {
-    for (let c = 3; c <= 13; c++) {
+    ws.getColumn(2).width = 55;
+    for (let c = 3; c <= 14; c++) {
       ws.getColumn(c).hidden = true;
     }
   }
