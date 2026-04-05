@@ -1,21 +1,14 @@
 import { useState, useEffect } from "react";
-import { 
-  useGetTodayProgress, 
+import {
+  useGetTodayProgress,
   getGetTodayProgressQueryKey,
-  useBatchCreateReadings 
+  useBatchCreateReadings
 } from "@workspace/api-client-react";
-import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Save } from "lucide-react";
+import { Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFarmConfig } from "@/hooks/use-farm-config";
-
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 type SiloFormState = {
   amountRemaining: string;
@@ -23,29 +16,55 @@ type SiloFormState = {
   feedType: string;
 };
 
-type ShedFormState = Record<number, SiloFormState>;
+const SILO_BADGE_COLORS = [
+  { bg: "bg-primary",          text: "text-primary-foreground"  }, // A — green
+  { bg: "bg-blue-500",         text: "text-white"               }, // B — blue
+  { bg: "bg-amber-500",        text: "text-white"               }, // C — amber
+  { bg: "bg-purple-500",       text: "text-white"               }, // D — purple
+];
+
+function badgeColors(index: number) {
+  return SILO_BADGE_COLORS[index] ?? SILO_BADGE_COLORS[0];
+}
+
+function SavedValue({ value, unit, saved }: { value: string; unit: string; saved: boolean }) {
+  if (!saved) return (
+    <div className="text-center mt-1.5">
+      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Saved</p>
+      <div className="w-6 h-0.5 bg-amber-500 mx-auto mt-1 rounded-full" />
+    </div>
+  );
+  const num = parseFloat(value);
+  const display = !isNaN(num) ? num.toLocaleString() : value || "0";
+  return (
+    <div className="text-center mt-1.5">
+      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Saved</p>
+      <p className="text-xs font-bold text-primary">{display}</p>
+    </div>
+  );
+}
 
 export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const batchCreate = useBatchCreateReadings();
-  const { config, getShedName, getSiloTonnage } = useFarmConfig();
+  const { getShedName } = useFarmConfig();
 
   const { data: progress, isLoading } = useGetTodayProgress({
     query: { queryKey: getGetTodayProgressQueryKey() }
   });
 
-  const [formState, setFormState] = useState<Record<number, ShedFormState>>({});
+  const [formState, setFormState] = useState<Record<number, Record<number, SiloFormState>>>({});
 
   useEffect(() => {
     if (progress) {
-      const newState: Record<number, ShedFormState> = {};
+      const newState: Record<number, Record<number, SiloFormState>> = {};
       progress.sheds.forEach(shed => {
         newState[shed.shedGroupId] = {};
         shed.silos.forEach(silo => {
           newState[shed.shedGroupId][silo.siloId] = {
             amountRemaining: silo.amountRemaining !== null ? silo.amountRemaining.toString() : "",
-            unit: silo.unit || "tons",
+            unit: silo.unit || "kg",
             feedType: silo.feedType || silo.defaultFeedType || "",
           };
         });
@@ -54,213 +73,142 @@ export default function Home() {
     }
   }, [progress]);
 
-  const handleSiloChange = (shedId: number, siloId: number, field: keyof SiloFormState, value: string) => {
+  const handleChange = (shedId: number, siloId: number, field: keyof SiloFormState, value: string) => {
     setFormState(prev => ({
       ...prev,
-      [shedId]: {
-        ...prev[shedId],
-        [siloId]: {
-          ...prev[shedId]?.[siloId],
-          [field]: value
-        }
-      }
+      [shedId]: { ...prev[shedId], [siloId]: { ...prev[shedId]?.[siloId], [field]: value } }
     }));
   };
 
   const handleSaveShed = (shedId: number) => {
     if (!progress) return;
-    
     const shed = progress.sheds.find(s => s.shedGroupId === shedId);
     if (!shed) return;
-
     const readingsToSave = shed.silos.map(silo => {
       const state = formState[shedId]?.[silo.siloId];
       return {
         siloId: silo.siloId,
         feedType: state?.feedType || "",
         amountRemaining: parseFloat(state?.amountRemaining || "0") || 0,
-        unit: state?.unit || "tons",
+        unit: state?.unit || "kg",
       };
     });
-
     batchCreate.mutate({ data: { readings: readingsToSave } }, {
       onSuccess: () => {
-        toast({ title: "Shed saved successfully" });
+        toast({ title: `${getShedName(shedId, shed.shedGroupName)} saved` });
         queryClient.invalidateQueries({ queryKey: getGetTodayProgressQueryKey() });
       },
-      onError: () => {
-        toast({ variant: "destructive", title: "Failed to save shed" });
-      }
-    });
-  };
-
-  const handleSaveAll = () => {
-    if (!progress) return;
-    
-    const unsavedSheds = progress.sheds.filter(s => !s.allSaved);
-    const readingsToSave: any[] = [];
-    
-    unsavedSheds.forEach(shed => {
-      shed.silos.forEach(silo => {
-        const state = formState[shed.shedGroupId]?.[silo.siloId];
-        readingsToSave.push({
-          siloId: silo.siloId,
-          feedType: state?.feedType || "",
-          amountRemaining: parseFloat(state?.amountRemaining || "0") || 0,
-          unit: state?.unit || "tons",
-        });
-      });
-    });
-
-    if (readingsToSave.length === 0) {
-      toast({ title: "All sheds are already saved." });
-      return;
-    }
-
-    batchCreate.mutate({ data: { readings: readingsToSave } }, {
-      onSuccess: () => {
-        toast({ title: "All readings saved successfully" });
-        queryClient.invalidateQueries({ queryKey: getGetTodayProgressQueryKey() });
-      },
-      onError: () => {
-        toast({ variant: "destructive", title: "Failed to save all readings" });
-      }
+      onError: () => toast({ variant: "destructive", title: "Failed to save" })
     });
   };
 
   if (isLoading) {
     return (
-      <div className="p-4 space-y-4">
-        <Skeleton className="h-10 w-3/4 mb-4" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-64 w-full" />
-        <Skeleton className="h-64 w-full" />
+      <div className="p-4 space-y-3 pt-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-48 rounded-2xl bg-card animate-pulse" />
+        ))}
       </div>
     );
   }
 
-  if (!progress) {
-    return <div className="p-4">Failed to load data.</div>;
-  }
+  if (!progress) return <div className="p-4 text-muted-foreground">Failed to load.</div>;
 
   return (
-    <div className="bg-background min-h-full pb-20">
-      <div className="p-4 bg-primary text-primary-foreground pt-8 pb-10">
-        <h1 className="text-2xl font-bold tracking-tight">{config.farmName}</h1>
-        <p className="text-primary-foreground/80 mt-1">{format(new Date(), "EEEE, d MMMM yyyy")}</p>
-        
-        <div className="mt-6 flex flex-col items-center justify-center p-6 bg-primary-foreground/10 rounded-xl">
-          <span className="text-4xl font-extrabold">{progress.savedCount} of {progress.totalCount}</span>
-          <span className="text-sm font-medium mt-1">Sheds Done</span>
-        </div>
-      </div>
+    <div className="px-3 py-3 space-y-3 pb-8">
+      {progress.sheds.map(shed => {
+        const isSaved = shed.allSaved;
 
-      <div className="px-4 py-4 space-y-6 mt-[-1rem]">
-        {progress.sheds.map(shed => (
-          <Card key={shed.shedGroupId} className="shadow-md border-border/50 overflow-hidden">
-            <CardHeader className="bg-secondary/50 py-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">{getShedName(shed.shedGroupId, shed.shedGroupName)}</CardTitle>
-              {shed.allSaved && (
-                <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white gap-1 py-1">
-                  <Check className="h-3 w-3" /> Saved
-                </Badge>
-              )}
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {shed.silos.map((silo, index) => {
-                  const state = formState[shed.shedGroupId]?.[silo.siloId];
-                  return (
-                    <div key={silo.siloId} className="p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="bg-primary text-primary-foreground font-bold w-8 h-8 rounded-md flex items-center justify-center text-sm">
-                          {silo.letter}
-                        </div>
-                        <div className="flex-1">
-                          <span className="font-semibold text-sm block">{silo.name}</span>
-                          {getSiloTonnage(shed.shedGroupId, silo.letter) > 0 && (
-                            <span className="text-[10px] text-muted-foreground">
-                              Capacity: {getSiloTonnage(shed.shedGroupId, silo.letter)}t
-                            </span>
-                          )}
-                        </div>
-                        {silo.saved && !shed.allSaved && (
-                          <span className="text-xs font-medium text-green-600 flex items-center gap-1">
-                            <Check className="w-3 h-3" /> saved
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Amount</label>
-                          <Input 
-                            type="number" 
-                            placeholder="0"
-                            className="h-12 text-lg font-bold" 
-                            value={state?.amountRemaining || ""} 
-                            onChange={(e) => handleSiloChange(shed.shedGroupId, silo.siloId, "amountRemaining", e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Unit</label>
-                          <Select 
-                            value={state?.unit || "tons"} 
-                            onValueChange={(val) => handleSiloChange(shed.shedGroupId, silo.siloId, "unit", val)}
-                          >
-                            <SelectTrigger className="h-12 font-medium">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="tons">Tons</SelectItem>
-                              <SelectItem value="kg">kg</SelectItem>
-                              <SelectItem value="lbs">lbs</SelectItem>
-                              <SelectItem value="bushels">Bushels</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="text-[10px] uppercase font-bold text-muted-foreground mb-1 block">Feed Type</label>
-                        <Input 
-                          type="text" 
-                          placeholder="e.g. Finisher"
-                          className="h-10"
-                          value={state?.feedType || ""}
-                          onChange={(e) => handleSiloChange(shed.shedGroupId, silo.siloId, "feedType", e.target.value)}
-                        />
-                      </div>
+        return (
+          <div
+            key={shed.shedGroupId}
+            className="bg-card rounded-2xl overflow-hidden border border-border/50 shadow-lg"
+          >
+            {/* Shed header */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-3">
+              <div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sheds</p>
+                <p className="text-2xl font-extrabold text-foreground leading-tight">
+                  {getShedName(shed.shedGroupId, shed.shedGroupName).replace(/^Sheds?\s*/i, "")}
+                </p>
+              </div>
+              <button
+                onClick={() => !isSaved && handleSaveShed(shed.shedGroupId)}
+                disabled={batchCreate.isPending}
+                className={cn(
+                  "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all",
+                  isSaved
+                    ? "bg-primary/15 text-primary cursor-default"
+                    : "bg-primary text-primary-foreground active:scale-95"
+                )}
+              >
+                {isSaved && <Check className="w-3.5 h-3.5" />}
+                {isSaved ? "Saved" : "Save"}
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-border mx-4" />
+
+            {/* Silos row */}
+            <div className="flex gap-2 px-3 py-3">
+              {shed.silos.map((silo, idx) => {
+                const colors = badgeColors(idx);
+                const state = formState[shed.shedGroupId]?.[silo.siloId];
+                const savedVal = silo.amountRemaining?.toString() ?? "";
+                const isSiloSaved = silo.saved;
+
+                return (
+                  <div key={silo.siloId} className="flex-1 flex flex-col min-w-0">
+                    {/* Label */}
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span className={cn("w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-extrabold shrink-0", colors.bg, colors.text)}>
+                        {silo.letter}
+                      </span>
+                      <span className="text-xs font-semibold text-muted-foreground truncate">{silo.name}</span>
                     </div>
-                  );
-                })}
-              </div>
-              <div className="p-4 bg-muted/20 border-t">
-                <Button 
-                  className="w-full h-12 font-bold text-base" 
-                  disabled={batchCreate.isPending}
-                  onClick={() => handleSaveShed(shed.shedGroupId)}
-                >
-                  <Save className="w-5 h-5 mr-2" />
-                  Save {shed.shedGroupName}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
-      <div className="fixed bottom-16 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent pointer-events-none flex justify-center z-40 max-w-md mx-auto">
-        <Button 
-          size="lg" 
-          className="w-full h-14 rounded-full font-bold shadow-lg pointer-events-auto"
-          onClick={handleSaveAll}
-          disabled={batchCreate.isPending || progress.savedCount === progress.totalCount}
+                    {/* Input */}
+                    <div className="relative">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        placeholder="kg"
+                        value={state?.amountRemaining ?? ""}
+                        onChange={e => handleChange(shed.shedGroupId, silo.siloId, "amountRemaining", e.target.value)}
+                        className={cn(
+                          "w-full bg-secondary border border-border/50 rounded-xl px-3 py-3",
+                          "text-lg font-bold text-foreground placeholder:text-muted-foreground/50",
+                          "focus:outline-none focus:ring-2 focus:ring-primary/50 text-center",
+                          "transition-all"
+                        )}
+                      />
+                    </div>
+
+                    {/* Saved indicator */}
+                    <SavedValue value={savedVal} unit={state?.unit ?? "kg"} saved={isSiloSaved} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Save all floating button if not all saved */}
+      {progress.savedCount < progress.totalCount && (
+        <button
+          onClick={() => {
+            progress.sheds
+              .filter(s => !s.allSaved)
+              .forEach(s => handleSaveShed(s.shedGroupId));
+          }}
+          disabled={batchCreate.isPending}
+          className="w-full py-4 bg-primary rounded-2xl text-primary-foreground font-bold text-base active:scale-95 transition-all shadow-lg"
         >
-          <Save className="w-5 h-5 mr-2" />
           Save All Readings
-        </Button>
-      </div>
+        </button>
+      )}
     </div>
   );
 }
