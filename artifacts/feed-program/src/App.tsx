@@ -607,9 +607,7 @@ function SheetView({
 
   // Pre-compute header row heights for sticky offsets
   const row7Height  = isShedSheet ? Math.max(rowHeights[7]  ?? 20, 26) : 0;
-  // EOB header rows are 3, 4, 5 — pre-compute cumulative tops
-  const eobRow3H = isEobSheet ? (rowHeights[3] ?? 27) : 0;
-  const eobRow4H = isEobSheet ? (rowHeights[4] ?? 21) : 0;
+  // EOB header row 3 is sticky at top=0
 
   return (
     <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: "100%" }}>
@@ -629,7 +627,7 @@ function SheetView({
           const isShedTotals  = isShedSheet && r === 11;
           const isShedData    = isShedSheet && r >= 12 && r <= 71;
           const isShedSummary = isShedSheet && r >= 72;
-          const isEobHeader   = isEobSheet  && (r === 3 || r === 4 || r === 5);
+          const isEobHeader   = isEobSheet  && r === 3;
           const isAnyHeader   = isShedHeader || isEobHeader;
           const rowBg = isAnyHeader
             ? "#1a5c36"
@@ -642,10 +640,8 @@ function SheetView({
             : isEobSheet && r % 2 === 0
             ? "#f9f9f9"
             : undefined;
-          // Cumulative sticky top for EOB header rows
-          const eobStickyTop = isEobHeader
-            ? (r === 3 ? 0 : r === 4 ? eobRow3H : eobRow3H + eobRow4H)
-            : 0;
+          // EOB row 3 is sticky at top=0
+          const eobStickyTop = 0;
 
           return (
             <tr key={r} style={{ height: rowH, background: rowBg }}>
