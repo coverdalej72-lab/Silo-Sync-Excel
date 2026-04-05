@@ -2025,6 +2025,24 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   );
 }
 
+// ── MortsView helpers ─────────────────────────────────────────────────────────
+const MORTS_LOG_KEY = "silo-morts-log";
+type MortsLog = Record<string, Record<number, number>>;
+
+function getWeekDays(offset: number): Date[] {
+  const now = new Date();
+  const dow = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
+
 // ── MortsView ─────────────────────────────────────────────────────────────────
 function MortsView({ sheets, edits, handleEdit, farmConfig }: {
   sheets: SheetParsed[];
@@ -2032,182 +2050,303 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
   handleEdit: (si: number, key: string, val: string) => void;
   farmConfig: FarmConfigData;
 }) {
+  const [subView, setSubView] = useState<"template" | "summary">("template");
+  const [mortsLog, setMortsLog] = useState<MortsLog>(() => {
+    try { return JSON.parse(localStorage.getItem(MORTS_LOG_KEY) || "{}"); } catch { return {}; }
+  });
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [editCell, setEditCell] = useState<{ date: string; shed: number } | null>(null);
+  const [editVal, setEditVal] = useState("");
   const [editingShed, setEditingShed] = useState<number | null>(null);
   const [editMorts, setEditMorts] = useState("");
 
   const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
-
   const getEobNum = (row: number, col: number): number => {
     if (eobIdx < 0) return 0;
     const key = `${row},${col}`;
-    const editVal = edits[eobIdx]?.get(key);
-    if (editVal !== undefined) return parseFloat(editVal) || 0;
-    const cell = sheets[eobIdx].cells.get(key);
-    return parseFloat(String(cell?.value ?? 0)) || 0;
+    const ev = edits[eobIdx]?.get(key);
+    if (ev !== undefined) return parseFloat(ev) || 0;
+    return parseFloat(String(sheets[eobIdx].cells.get(key)?.value ?? 0)) || 0;
   };
 
-  // Determine active sheds from farmConfig
   const activeShedNums: number[] = [];
-  (farmConfig.shedGroups ?? []).forEach(g => {
-    if (g.enabled !== false) {
-      const odd = g.id * 2 - 1;
-      const even = g.id * 2;
-      if (odd > 0 && odd <= 12) activeShedNums.push(odd);
-      if (even > 0 && even <= 12) activeShedNums.push(even);
+  (farmConfig.shedGroups ?? []).forEach((g: FarmShedConfig) => {
+    if (g.active !== false) {
+      const id = g.shedGroupId;
+      const odd = id * 2 - 1; const even = id * 2;
+      if (odd > 0 && odd <= 24) { activeShedNums.push(odd); activeShedNums.push(even); }
     }
   });
   const shedNums = activeShedNums.length > 0 ? activeShedNums : Array.from({ length: 12 }, (_, i) => i + 1);
 
-  // EOB row for shed N: row = N + 3 (0-indexed). Cols: 22=placed, 23=catched, 24=actualMorts
+  const days = getWeekDays(weekOffset);
+  const weekLabel = `${days[0].toLocaleDateString("en-AU", { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`;
+
+  const placementDate = useMemo((): Date | null => {
+    const si = sheets.findIndex(s => /shed/i.test(s.name) && !/end/i.test(s.name));
+    if (si < 0) return null;
+    const raw = edits[si]?.get("2,2") ?? String(sheets[si].cells.get("2,2")?.value ?? "");
+    if (!raw) return null;
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  }, [sheets, edits]);
+
+  const getDayNum = (d: Date): number | null => {
+    if (!placementDate) return null;
+    const n = Math.floor((d.getTime() - placementDate.getTime()) / 86400000) + 1;
+    return n >= 1 && n <= 120 ? n : null;
+  };
+
+  const saveMorts = (date: string, shed: number, val: string) => {
+    const n = parseInt(val.replace(/,/g, ""), 10);
+    const next: MortsLog = { ...mortsLog };
+    if (!next[date]) next[date] = {};
+    if (isNaN(n) || n < 0) { delete next[date][shed]; } else { next[date][shed] = n; }
+    if (Object.keys(next[date] ?? {}).length === 0) delete next[date];
+    setMortsLog(next);
+    localStorage.setItem(MORTS_LOG_KEY, JSON.stringify(next));
+    setEditCell(null);
+  };
+
+  const shedWeekTotals = shedNums.map(s =>
+    days.reduce((a, d) => a + (mortsLog[isoDate(d)]?.[s] ?? 0), 0)
+  );
+  const weekGrandTotal = shedWeekTotals.reduce((a, v) => a + v, 0);
+
+  const handlePrint = () => {
+    const farmName = farmConfig.farmName ?? "Farm";
+    const ths = ["Day", "Date", ...shedNums.map(s => `Shed ${s}`), "Total"].map(h => `<th>${h}</th>`).join("");
+    const trs = days.map((d, i) => {
+      const dayNum = getDayNum(d);
+      const iso = isoDate(d);
+      const dayMorts = mortsLog[iso] ?? {};
+      const vals = shedNums.map(s => dayMorts[s] ?? "");
+      const rowTotal = shedNums.reduce((a, s) => a + (dayMorts[s] ?? 0), 0);
+      return `<tr><td style="font-weight:700">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][i]}${dayNum ? ` / Day ${dayNum}` : ""}</td><td>${d.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</td>${vals.map(v => `<td>${v}</td>`).join("")}<td style="font-weight:700">${rowTotal > 0 ? rowTotal : ""}</td></tr>`;
+    }).join("");
+    const totalsRow = `<tr style="background:#e8f5ee;font-weight:700"><td>WEEK TOTAL</td><td></td>${shedWeekTotals.map(t => `<td>${t > 0 ? t : ""}</td>`).join("")}<td>${weekGrandTotal > 0 ? weekGrandTotal : ""}</td></tr>`;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Morts — ${weekLabel}</title><style>
+      body{font-family:Arial,sans-serif;padding:16px;font-size:12px}
+      h2{color:#1a5c36;margin:0 0 2px}p{margin:0 0 12px;color:#555;font-size:11px}
+      table{border-collapse:collapse;width:100%}
+      th{background:#8b1a1a;color:#fff;padding:8px 5px;text-align:center;font-size:11px;border:1px solid #6b1414}
+      td{border:1px solid #ccc;padding:7px 5px;text-align:center;min-width:48px;min-height:26px}
+      tr:nth-child(even) td{background:#f9f9f9}
+      @media print{@page{margin:10mm;size:landscape}}
+    </style></head><body>
+      <h2>${farmName} — Daily Morts Template</h2>
+      <p>Week: ${weekLabel}</p>
+      <table><thead><tr>${ths}</tr></thead><tbody>${trs}${totalsRow}</tbody></table>
+    </body></html>`);
+    win.document.close();
+    setTimeout(() => win.print(), 300);
+  };
+
+  const mortColor = (pct: number) => pct >= 4 ? "#c0392b" : pct >= 2 ? "#e67e22" : pct >= 1 ? "#f1c40f" : "#27ae60";
+  const fmtN = (n: number) => Math.round(n).toLocaleString();
+
   const shedData = shedNums.map(shedNum => {
     const row = shedNum + 3;
-    const placed  = getEobNum(row, 22);
-    const catched = getEobNum(row, 23);
-    const morts   = getEobNum(row, 24);
+    const placed = getEobNum(row, 22); const catched = getEobNum(row, 23); const morts = getEobNum(row, 24);
     const mortPct = placed > 0 ? (morts / placed) * 100 : 0;
     return { shedNum, row, placed, catched, morts, mortPct };
   });
-
-  const totalPlaced  = shedData.reduce((a, s) => a + s.placed,  0);
+  const totalPlaced = shedData.reduce((a, s) => a + s.placed, 0);
   const totalCatched = shedData.reduce((a, s) => a + s.catched, 0);
-  const totalMorts   = shedData.reduce((a, s) => a + s.morts,   0);
+  const totalMorts = shedData.reduce((a, s) => a + s.morts, 0);
   const totalMortPct = totalPlaced > 0 ? (totalMorts / totalPlaced) * 100 : 0;
 
-  const mortColor = (pct: number) => {
-    if (pct >= 4) return "#c0392b";
-    if (pct >= 2) return "#e67e22";
-    if (pct >= 1) return "#f1c40f";
-    return "#27ae60";
-  };
-  const mortBg = (pct: number) => {
-    if (pct >= 4) return "#fdf0ef";
-    if (pct >= 2) return "#fef5ec";
-    if (pct >= 1) return "#fefce8";
-    return "#f0faf4";
-  };
-
-  const fmtN = (n: number) => Math.round(n).toLocaleString();
-
-  const saveEdit = (shedNum: number, row: number) => {
+  const saveEobEdit = (shedNum: number, row: number) => {
     const val = parseFloat(editMorts.replace(/,/g, ""));
-    if (!isNaN(val) && eobIdx >= 0) {
-      handleEdit(eobIdx, `${row},24`, String(Math.round(val)));
-    }
+    if (!isNaN(val) && eobIdx >= 0) handleEdit(eobIdx, `${row},24`, String(Math.round(val)));
     setEditingShed(null);
   };
 
+  const TH: React.CSSProperties = { background: "#8b1a1a", color: "#fff", padding: "7px 5px", textAlign: "center", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, fontSize: 11, borderRight: "1px solid rgba(255,255,255,0.2)" };
+  const TH_STICKY: React.CSSProperties = { ...TH, left: 0, zIndex: 3, minWidth: 54 };
+  const TD: React.CSSProperties = { borderRight: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: "0", textAlign: "center" };
+  const TD_STICKY: React.CSSProperties = { ...TD, position: "sticky", left: 0, zIndex: 1, background: "#f0f7f3", minWidth: 54, padding: "6px 4px", fontSize: 11, fontWeight: 700 };
+
+  const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
   return (
-    <div style={{ padding: "16px 14px", maxWidth: 700, margin: "0 auto" }}>
-      {/* Batch totals */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: 20 }}>
-        {[
-          { label: "Total Placed",  value: fmtN(totalPlaced),  color: "#1a5c36" },
-          { label: "Total Catched", value: fmtN(totalCatched), color: "#2c3e50" },
-          { label: "Total Morts",   value: fmtN(totalMorts),   color: "#c0392b" },
-          { label: "Overall Mort%", value: totalMortPct.toFixed(2) + "%", color: mortColor(totalMortPct) },
-        ].map(({ label, value, color }) => (
-          <div key={label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 14px", boxShadow: "0 1px 3px rgba(0,0,0,0.07)" }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color }}>{value}</div>
-            <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>{label}</div>
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#f8f8f8" }}>
+      {/* Sub-tab bar */}
+      <div style={{ display: "flex", background: "#fff", borderBottom: "2px solid #8b1a1a", flexShrink: 0 }}>
+        {([["template", "📋 Weekly Log"], ["summary", "📊 Batch Summary"]] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setSubView(key)} style={{
+            flex: 1, padding: "9px 4px", fontSize: 12, fontWeight: 700, border: "none",
+            borderBottom: subView === key ? "3px solid #8b1a1a" : "3px solid transparent",
+            background: "none", color: subView === key ? "#8b1a1a" : "#888",
+            cursor: "pointer", marginBottom: -2,
+          }}>{label}</button>
         ))}
       </div>
 
-      {/* Mort % legend */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        {[["<1%","#27ae60","Low"], ["1–2%","#f1c40f","Watch"], ["2–4%","#e67e22","Warning"], [">4%","#c0392b","Critical"]].map(([range, color, label]) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#555" }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: color }} />
-            <span>{range} {label}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Per-shed table */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {shedData.map(({ shedNum, row, placed, catched, morts, mortPct }) => {
-          const isEditing = editingShed === shedNum;
-          return (
-            <div
-              key={shedNum}
-              style={{
-                background: mortBg(mortPct),
-                border: `1.5px solid ${mortColor(mortPct)}44`,
-                borderRadius: 10,
-                padding: "12px 14px",
-                display: "grid",
-                gridTemplateColumns: "auto 1fr 1fr 1fr auto",
-                alignItems: "center",
-                gap: "8px 12px",
-              }}
-            >
-              {/* Shed badge */}
-              <div style={{
-                background: mortColor(mortPct), color: "#fff",
-                borderRadius: 7, padding: "4px 10px",
-                fontWeight: 800, fontSize: 14, textAlign: "center", minWidth: 44,
-              }}>
-                {shedNum}
-              </div>
-
-              {/* Placed */}
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a5c36" }}>{placed > 0 ? fmtN(placed) : "—"}</div>
-                <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase" }}>Placed</div>
-              </div>
-
-              {/* Catched */}
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#2c3e50" }}>{catched > 0 ? fmtN(catched) : "—"}</div>
-                <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase" }}>Catched</div>
-              </div>
-
-              {/* Morts — editable */}
-              <div style={{ textAlign: "center" }}>
-                {isEditing ? (
-                  <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "center" }}>
-                    <input
-                      type="number"
-                      value={editMorts}
-                      onChange={e => setEditMorts(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") saveEdit(shedNum, row); if (e.key === "Escape") setEditingShed(null); }}
-                      autoFocus
-                      style={{
-                        width: 72, fontSize: 13, fontWeight: 700, textAlign: "center",
-                        border: "2px solid #c0392b", borderRadius: 5, padding: "2px 4px",
-                        outline: "none", background: "#fff",
-                      }}
-                    />
-                    <button onClick={() => saveEdit(shedNum, row)} style={{ background: "#c0392b", color: "#fff", border: "none", borderRadius: 5, padding: "3px 8px", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>✓</button>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => { setEditingShed(shedNum); setEditMorts(morts > 0 ? String(Math.round(morts)) : ""); }}
-                    style={{ cursor: "pointer", userSelect: "none" }}
-                    title="Tap to edit morts"
-                  >
-                    <div style={{ fontSize: 14, fontWeight: 700, color: mortColor(mortPct) }}>{morts !== 0 ? fmtN(morts) : "—"}</div>
-                    <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase" }}>Morts ✎</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Mort % badge */}
-              <div style={{
-                background: mortColor(mortPct), color: "#fff",
-                borderRadius: 7, padding: "4px 9px",
-                fontWeight: 800, fontSize: 13, textAlign: "center", minWidth: 52,
-              }}>
-                {placed > 0 ? mortPct.toFixed(2) + "%" : "—"}
-              </div>
+      {subView === "template" ? (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Toolbar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "#fff", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
+            <button onClick={() => setWeekOffset(w => w - 1)} style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #ddd", background: "#f5f5f5", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>‹</button>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#8b1a1a" }}>{weekLabel}</div>
+              {weekOffset === 0 && <div style={{ fontSize: 9, color: "#aaa", letterSpacing: 0.5, textTransform: "uppercase" }}>Current Week</div>}
             </div>
-          );
-        })}
-      </div>
+            <button onClick={() => setWeekOffset(w => w + 1)} style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #ddd", background: "#f5f5f5", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>›</button>
+            <button onClick={() => setWeekOffset(0)} style={{ padding: "5px 9px", borderRadius: 7, border: "1px solid #ddd", background: "#f5f5f5", cursor: "pointer", fontSize: 11, color: "#555" }}>Today</button>
+            <button onClick={handlePrint} style={{ padding: "5px 11px", borderRadius: 7, background: "#8b1a1a", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>🖨 Print</button>
+          </div>
 
-      {eobIdx < 0 && (
-        <div style={{ marginTop: 20, padding: 14, background: "#fef3cd", borderRadius: 8, fontSize: 13, color: "#856404" }}>
-          No "End of Batch" sheet found. Mort data will appear once the spreadsheet is loaded.
+          {/* Instructions */}
+          <div style={{ padding: "6px 12px", background: "#fff3f3", borderBottom: "1px solid #ffd5d5", fontSize: 11, color: "#8b1a1a", flexShrink: 0 }}>
+            Tap any cell to enter daily morts · Print empty template to fill by hand
+          </div>
+
+          {/* Scrollable table */}
+          <div style={{ flex: 1, overflowX: "auto", overflowY: "auto" }}>
+            <table style={{ borderCollapse: "collapse", fontSize: 12, minWidth: "max-content", width: "100%" }}>
+              <thead>
+                <tr>
+                  <th style={TH_STICKY}>Day</th>
+                  <th style={{ ...TH, minWidth: 68 }}>Date</th>
+                  {shedNums.map(s => <th key={s} style={{ ...TH, minWidth: 52 }}>Shed {s}</th>)}
+                  <th style={{ ...TH, background: "#5a0e0e", minWidth: 52 }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((d, i) => {
+                  const iso = isoDate(d);
+                  const dayNum = getDayNum(d);
+                  const isToday = iso === isoDate(new Date());
+                  const isWeekend = i >= 5;
+                  const dayMorts = mortsLog[iso] ?? {};
+                  const rowTotal = shedNums.reduce((a, s) => a + (dayMorts[s] ?? 0), 0);
+                  const rowBg = isToday ? "#fffde7" : isWeekend ? "#fafaf8" : i % 2 === 0 ? "#fff" : "#fcfcfc";
+                  return (
+                    <tr key={iso}>
+                      <td style={{ ...TD_STICKY, background: isToday ? "#fff8e1" : "#f8f0f0", color: isToday ? "#b8860b" : "#8b1a1a", borderRight: "2px solid #e5c5c5" }}>
+                        {DAY_LABELS[i]}
+                        {dayNum && <div style={{ fontSize: 9, color: "#aaa", fontWeight: 400 }}>D{dayNum}</div>}
+                      </td>
+                      <td style={{ ...TD, padding: "6px 5px", background: rowBg, color: "#555", whiteSpace: "nowrap", fontSize: 11 }}>
+                        {d.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
+                      </td>
+                      {shedNums.map(s => {
+                        const isEditing = editCell?.date === iso && editCell?.shed === s;
+                        const val = dayMorts[s];
+                        return (
+                          <td key={s} style={{ ...TD, background: rowBg }}>
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                value={editVal}
+                                autoFocus
+                                onChange={e => setEditVal(e.target.value)}
+                                onBlur={() => saveMorts(iso, s, editVal)}
+                                onKeyDown={e => { if (e.key === "Enter") saveMorts(iso, s, editVal); if (e.key === "Escape") setEditCell(null); }}
+                                style={{ width: "100%", border: "2px solid #8b1a1a", borderRadius: 3, padding: "5px 2px", textAlign: "center", fontSize: 13, outline: "none", background: "#fff8f8", fontWeight: 700 }}
+                              />
+                            ) : (
+                              <div
+                                onClick={() => { setEditCell({ date: iso, shed: s }); setEditVal(val !== undefined ? String(val) : ""); }}
+                                style={{
+                                  padding: "7px 4px", cursor: "pointer", minHeight: 30, textAlign: "center",
+                                  color: val ? (val > 50 ? "#c0392b" : val > 15 ? "#e67e22" : "#555") : "#ddd",
+                                  fontWeight: val ? 700 : 400,
+                                }}
+                              >
+                                {val !== undefined ? val : "·"}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td style={{ ...TD, background: rowBg, padding: "6px 5px", fontWeight: 700, color: rowTotal > 0 ? "#8b1a1a" : "#ccc", borderLeft: "2px solid #e5c5c5" }}>
+                        {rowTotal > 0 ? rowTotal : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* Week totals row */}
+                <tr style={{ background: "#f8e8e8" }}>
+                  <td style={{ ...TD_STICKY, background: "#efd0d0", color: "#8b1a1a", fontWeight: 800, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.3 }}>Week<br />Total</td>
+                  <td style={{ ...TD, background: "#f8e8e8", padding: "6px 5px" }} />
+                  {shedNums.map((s, i) => (
+                    <td key={s} style={{ ...TD, background: "#f8e8e8", fontWeight: 700, color: shedWeekTotals[i] > 0 ? "#8b1a1a" : "#ccc", padding: "7px 4px" }}>
+                      {shedWeekTotals[i] > 0 ? shedWeekTotals[i] : ""}
+                    </td>
+                  ))}
+                  <td style={{ ...TD, background: "#efd0d0", fontWeight: 800, color: "#8b1a1a", padding: "7px 5px", borderLeft: "2px solid #e5c5c5" }}>
+                    {weekGrandTotal > 0 ? weekGrandTotal : ""}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* ── Batch Summary (EOB data) ────────────────────────────────── */
+        <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 9, marginBottom: 16 }}>
+            {[
+              { label: "Total Placed", value: fmtN(totalPlaced), color: "#1a5c36" },
+              { label: "Total Catched", value: fmtN(totalCatched), color: "#2c3e50" },
+              { label: "Total Morts", value: fmtN(totalMorts), color: "#c0392b" },
+              { label: "Overall Mort%", value: totalMortPct.toFixed(2) + "%", color: mortColor(totalMortPct) },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 9, padding: "11px 12px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                <div style={{ fontSize: 19, fontWeight: 800, color }}>{value}</div>
+                <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            {[["<1%","#27ae60","Low"],["1–2%","#f1c40f","Watch"],["2–4%","#e67e22","Warning"],[">4%","#c0392b","Critical"]].map(([range, color, label]) => (
+              <div key={label as string} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#555" }}>
+                <div style={{ width: 9, height: 9, borderRadius: "50%", background: color as string }} />
+                <span>{range} {label}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            {shedData.map(({ shedNum, row, placed, catched, morts, mortPct }) => {
+              const isEditing = editingShed === shedNum;
+              const col = mortColor(mortPct);
+              return (
+                <div key={shedNum} style={{ background: "#fff", border: `1.5px solid ${col}33`, borderRadius: 9, padding: "10px 12px", display: "grid", gridTemplateColumns: "auto 1fr 1fr 1fr auto", alignItems: "center", gap: "6px 10px" }}>
+                  <div style={{ background: col, color: "#fff", borderRadius: 6, padding: "3px 9px", fontWeight: 800, fontSize: 13, textAlign: "center", minWidth: 40 }}>{shedNum}</div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a5c36" }}>{placed > 0 ? fmtN(placed) : "—"}</div>
+                    <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" }}>Placed</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#2c3e50" }}>{catched > 0 ? fmtN(catched) : "—"}</div>
+                    <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" }}>Catched</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    {isEditing ? (
+                      <div style={{ display: "flex", gap: 3, alignItems: "center", justifyContent: "center" }}>
+                        <input type="number" value={editMorts} onChange={e => setEditMorts(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveEobEdit(shedNum, row); if (e.key === "Escape") setEditingShed(null); }} autoFocus style={{ width: 64, fontSize: 12, fontWeight: 700, textAlign: "center", border: "2px solid #c0392b", borderRadius: 4, padding: "2px 3px", outline: "none" }} />
+                        <button onClick={() => saveEobEdit(shedNum, row)} style={{ background: "#c0392b", color: "#fff", border: "none", borderRadius: 4, padding: "3px 7px", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>✓</button>
+                      </div>
+                    ) : (
+                      <div onClick={() => { setEditingShed(shedNum); setEditMorts(morts > 0 ? String(Math.round(morts)) : ""); }} style={{ cursor: "pointer" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: col }}>{morts !== 0 ? fmtN(morts) : "—"}</div>
+                        <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" }}>Morts ✎</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ background: col, color: "#fff", borderRadius: 6, padding: "3px 8px", fontWeight: 800, fontSize: 12, minWidth: 48, textAlign: "center" }}>
+                    {placed > 0 ? mortPct.toFixed(2) + "%" : "—"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {eobIdx < 0 && <div style={{ marginTop: 16, padding: 12, background: "#fef3cd", borderRadius: 8, fontSize: 12, color: "#856404" }}>No "End of Batch" sheet found.</div>}
         </div>
       )}
     </div>

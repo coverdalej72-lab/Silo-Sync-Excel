@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { ClipboardList, History, Truck, Settings } from "lucide-react";
+import { ClipboardList, History, Truck, Settings, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetTodayProgress, getGetTodayProgressQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
@@ -26,6 +26,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { href: "/",            label: "Today",      icon: ClipboardList },
     { href: "/history",     label: "History",    icon: History },
     { href: "/deliveries",  label: "Deliveries", icon: Truck },
+    { href: "/photos",      label: "Photos",     icon: Camera },
     { href: "/settings",    label: "Settings",   icon: Settings },
   ];
 
@@ -81,7 +82,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 key={tab.href}
                 href={tab.href}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold transition-colors relative flex-1 justify-center",
+                  "flex flex-col items-center gap-0.5 px-1 py-2 text-[10px] font-semibold transition-colors relative flex-1 justify-center",
                   isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >

@@ -10,6 +10,7 @@ import Home from "@/pages/home";
 import History from "@/pages/history";
 import Deliveries from "@/pages/deliveries";
 import SettingsPage from "@/pages/settings";
+import Photos from "@/pages/photos";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/history" component={History} />
         <Route path="/deliveries" component={Deliveries} />
+        <Route path="/photos" component={Photos} />
         <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
