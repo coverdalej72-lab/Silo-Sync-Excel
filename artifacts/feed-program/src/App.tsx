@@ -775,7 +775,25 @@ export default function App() {
     }
     seedDoneRef.current = false;
     deliverySeedDoneRef.current = false;
-    setEdits(sheets.map(() => new Map()));
+
+    // Build blank edits for the "end of batch" sheet to wipe delivery rows
+    // Delivery columns (0-based): STARTER B/C/D=1/2/3, GROWER G/H/I=6/7/8,
+    //   FINISHER K/L/M=10/11/12, WITHDRAWL O/P/Q=14/15/16
+    // Data rows (0-based): 6–35  (Excel rows 7–36; row 36 = totals, keep it)
+    const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
+    const newEdits = sheets.map((_, i) => {
+      if (i !== eobIdx) return new Map<string, string>();
+      const m = new Map<string, string>();
+      const deliveryCols = [1, 2, 3, 6, 7, 8, 10, 11, 12, 14, 15, 16];
+      for (let r = 6; r <= 35; r++) {
+        for (const c of deliveryCols) {
+          m.set(`${r},${c}`, "");
+        }
+      }
+      return m;
+    });
+
+    setEdits(newEdits);
     setHasChanges(false);
   };
 
