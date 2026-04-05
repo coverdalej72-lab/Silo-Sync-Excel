@@ -2138,9 +2138,9 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
 
     // ── Shared style strings ──────────────────────────────────────────────────
     const colWidths = `<col style="width:5%"><col style="width:4%">${days.map(() => `<col style="width:12.4%">`).join("")}<col style="width:7%">`;
-    const TH  = `background:#8b1a1a;color:#fff;border:1px solid #6b1414;padding:3pt 4pt;font-size:8pt;text-align:center;`;
-    const TH2 = `background:#5a0e0e;color:#fff;border:1px solid #4a0a0a;padding:3pt 4pt;font-size:8pt;text-align:center;`;
-    const TD  = `border:1px solid #ccc;padding:4pt 3pt;text-align:center;font-size:8pt;`;
+    const TH  = `background:#8b1a1a;color:#fff;border:1.5px solid #000;padding:3pt 4pt;font-size:8pt;text-align:center;`;
+    const TH2 = `background:#5a0e0e;color:#fff;border:1.5px solid #000;padding:3pt 4pt;font-size:8pt;text-align:center;`;
+    const TD  = `border:1px solid #000;padding:4pt 3pt;text-align:center;font-size:8pt;`;
 
     const dayHeaders = days.map((d, i) => {
       const dn = getDayNum(d);
