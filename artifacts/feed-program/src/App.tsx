@@ -2040,21 +2040,6 @@ export default function App() {
         >
           ☰ Summary
         </button>
-        {/* Batch Results tab */}
-        <button
-          onClick={() => setActiveView("batchResults")}
-          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{
-            backgroundColor: activeView === "batchResults" ? "#1a5c36" : "#1a5c3688",
-            color: "#fff",
-            borderColor: "#1a5c36",
-            opacity: activeView === "batchResults" ? 1 : 0.72,
-            transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)",
-            marginRight: 4,
-          }}
-        >
-          📊 Batch Results
-        </button>
         {(() => {
           let shedCount = 0;
           return sheets.map((s, i) => {
@@ -2093,6 +2078,21 @@ export default function App() {
           );
         });
         })()}
+        {/* Batch Results tab — sits after end of batch */}
+        <button
+          onClick={() => setActiveView("batchResults")}
+          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          style={{
+            backgroundColor: activeView === "batchResults" ? "#1a5c36" : "#1a5c3688",
+            color: "#fff",
+            borderColor: "#1a5c36",
+            opacity: activeView === "batchResults" ? 1 : 0.72,
+            transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)",
+            marginLeft: 4,
+          }}
+        >
+          📊 Batch Results
+        </button>
       </div>
 
       {/* Spreadsheet / Summary */}
