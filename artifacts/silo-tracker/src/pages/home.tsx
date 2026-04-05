@@ -144,7 +144,7 @@ export default function Home() {
   return (
     <div className="bg-background min-h-full pb-20">
       <div className="p-4 bg-primary text-primary-foreground pt-8 pb-10">
-        <h1 className="text-2xl font-bold tracking-tight">Silo Reader</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Silo Mate</h1>
         <p className="text-primary-foreground/80 mt-1">{format(new Date(), "EEEE, d MMMM yyyy")}</p>
         
         <div className="mt-6 flex flex-col items-center justify-center p-6 bg-primary-foreground/10 rounded-xl">
