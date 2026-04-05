@@ -1472,7 +1472,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const overallMortPct = totalPlaced > 0 ? ((totalMorts / totalPlaced) * 100).toFixed(2) + "%" : "—";
 
   const totalWgtKgAll = shedStats.reduce((a, s) => a + s.totalWgtKg, 0);
-  const globalAveWgt  = totalCaught > 0 ? totalWgtKgAll / totalCaught : (summary?.aveWeight ?? 0);
+  const globalAveWgt  = totalCaught > 0 ? totalWgtKgAll / totalCaught : 0;
+  const hasCatchData  = totalCaught > 0;
 
   const fmtN = (n: number, dec = 0) => isNaN(n) || n === 0 ? "—" : dec > 0 ? n.toFixed(dec) : n.toLocaleString();
 
@@ -1602,31 +1603,31 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
           </div>
         )}
-        {summary && summary.fcr > 0 && (
+        {hasCatchData && summary && summary.fcr > 0 && (
           <div style={cardStyle("#2980b9")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr.toFixed(3)}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
           </div>
         )}
-        {summary && summary.cfcr > 0 && (
+        {hasCatchData && summary && summary.cfcr > 0 && (
           <div style={cardStyle("#16a085")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr.toFixed(3)}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
           </div>
         )}
-        {summary && summary.actualAge > 0 && (
+        {hasCatchData && summary && summary.actualAge > 0 && (
           <div style={cardStyle("#5b6fa6")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#5b6fa6" }}>{summary.actualAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Actual Age</div>
           </div>
         )}
-        {summary && summary.correctedAge > 0 && (
+        {hasCatchData && summary && summary.correctedAge > 0 && (
           <div style={cardStyle("#7d6aa0")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#7d6aa0" }}>{summary.correctedAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
           </div>
         )}
-        {summary && summary.cage > 0 && (
+        {hasCatchData && summary && summary.cage > 0 && (
           <div style={cardStyle("#7f8c8d")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE Eff.</div>
@@ -1650,9 +1651,9 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         const eobDelivered = getEobNum(19, 23);
         const eobOnHand    = getEobNum(20, 23);
         const eobConsumed  = getEobNum(21, 23);
-        const feedDelivered = eobDelivered > 0 ? eobDelivered : summary.feedDelivered;
-        const feedOnHand    = eobOnHand    > 0 ? eobOnHand    : summary.feedOnHand;
-        const feedConsumed  = eobConsumed  > 0 ? eobConsumed  : summary.feedConsumed;
+        const feedDelivered = eobDelivered > 0 ? eobDelivered : (hasCatchData ? summary.feedDelivered : 0);
+        const feedOnHand    = eobOnHand    > 0 ? eobOnHand    : (hasCatchData ? summary.feedOnHand    : 0);
+        const feedConsumed  = eobConsumed  > 0 ? eobConsumed  : (hasCatchData ? summary.feedConsumed  : 0);
         const fromEob = eobDelivered > 0;
         return (
           <div style={{ background: "#f4f9f6", border: "1px solid #c8e6d4", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
