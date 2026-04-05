@@ -1624,7 +1624,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         {hasCatchData && summary && summary.correctedAge > 0 && (
           <div style={cardStyle("#7d6aa0")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#7d6aa0" }}>{summary.correctedAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE</div>
           </div>
         )}
         {summary && summary.cage > 0 && (
