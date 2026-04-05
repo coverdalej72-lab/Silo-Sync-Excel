@@ -776,20 +776,40 @@ export default function App() {
     seedDoneRef.current = false;
     deliverySeedDoneRef.current = false;
 
-    // Build blank edits for the "end of batch" sheet to wipe delivery rows
-    // Delivery columns (0-based): STARTER B/C/D=1/2/3, GROWER G/H/I=6/7/8,
-    //   FINISHER K/L/M=10/11/12, WITHDRAWL O/P/Q=14/15/16
-    // Data rows (0-based): 6–35  (Excel rows 7–36; row 36 = totals, keep it)
+    // Build blank edits for the "end of batch" sheet
     const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
     const newEdits = sheets.map((_, i) => {
       if (i !== eobIdx) return new Map<string, string>();
       const m = new Map<string, string>();
+
+      // ── Delivery rows (Excel 7–36, 0-based rows 6–35) ──────────────────────
+      // STARTER B/C/D, GROWER G/H/I, FINISHER K/L/M, WITHDRAWL O/P/Q
       const deliveryCols = [1, 2, 3, 6, 7, 8, 10, 11, 12, 14, 15, 16];
       for (let r = 6; r <= 35; r++) {
         for (const c of deliveryCols) {
           m.set(`${r},${c}`, "");
         }
       }
+
+      // ── Section totals row (Excel row 37, 0-based row 36) ──────────────────
+      // D37=STARTER total, I37=GROWER total, M37=FINISHER (hardcoded!), Q37=WITHDRAWL total
+      m.set("36,3",  "0");  // D37
+      m.set("36,8",  "0");  // I37
+      m.set("36,12", "0");  // M37  ← hardcoded value, must be explicitly zeroed
+      m.set("36,16", "0");  // Q37
+
+      // ── Summary panel: Last Batch / Total Feed Purchased / Feed Left / Feed Used ─
+      m.set("7,18",  "");   // S8  – "LAST BATCH" feed left (manual)
+      m.set("11,18", "0");  // S12 – Total Feed Purchased (formula cached in xlsx)
+      m.set("15,18", "");   // S16 – Feed Left This Batch (manual)
+      m.set("18,18", "0");  // S19 – Feed Used (formula cached in xlsx)
+
+      // ── Feed totals panel (col X=23, rows 19–22 → 0-based 18–21) ───────────
+      m.set("18,23", "");   // X19 – feed on hand last batch (manual)
+      m.set("19,23", "");   // X20 – feed delivered this batch (manual)
+      m.set("20,23", "");   // X21 – feed on hand this batch (manual)
+      m.set("21,23", "0");  // X22 – total feed use (formula cached in xlsx)
+
       return m;
     });
 
