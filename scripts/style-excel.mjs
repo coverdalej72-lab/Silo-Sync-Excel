@@ -1,6 +1,7 @@
 /**
  * Silo Mate – Feed Program Styler
- * Builds a fresh workbook from the original data, styled to match the app exactly.
+ * Strategy: keep the original file's structure (merges, widths, heights)
+ * and ONLY re-paint colours + fonts to match the app theme.
  */
 import ExcelJS from "exceljs";
 import path from "path";
@@ -10,400 +11,291 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(__dirname, "../../attached_assets/feed_program_batch_120_1775355933095.xlsx");
 const OUT = path.join(__dirname, "public/silo-mate-feed-program.xlsx");
 
-// ─── App Colours (exact match to screenshot) ──────────────────────────────────
-// ExcelJS uses ARGB: "FF" prefix = fully opaque, then RRGGBB
+// ─── App Colours ──────────────────────────────────────────────────────────────
 const C = {
-  // Greens
-  headerBg:    "FF1F6B3D",   // dark green – app top banner
-  primaryBg:   "FF217346",   // Silo Mate green – card sub-headers / badges
-  rowAlt:      "FFD6EAD6",   // light green – even rows
-  rowBase:     "FFF4FAF4",   // near-white green – odd rows
-  panelBg:     "FFE8F5E8",   // very pale green – info sections
-  // Text
-  white:       "FFFFFFFF",
-  headerText:  "FFFFFFFF",
-  primaryText: "FFFFFFFF",
-  darkText:    "FF1A2E1A",   // near-black with green tint
-  mutedText:   "FF5A6E5A",   // muted green-grey
-  labelText:   "FF217346",   // green text for labels in panels
-  // Amber – silo A/B/C
-  amberBg:     "FFFFC000",   // amber for silo header cells
-  amberRow:    "FFFFF2CC",   // light amber for silo data (even)
-  amberBase:   "FFFEF8E0",   // lighter amber for silo data (odd)
-  amberText:   "FF7D5000",   // dark amber text
-  amberBdr:    "FFD4A000",
-  // Blue – totals/summary rows
-  blueBg:      "FFD6E4F0",
-  blueText:    "FF1A4A7A",
-  // Borders
-  bdrGreen:    "FF9EC89E",
-  bdrHair:     "FFCCE0CC",
-  bdrAmber:    "FFD4A000",
+  headerBg:   "FF1F6B3D",  // dark green – title banner
+  primaryBg:  "FF217346",  // Silo Mate green – column headers / sub-banner
+  rowAlt:     "FFD6EAD6",  // light green – even data rows
+  rowBase:    "FFF4FAF4",  // pale green – odd data rows
+  panelBg:    "FFE8F5E8",  // very pale – info panel
+  white:      "FFFFFFFF",
+  darkText:   "FF1A2E1A",
+  mutedText:  "FF5A6E5A",
+  labelText:  "FF217346",
+  amberBg:    "FFFFC000",
+  amberRow:   "FFFFF2CC",
+  amberBase:  "FFFEF8E0",
+  amberText:  "FF7D5000",
+  amberBdr:   "FFD4A000",
+  blueBg:     "FFD6E4F0",
+  blueText:   "FF1A4A7A",
+  bdrGreen:   "FF9EC89E",
+  bdrHair:    "FFCCE0CC",
 };
 
-// ─── Style helpers ────────────────────────────────────────────────────────────
 const solid = (argb) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
-const b = (style, argb) => ({ style, color: { argb } });
+const bdr   = (style, argb) => ({ style, color: { argb } });
 
-function applyFont(cell, { bold=false, size=10, argb=C.darkText, italic=false } = {}) {
+function setFont(cell, opts = {}) {
+  const { bold=false, size=10, argb=C.darkText, italic=false } = opts;
   cell.font = { name: "Calibri", size, bold, italic, color: { argb } };
 }
 
-function applyAlign(cell, h="left", v="middle", wrap=false) {
-  cell.alignment = { horizontal: h, vertical: v, wrapText: wrap };
+function setAlign(cell, h="left", v="middle", wrap=false) {
+  cell.alignment = { ...cell.alignment, horizontal: h, vertical: v, wrapText: wrap };
 }
 
-function applyBorder(cell, t, l, bo, r) {
-  cell.border = { top: t, left: l, bottom: bo, right: r };
+// ─── Detect whether a cell is a non-anchor of a merge ────────────────────────
+// In ExcelJS, non-anchor merged cells have type === 8 (Merge)
+function isMergeOverflow(cell) {
+  return cell.type === ExcelJS.ValueType.Merge;
 }
 
-// Paint ALL cells in a row range (including merged/empty)
-function paintRow(ws, rn, colCount, painter) {
-  for (let cn = 1; cn <= colCount; cn++) {
-    painter(ws.getRow(rn).getCell(cn), cn);
-  }
-}
+// ─── Style a shed sheet in-place (preserving all structure) ──────────────────
+function styleShedInPlace(ws, isBig) {
+  const COLS  = isBig ? 34 : 23;
+  const siloA = isBig ? 22 : 11;
+  const siloC = isBig ? 24 : 13;
+  const lastR = ws.rowCount;
 
-// ─── Copy raw values from source sheet ───────────────────────────────────────
-function getLastCol(ws) {
-  let max = 0;
-  ws.eachRow((row) => row.eachCell({ includeEmpty: false }, (_, cn) => { if (cn > max) max = cn; }));
-  return max;
-}
+  ws.views = [{ state: "frozen", ySplit: 9, showGridLines: true }];
 
-function copyData(src, dst, colLimit) {
-  // Copy merges that fit within colLimit (so merged date zones look correct)
-  const nonAnchor = new Set();
-  (src.model.merges || []).forEach((ref) => {
-    try {
-      const [start, end] = ref.split(":");
-      const colLetter = (addr) => addr.match(/^[A-Z]+/)[0];
-      const colNum    = (l) => l.split("").reduce((n, c) => n * 26 + (c.charCodeAt(0) - 64), 0);
-      const rowNum    = (addr) => parseInt(addr.match(/\d+/)[0]);
-      const c1 = colNum(colLetter(start));
-      const c2 = colNum(colLetter(end));
-      const r1 = rowNum(start);
-      const r2 = rowNum(end);
-      if (c1 <= colLimit && c2 <= colLimit) {
-        try { dst.mergeCells(ref); } catch {}
-        // Track all non-anchor cells in this merge to skip copying their values
-        for (let r = r1; r <= r2; r++) {
-          for (let c = c1; c <= c2; c++) {
-            if (r !== r1 || c !== c1) nonAnchor.add(`${r},${c}`);
+  ws.eachRow((row, rn) => {
+    const isEven = rn % 2 === 0;
+    const isLast = rn === lastR;
+
+    for (let cn = 1; cn <= COLS; cn++) {
+      const cell = row.getCell(cn);
+      if (isMergeOverflow(cell)) continue; // skip non-anchor merged cells
+
+      const raw = cell.value;
+      const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
+      const isL = cn === 1;
+      const isR = cn === COLS;
+
+      // ── Row 1: Title banner ──────────────────────────────────────────────
+      if (rn === 1) {
+        row.height = 38;
+        cell.fill = solid(C.headerBg);
+        setFont(cell, { bold: true, argb: C.white, size: 16 });
+        setAlign(cell, "left", "middle");
+        cell.border = {
+          top: bdr("medium", C.headerBg), bottom: bdr("medium", C.primaryBg),
+          left: bdr("medium", C.headerBg), right: bdr("medium", C.headerBg),
+        };
+        continue;
+      }
+
+      // ── Row 2: Sub-banner ────────────────────────────────────────────────
+      if (rn === 2) {
+        row.height = 26;
+        cell.fill = solid(C.primaryBg);
+        setFont(cell, { bold: true, argb: C.white, size: 11 });
+        setAlign(cell, "left", "middle");
+        cell.border = {
+          top: bdr("medium", C.primaryBg), bottom: bdr("thin", C.bdrGreen),
+          left: bdr("medium", C.primaryBg), right: bdr("medium", C.primaryBg),
+        };
+        continue;
+      }
+
+      // ── Rows 3-5: Info panel ─────────────────────────────────────────────
+      if (rn >= 3 && rn <= 5) {
+        row.height = 22;
+        if (typeof v === "string" && /STR|GWR|FIN|WDW/i.test(v)) {
+          cell.fill = solid(C.amberBg);
+          setFont(cell, { bold: true, argb: C.amberText });
+          cell.border = {
+            top: bdr("thin", C.amberBdr), bottom: bdr("thin", C.amberBdr),
+            left: bdr("thin", C.amberBdr), right: bdr("thin", C.amberBdr),
+          };
+        } else {
+          cell.fill = solid(C.panelBg);
+          const isLabel = typeof v === "string" && v.length > 0;
+          setFont(cell, { bold: isLabel, argb: isLabel ? C.labelText : C.darkText });
+          cell.border = {
+            top: bdr("hair", C.bdrHair),
+            bottom: bdr("hair", C.bdrHair),
+            left: isL ? bdr("medium", C.headerBg) : bdr("hair", C.bdrHair),
+            right: isR ? bdr("medium", C.headerBg) : bdr("hair", C.bdrHair),
+          };
+        }
+        setAlign(cell, cell.alignment?.horizontal || "left", "middle");
+        continue;
+      }
+
+      // ── Rows 6-9: Column headers ─────────────────────────────────────────
+      if (rn >= 6 && rn <= 9) {
+        row.height = Math.max(row.height || 0, 24);
+        const isSilo = cn >= siloA && cn <= siloC;
+        const isTop  = rn === 6;
+        const isBot  = rn === 9;
+
+        if (isSilo) {
+          cell.fill = solid(C.amberBg);
+          setFont(cell, { bold: true, argb: C.amberText, size: 10 });
+          cell.border = {
+            top:    isTop ? bdr("medium", C.amberBdr) : bdr("thin", C.amberBdr),
+            bottom: isBot ? bdr("medium", C.amberBdr) : bdr("thin", C.amberBdr),
+            left: bdr("thin", C.amberBdr), right: bdr("thin", C.amberBdr),
+          };
+        } else {
+          cell.fill = solid(C.primaryBg);
+          setFont(cell, { bold: true, argb: C.white, size: 10 });
+          cell.border = {
+            top:    isTop ? bdr("medium", C.headerBg) : bdr("thin", C.bdrGreen),
+            bottom: isBot ? bdr("medium", C.primaryBg) : bdr("thin", C.bdrGreen),
+            left:   isL   ? bdr("medium", C.headerBg) : bdr("thin", C.bdrGreen),
+            right:  isR   ? bdr("medium", C.headerBg) : bdr("thin", C.bdrGreen),
+          };
+        }
+        setAlign(cell, "center", "middle", true);
+        continue;
+      }
+
+      // ── Data rows 10+ ────────────────────────────────────────────────────
+      if (rn >= 10) {
+        const isSilo = cn >= siloA && cn <= siloC;
+
+        if (isSilo) {
+          cell.fill = solid(isEven ? C.amberRow : C.amberBase);
+          setFont(cell, {
+            bold: typeof v === "number" && v > 0,
+            argb: typeof v === "number" && v > 0 ? C.amberText : C.mutedText,
+          });
+          cell.border = {
+            top:    bdr("hair", C.amberBdr),
+            bottom: isLast ? bdr("medium", C.amberBdr) : bdr("hair", C.amberBdr),
+            left:   bdr("thin", C.amberBdr),
+            right:  bdr("thin", C.amberBdr),
+          };
+          if (typeof v === "number") setAlign(cell, "right", "middle");
+
+        } else {
+          const bg = isEven ? C.rowAlt : C.rowBase;
+          cell.fill = solid(bg);
+          cell.border = {
+            top:    bdr("hair", C.bdrHair),
+            bottom: isLast ? bdr("medium", C.headerBg) : bdr("hair", C.bdrHair),
+            left:   isL    ? bdr("medium", C.headerBg) : bdr("hair", C.bdrHair),
+            right:  isR    ? bdr("medium", C.headerBg) : bdr("hair", C.bdrHair),
+          };
+
+          if (typeof v === "number") {
+            setFont(cell, { argb: C.darkText });
+            setAlign(cell, "right", "middle");
+          } else if (typeof v === "string") {
+            const isBold = /TOTAL|CATCH|MORT|SUMM/i.test(v);
+            setFont(cell, { bold: isBold, argb: isBold ? C.labelText : C.darkText });
+            setAlign(cell, cell.alignment?.horizontal || "left", "middle");
+          } else if (v instanceof Date || (raw && typeof raw === "object" && raw?.formula)) {
+            setFont(cell, { argb: C.mutedText, size: 9 });
+            setAlign(cell, "center", "middle");
+          } else {
+            setFont(cell, { argb: C.darkText });
           }
         }
       }
-    } catch {}
-  });
-
-  // Copy row data only – no styles from original
-  src.eachRow((srcRow, rn) => {
-    const dstRow = dst.getRow(rn);
-    for (let cn = 1; cn <= colLimit; cn++) {
-      if (nonAnchor.has(`${rn},${cn}`)) continue; // skip merge overflow cells
-      const sc = srcRow.getCell(cn);
-      const dc = dstRow.getCell(cn);
-      if (sc.formula)            dc.value = { formula: sc.formula, result: sc.result };
-      else if (sc.value != null) dc.value = sc.value;
-      if (sc.numFmt)             dc.numFmt = sc.numFmt;
     }
   });
 }
 
-// ─── SHED sheet styler ────────────────────────────────────────────────────────
-function styleShed(ws, isBig) {
-  const COLS   = isBig ? 34 : 23;
-  const siloA  = isBig ? 22 : 11;
-  const siloC  = isBig ? 24 : 13;
-  // Shed 1&2: date is in col 2 (merged B:N per row); other sheds: col 3
-  const dateC  = isBig ? 2  : 3;
-  const lastR  = ws.rowCount;
+// ─── Style EOB in-place ───────────────────────────────────────────────────────
+function styleEOBInPlace(ws) {
+  const COLS = 25;
+  const lastR = ws.rowCount;
+  ws.views = [{ state: "frozen", ySplit: 6, showGridLines: true }];
 
-  ws.views = [{ state: "frozen", ySplit: 9, showGridLines: false }];
-
-  // Widths – Shed 1&2 has 13 leading cols (age + merged date zone), others have 2
-  const widths = isBig
-    ? [0, 6, 17,17,17,17,17,17,17,17,17,17,17,17, 15, 15,18,10,15,15,14, 12,12,12,12, 16,11,8, 16,21,15,13,15,13, 12]
-    : [0, 6,6,  14,12,12,10,14,14,12, 12,12,12,12, 12,12,8,  16,21,15,13,15,13, 8];
-  widths.forEach((w, i) => { if (i > 0 && i <= COLS) ws.getColumn(i).width = w; });
-
-  // ── ROW 1 – App banner (dark green, large white text) ──────────────────────
-  ws.getRow(1).height = 40;
-  paintRow(ws, 1, COLS, (cell, cn) => {
-    cell.fill = solid(C.headerBg);
-    applyFont(cell, { bold: true, argb: C.white, size: 16 });
-    applyAlign(cell, cn <= 2 ? "left" : "center", "middle");
-    applyBorder(cell,
-      b("medium", C.headerBg), b("medium", C.headerBg),
-      b("medium", C.primaryBg), b("medium", C.headerBg)
-    );
-  });
-
-  // ── ROW 2 – Green sub-header ────────────────────────────────────────────────
-  ws.getRow(2).height = 28;
-  paintRow(ws, 2, COLS, (cell, cn) => {
-    cell.fill = solid(C.primaryBg);
-    applyFont(cell, { bold: true, argb: C.white, size: 11 });
-    applyAlign(cell, cn <= 2 ? "left" : "center", "middle");
-    applyBorder(cell,
-      b("medium", C.primaryBg), b("medium", C.primaryBg),
-      b("thin", C.bdrGreen), b("medium", C.primaryBg)
-    );
-  });
-
-  // ── ROWS 3-5 – Info panel (pale green, labelled) ────────────────────────────
-  for (let rn = 3; rn <= 5; rn++) {
-    ws.getRow(rn).height = 22;
-    paintRow(ws, rn, COLS, (cell, cn) => {
-      const raw = cell.value;
-      const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
-      const isL = cn === 1; const isR = cn === COLS;
-
-      if (typeof v === "string" && /STR|GWR|FIN|WDW/i.test(v)) {
-        cell.fill = solid(C.amberBg);
-        applyFont(cell, { bold: true, argb: C.amberText });
-        applyBorder(cell, b("thin", C.amberBdr), b("thin", C.amberBdr), b("thin", C.amberBdr), b("thin", C.amberBdr));
-      } else {
-        cell.fill = solid(C.panelBg);
-        const isLabel = typeof v === "string" && v.length > 0;
-        applyFont(cell, { bold: isLabel, argb: isLabel ? C.labelText : C.darkText });
-        applyBorder(cell,
-          b("hair", C.bdrHair),
-          isL ? b("medium", C.headerBg) : b("hair", C.bdrHair),
-          b("hair", C.bdrHair),
-          isR ? b("medium", C.headerBg) : b("hair", C.bdrHair)
-        );
-      }
-      applyAlign(cell, "left", "middle");
-    });
-  }
-
-  // ── ROWS 6-9 – Column headers ────────────────────────────────────────────────
-  for (let rn = 6; rn <= 9; rn++) {
-    ws.getRow(rn).height = 28;
-    paintRow(ws, rn, COLS, (cell, cn) => {
-      const isSilo = cn >= siloA && cn <= siloC;
-      const isL = cn === 1; const isR = cn === COLS;
-      const isTop = rn === 6; const isBot = rn === 9;
-
-      if (isSilo) {
-        cell.fill = solid(C.amberBg);
-        applyFont(cell, { bold: true, argb: C.amberText, size: 10 });
-        applyBorder(cell,
-          isTop ? b("medium", C.amberBdr) : b("thin", C.amberBdr),
-          b("thin", C.amberBdr),
-          isBot ? b("medium", C.amberBdr) : b("thin", C.amberBdr),
-          b("thin", C.amberBdr)
-        );
-      } else {
-        cell.fill = solid(C.primaryBg);
-        applyFont(cell, { bold: true, argb: C.white, size: 10 });
-        applyBorder(cell,
-          isTop ? b("medium", C.headerBg) : b("thin", C.bdrGreen),
-          isL   ? b("medium", C.headerBg) : b("thin", C.bdrGreen),
-          isBot ? b("medium", C.primaryBg): b("thin", C.bdrGreen),
-          isR   ? b("medium", C.headerBg) : b("thin", C.bdrGreen)
-        );
-      }
-      applyAlign(cell, "center", "middle", true);
-    });
-  }
-
-  // ── DATA ROWS 10+ ─────────────────────────────────────────────────────────
-  for (let rn = 10; rn <= lastR; rn++) {
-    ws.getRow(rn).height = 20;
+  ws.eachRow((row, rn) => {
     const isEven = rn % 2 === 0;
     const isLast = rn === lastR;
 
-    paintRow(ws, rn, COLS, (cell, cn) => {
+    for (let cn = 1; cn <= COLS; cn++) {
+      const cell = row.getCell(cn);
+      if (isMergeOverflow(cell)) continue;
       const raw = cell.value;
       const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
       const isL = cn === 1; const isR = cn === COLS;
-      const isSilo = cn >= siloA && cn <= siloC;
 
-      if (isSilo) {
-        cell.fill = solid(isEven ? C.amberRow : C.amberBase);
-        applyFont(cell, {
-          bold: typeof v === "number" && v > 0,
-          argb: typeof v === "number" && v > 0 ? C.amberText : C.mutedText,
-        });
-        applyBorder(cell,
-          b("hair", C.bdrAmber), b("thin", C.amberBdr),
-          isLast ? b("medium", C.amberBdr) : b("hair", C.bdrAmber),
-          b("thin", C.amberBdr)
-        );
-        applyAlign(cell, "right", "middle");
-        if (typeof v === "number" && !cell.numFmt) cell.numFmt = "#,##0.0";
-
-      } else {
-        const bg = isEven ? C.rowAlt : C.rowBase;
-        cell.fill = solid(bg);
-        applyBorder(cell,
-          b("hair", C.bdrHair),
-          isL ? b("medium", C.headerBg) : b("hair", C.bdrHair),
-          isLast ? b("medium", C.headerBg) : b("hair", C.bdrHair),
-          isR ? b("medium", C.headerBg) : b("hair", C.bdrHair)
-        );
-
-        if (cn === dateC) {
-          applyFont(cell, { argb: C.mutedText, size: 9 });
-          applyAlign(cell, "center", "middle");
-          if (!cell.numFmt && v) cell.numFmt = "ddd d/mm";
-        } else if (typeof v === "number") {
-          applyFont(cell, { argb: C.darkText });
-          applyAlign(cell, "right", "middle");
-          if (!cell.numFmt) cell.numFmt = v > 999 ? "#,##0" : v % 1 !== 0 ? "0.0" : "0";
-        } else if (typeof v === "string") {
-          const isBold = /TOTAL|CATCH|MORT|SUMMARY/i.test(v);
-          applyFont(cell, { bold: isBold, argb: isBold ? C.labelText : C.darkText });
-          applyAlign(cell, "left", "middle");
+      if (rn === 1) {
+        row.height = 38;
+        cell.fill = solid(C.headerBg);
+        setFont(cell, { bold: true, argb: C.white, size: 15 });
+        setAlign(cell, "left", "middle");
+      } else if (rn === 2) {
+        row.height = 26;
+        cell.fill = solid(C.primaryBg);
+        setFont(cell, { bold: true, argb: C.white, size: 11 });
+        setAlign(cell, "left", "middle");
+      } else if (rn >= 3 && rn <= 6) {
+        row.height = Math.max(row.height || 0, 22);
+        if (typeof v === "string" && /STARTER|GROWER|FINISHER|WITHDRAW/i.test(v)) {
+          cell.fill = solid(C.amberBg); setFont(cell, { bold: true, argb: C.amberText });
+        } else if (typeof v === "string" && v.length > 0) {
+          cell.fill = solid(C.primaryBg); setFont(cell, { bold: true, argb: C.white });
         } else {
-          applyFont(cell, { argb: C.darkText });
+          cell.fill = solid(C.panelBg); setFont(cell, { argb: C.darkText });
         }
+        setAlign(cell, cell.alignment?.horizontal || "center", "middle", true);
+      } else if (rn >= 7) {
+        if (typeof v === "string" && /TOTAL|FEED|HAND|PURCHASE|USED|LEFT|WEIGHT/i.test(v)) {
+          cell.fill = solid(C.blueBg); setFont(cell, { bold: true, argb: C.blueText });
+        } else {
+          cell.fill = solid(isEven ? C.rowAlt : C.rowBase);
+          if (typeof v === "number") { setFont(cell, { argb: C.darkText }); setAlign(cell, "right", "middle"); }
+          else { setFont(cell, { argb: C.darkText }); }
+        }
+        cell.border = {
+          top:    bdr("hair", C.bdrHair),
+          bottom: isLast ? bdr("medium", C.headerBg) : bdr("hair", C.bdrHair),
+          left:   isL    ? bdr("medium", C.headerBg) : bdr("hair", C.bdrHair),
+          right:  isR    ? bdr("medium", C.headerBg) : bdr("hair", C.bdrHair),
+        };
       }
-    });
-  }
+    }
+  });
 }
 
-// ─── EOB styler ───────────────────────────────────────────────────────────────
-function styleEOB(ws) {
-  const COLS = 25; const lastR = ws.rowCount;
-  ws.views = [{ state: "frozen", ySplit: 6, showGridLines: false }];
-  [0,6,16,14,14,6,6,15,13,14,6,6,15,13,14,6,15,12,14,18,6,6,18,24,15,15]
-    .forEach((w, i) => { if (i > 0 && i <= COLS) ws.getColumn(i).width = w; });
+// ─── Main ──────────────────────────────────────────────────────────────────────
+const wb = new ExcelJS.Workbook();
+await wb.xlsx.readFile(SRC);
 
-  ws.getRow(1).height = 40;
-  paintRow(ws, 1, COLS, (cell) => {
-    cell.fill = solid(C.headerBg);
-    applyFont(cell, { bold: true, argb: C.white, size: 15 });
-    applyAlign(cell, "left", "middle");
-    applyBorder(cell, b("medium", C.headerBg), b("medium", C.headerBg), b("medium", C.primaryBg), b("medium", C.headerBg));
-  });
-  ws.getRow(2).height = 28;
-  paintRow(ws, 2, COLS, (cell) => {
-    cell.fill = solid(C.primaryBg);
-    applyFont(cell, { bold: true, argb: C.white, size: 11 });
-    applyAlign(cell, "left", "middle");
-    applyBorder(cell, b("medium", C.primaryBg), b("medium", C.primaryBg), b("thin", C.bdrGreen), b("medium", C.primaryBg));
-  });
+for (const ws of wb.worksheets) {
+  const n = ws.name.trim().toUpperCase();
 
-  for (let rn = 3; rn <= 6; rn++) {
-    ws.getRow(rn).height = 24;
-    paintRow(ws, rn, COLS, (cell, cn) => {
-      const raw = cell.value;
-      const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
-      if (typeof v === "string" && /STARTER|GROWER|FINISHER|WITHDRAW/i.test(v)) {
-        cell.fill = solid(C.amberBg); applyFont(cell, { bold: true, argb: C.amberText });
-        applyBorder(cell, b("thin", C.amberBdr), b("thin", C.amberBdr), b("thin", C.amberBdr), b("thin", C.amberBdr));
-      } else if (typeof v === "string") {
-        cell.fill = solid(C.primaryBg); applyFont(cell, { bold: true, argb: C.white });
-        applyBorder(cell, b("thin", C.bdrGreen), b("thin", C.bdrGreen), b("thin", C.bdrGreen), b("thin", C.bdrGreen));
-      } else {
-        cell.fill = solid(C.panelBg); applyFont(cell, { argb: C.darkText });
-        applyBorder(cell, b("hair", C.bdrHair), cn===1?b("medium",C.headerBg):b("hair",C.bdrHair), b("hair",C.bdrHair), cn===COLS?b("medium",C.headerBg):b("hair",C.bdrHair));
-      }
-      applyAlign(cell, "center", "middle", true);
-    });
+  // Remove Weekly Stock Take
+  if (n.includes("STOCK")) {
+    ws.state = "hidden";
+    console.log(`⊘ Hidden:  ${ws.name.trim()}`);
+    continue;
   }
 
-  for (let rn = 7; rn <= lastR; rn++) {
-    ws.getRow(rn).height = 20;
-    const isEven = rn % 2 === 0; const isLast = rn === lastR;
-    paintRow(ws, rn, COLS, (cell, cn) => {
-      const raw = cell.value;
-      const v   = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
-      const isL = cn === 1; const isR = cn === COLS;
-      if (typeof v === "string" && /TOTAL|FEED|HAND|PURCHASE|USED|LEFT|WEIGHT/i.test(v)) {
-        cell.fill = solid(C.blueBg); applyFont(cell, { bold: true, argb: C.blueText });
-        applyBorder(cell, b("thin","FF9DC3E6"), b("thin","FF9DC3E6"), b("thin","FF9DC3E6"), b("thin","FF9DC3E6"));
-        applyAlign(cell, "left", "middle");
-      } else {
-        cell.fill = solid(isEven ? C.rowAlt : C.rowBase);
-        applyBorder(cell, b("hair",C.bdrHair), isL?b("medium",C.headerBg):b("hair",C.bdrHair), isLast?b("medium",C.headerBg):b("hair",C.bdrHair), isR?b("medium",C.headerBg):b("hair",C.bdrHair));
-        if (typeof v === "number") { applyFont(cell, { argb: C.darkText }); applyAlign(cell, "right", "middle"); if (!cell.numFmt) cell.numFmt = v > 999 ? "#,##0" : "0.00"; }
-        else { applyFont(cell, { argb: C.darkText }); applyAlign(cell, "left", "middle"); }
-      }
-    });
+  // Hide Consumption Guide
+  if (n.includes("CONSUMPTION") || n.includes("GUIDE")) {
+    ws.state = "hidden";
+    console.log(`⊘ Hidden:  ${ws.name.trim()}`);
+    continue;
   }
+
+  // Style shed sheets
+  if (n.includes("SHED")) {
+    const isBig = !!n.match(/SHED\s*1\s*&\s*2/);
+    styleShedInPlace(ws, isBig);
+    ws.properties = { ...ws.properties, tabColor: { argb: C.primaryBg } };
+    console.log(`✓ Shed:    ${ws.name.trim()}`);
+    continue;
+  }
+
+  // Style EOB
+  if (n.includes("END") || n.includes("BATCH")) {
+    styleEOBInPlace(ws);
+    ws.properties = { ...ws.properties, tabColor: { argb: C.primaryBg } };
+    console.log(`✓ EOB:     ${ws.name.trim()}`);
+    continue;
+  }
+
+  console.log(`  Skipped: ${ws.name.trim()}`);
 }
 
-// ─── Stock Take styler ────────────────────────────────────────────────────────
-function styleStock(ws) {
-  const COLS = 9; const lastR = ws.rowCount;
-  ws.views = [{ state: "frozen", ySplit: 5, showGridLines: false }];
-  [0,6,17,13,21,17,17,17,17,17].forEach((w,i) => { if (i>0 && i<=COLS) ws.getColumn(i).width = w; });
-
-  ws.getRow(1).height = 40;
-  paintRow(ws, 1, COLS, (cell) => {
-    cell.fill = solid(C.headerBg); applyFont(cell, { bold: true, argb: C.white, size: 15 });
-    applyAlign(cell, "left", "middle");
-    applyBorder(cell, b("medium",C.headerBg), b("medium",C.headerBg), b("medium",C.primaryBg), b("medium",C.headerBg));
-  });
-  ws.getRow(2).height = 28;
-  paintRow(ws, 2, COLS, (cell) => {
-    cell.fill = solid(C.primaryBg); applyFont(cell, { bold: true, argb: C.white, size: 11 });
-    applyAlign(cell, "left", "middle");
-    applyBorder(cell, b("medium",C.primaryBg), b("medium",C.primaryBg), b("thin",C.bdrGreen), b("medium",C.primaryBg));
-  });
-  for (let rn = 3; rn <= 5; rn++) {
-    ws.getRow(rn).height = 26;
-    paintRow(ws, rn, COLS, (cell, cn) => {
-      cell.fill = solid(C.primaryBg); applyFont(cell, { bold: true, argb: C.white });
-      applyBorder(cell, b("thin",C.bdrGreen), cn===1?b("medium",C.headerBg):b("thin",C.bdrGreen), b("thin",C.bdrGreen), cn===COLS?b("medium",C.headerBg):b("thin",C.bdrGreen));
-      applyAlign(cell, "center", "middle", true);
-    });
-  }
-  for (let rn = 6; rn <= lastR; rn++) {
-    ws.getRow(rn).height = 20;
-    const isEven = rn % 2 === 0; const isLast = rn === lastR;
-    paintRow(ws, rn, COLS, (cell, cn) => {
-      const raw = cell.value; const v = (raw && typeof raw === "object" && "result" in raw) ? raw.result : raw;
-      const isL = cn===1; const isR = cn===COLS;
-      if (typeof v === "string" && /SHED\s*\d|^\d+\s*&/i.test(v)) {
-        cell.fill = solid(C.primaryBg); applyFont(cell, { bold: true, argb: C.white });
-        applyBorder(cell, b("thin",C.bdrGreen), b("thin",C.bdrGreen), b("thin",C.bdrGreen), b("thin",C.bdrGreen));
-        applyAlign(cell, "center", "middle");
-      } else {
-        cell.fill = solid(isEven ? C.rowAlt : C.rowBase);
-        applyBorder(cell, b("hair",C.bdrHair), isL?b("medium",C.headerBg):b("hair",C.bdrHair), isLast?b("medium",C.headerBg):b("hair",C.bdrHair), isR?b("medium",C.headerBg):b("hair",C.bdrHair));
-        if (typeof v === "number") { applyFont(cell, { argb: C.darkText }); applyAlign(cell, "right", "middle"); if (!cell.numFmt) cell.numFmt = "#,##0"; }
-        else { applyFont(cell, { argb: C.darkText }); applyAlign(cell, "left", "middle"); }
-      }
-    });
-  }
-}
-
-// ─── Build workbook ───────────────────────────────────────────────────────────
-const MAX = { shed1: 34, shed: 23, eob: 25, stock: 9, guide: 8 };
-
-const srcWb = new ExcelJS.Workbook();
-await srcWb.xlsx.readFile(SRC);
-const dstWb = new ExcelJS.Workbook();
-dstWb.creator = "Silo Mate"; dstWb.modified = new Date();
-
-for (const srcWs of srcWb.worksheets) {
-  const n = srcWs.name.trim().toUpperCase();
-  let type;
-  if      (n.match(/SHED\s*1\s*&\s*2/))              type = "shed1";
-  else if (n.includes("SHED"))                        type = "shed";
-  else if (n.includes("END") || n.includes("BATCH")) type = "eob";
-  else if (n.includes("STOCK"))                       { console.log(`⊘ Skipped: ${srcWs.name.trim()}`); continue; }
-  else                                                type = "guide";
-
-  const keepCols = Math.min(MAX[type], getLastCol(srcWs));
-  const dstWs = dstWb.addWorksheet(srcWs.name.trim(), {
-    properties: { tabColor: { argb: C.primaryBg } },
-  });
-  if (type === "guide") dstWs.state = "hidden";
-
-  copyData(srcWs, dstWs, keepCols);
-
-  if      (type === "shed1" || type === "shed") styleShed(dstWs, type === "shed1");
-  else if (type === "eob")   styleEOB(dstWs);
-  else if (type === "stock") styleStock(dstWs);
-
-  console.log(`✓ ${srcWs.name.trim().padEnd(20)} ${dstWs.columnCount} cols`);
-}
-
-await dstWb.xlsx.writeFile(OUT);
+await wb.xlsx.writeFile(OUT);
 console.log("Done →", OUT);
