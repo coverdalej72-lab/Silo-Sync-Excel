@@ -1098,6 +1098,7 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
   });
   const [editCell, setEditCell] = useState<{ shedNum: number; rowIdx: number; field: keyof EditableCatch } | null>(null);
   const [editVal, setEditVal] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<{ shedNum: number; rowIdx: number } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [newBatchNum, setNewBatchNum] = useState("");
   const [overrideBatchNum, setOverrideBatchNum] = useState<number | null>(() => {
@@ -1436,7 +1437,7 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
                         onClick: () => startEdit(shedNum, ci, field, row[field]),
                       });
                       return (
-                        <tr key={ci} style={{ borderTop: "1px solid #eef3ef", background: ci % 2 === 0 ? "#fff" : "#f9fcfa" }}>
+                        <tr key={ci} style={{ borderTop: "1px solid #eef3ef", background: pendingDelete?.shedNum === shedNum && pendingDelete?.rowIdx === ci ? "#fff0f0" : ci % 2 === 0 ? "#fff" : "#f9fcfa" }}>
                           <td {...cellProps("date", row.date, "left")}>
                             {isEditing(shedNum, ci, "date") ? (
                               <input style={{ ...inputStyle, textAlign: "left" }} value={editVal} autoFocus
@@ -1472,10 +1473,24 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
                                 onBlur={commitEdit} onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditCell(null); }} />
                             ) : (rowTw > 0 ? `${rowTw.toFixed(2)} t` : <span style={{ color: "#aaa" }}>—</span>)}
                           </td>
-                          <td style={{ padding: "5px 6px", textAlign: "center" }}>
-                            <button onClick={() => removeRow(shedNum, ci)}
-                              style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px", borderRadius: 4 }}
-                              title="Remove catch">×</button>
+                          <td style={{ padding: "5px 6px", textAlign: "center", whiteSpace: "nowrap" }}>
+                            {pendingDelete?.shedNum === shedNum && pendingDelete?.rowIdx === ci ? (
+                              <>
+                                <button
+                                  onClick={() => { removeRow(shedNum, ci); setPendingDelete(null); }}
+                                  style={{ background: "#c0392b", border: "none", color: "#fff", cursor: "pointer", fontSize: 10, fontWeight: 700, padding: "3px 6px", borderRadius: 4, marginRight: 2 }}
+                                  title="Confirm delete">✓</button>
+                                <button
+                                  onClick={() => setPendingDelete(null)}
+                                  style={{ background: "#aaa", border: "none", color: "#fff", cursor: "pointer", fontSize: 10, fontWeight: 700, padding: "3px 6px", borderRadius: 4 }}
+                                  title="Cancel">✕</button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => setPendingDelete({ shedNum, rowIdx: ci })}
+                                style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 6px", borderRadius: 4 }}
+                                title="Delete row">×</button>
+                            )}
                           </td>
                         </tr>
                       );
