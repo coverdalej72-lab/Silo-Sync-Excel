@@ -2705,6 +2705,51 @@ export default function App() {
       .catch(() => { /* silently ignore */ });
   }, [sheets]);
 
+  // ── Live-compute EOB formula cells ───────────────────────────────────────────
+  // S12 = SUM of delivery rows; S19 = S8 + S12 − S16; X20 mirrors S12; X22 mirrors S19
+  const prevEobSig = useRef("");
+  useEffect(() => {
+    if (sheets.length === 0) return;
+    const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
+    if (eobIdx < 0) return;
+
+    const eobEdits = edits[eobIdx] ?? new Map<string, string>();
+    const getNum = (r: number, c: number): number => {
+      const key = `${r},${c}`;
+      const e = eobEdits.get(key);
+      const v = e !== undefined ? e : String(sheets[eobIdx].cells.get(key)?.value ?? "");
+      return parseFloat(String(v).replace(/,/g, "")) || 0;
+    };
+
+    // Sum all delivery tonnes columns (D=3, I=8, M=12, Q=16) for data rows 6–35
+    let totalDelivered = 0;
+    for (let r = 6; r <= 35; r++) {
+      totalDelivered += getNum(r, 3) + getNum(r, 8) + getNum(r, 12) + getNum(r, 16);
+    }
+    const lastBatchLeft = getNum(7, 18);   // S8  – Last Batch Feed Left (manual)
+    const feedLeftNow   = getNum(15, 18);  // S16 – Feed Left This Batch (manual)
+    const feedUsed      = lastBatchLeft + totalDelivered - feedLeftNow; // S19
+
+    const computed: Record<string, string> = {
+      "11,18": String(Math.round(totalDelivered)), // S12 – Total Feed Purchased
+      "18,18": String(Math.round(feedUsed)),        // S19 – Feed Used
+      "19,23": String(Math.round(totalDelivered)), // X20 – Feed Delivered (mirror S12)
+      "21,23": String(Math.round(feedUsed)),        // X22 – Total Feed Use (mirror S19)
+    };
+
+    const sig = JSON.stringify(computed);
+    if (sig === prevEobSig.current) return;
+    prevEobSig.current = sig;
+
+    setEdits(prev => {
+      const next = [...prev];
+      const m = new Map(next[eobIdx] ?? []);
+      Object.entries(computed).forEach(([k, v]) => m.set(k, v));
+      next[eobIdx] = m;
+      return next;
+    });
+  }, [sheets, edits]);
+
   const handleEdit = useCallback((sheetIdx: number, key: string, value: string) => {
     setEdits((prev) => {
       const next = [...prev];
