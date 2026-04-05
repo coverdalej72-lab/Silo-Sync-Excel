@@ -776,13 +776,25 @@ export default function App() {
     seedDoneRef.current = false;
     deliverySeedDoneRef.current = false;
 
-    // Build blank edits for the "end of batch" sheet
+    // Build blank edits for all sheets
     const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
     const newEdits = sheets.map((_, i) => {
-      if (i !== eobIdx) return new Map<string, string>();
       const m = new Map<string, string>();
+      const name = sheets[i]?.name.trim().toUpperCase() ?? "";
 
-      // ── Delivery rows (Excel 7–36, 0-based rows 6–35) ──────────────────────
+      // ── Shed sheets: clear Feed Ordered column (col E = 4, rows 12–71) ─────
+      if (name.includes("SHED")) {
+        for (let r = 12; r <= 71; r++) {
+          m.set(`${r},4`, "");
+        }
+        return m;
+      }
+
+      if (i !== eobIdx) return m;
+
+      // ── "end of batch" sheet ────────────────────────────────────────────────
+
+      // Delivery rows (Excel 7–36, 0-based rows 6–35)
       // STARTER B/C/D, GROWER G/H/I, FINISHER K/L/M, WITHDRAWL O/P/Q
       const deliveryCols = [1, 2, 3, 6, 7, 8, 10, 11, 12, 14, 15, 16];
       for (let r = 6; r <= 35; r++) {
@@ -791,24 +803,23 @@ export default function App() {
         }
       }
 
-      // ── Section totals row (Excel row 37, 0-based row 36) ──────────────────
-      // D37=STARTER total, I37=GROWER total, M37=FINISHER (hardcoded!), Q37=WITHDRAWL total
-      m.set("36,3",  "0");  // D37
-      m.set("36,8",  "0");  // I37
-      m.set("36,12", "0");  // M37  ← hardcoded value, must be explicitly zeroed
-      m.set("36,16", "0");  // Q37
+      // Section totals row (Excel row 37, 0-based row 36)
+      m.set("36,3",  "0");  // D37 – STARTER total
+      m.set("36,8",  "0");  // I37 – GROWER total
+      m.set("36,12", "0");  // M37 – FINISHER total (hardcoded in xlsx, must be zeroed)
+      m.set("36,16", "0");  // Q37 – WITHDRAWL total
 
-      // ── Summary panel: Last Batch / Total Feed Purchased / Feed Left / Feed Used ─
-      m.set("7,18",  "");   // S8  – "LAST BATCH" feed left (manual)
-      m.set("11,18", "0");  // S12 – Total Feed Purchased (formula cached in xlsx)
+      // Summary panel
+      m.set("7,18",  "");   // S8  – Last Batch feed left (manual)
+      m.set("11,18", "0");  // S12 – Total Feed Purchased (formula, cached)
       m.set("15,18", "");   // S16 – Feed Left This Batch (manual)
-      m.set("18,18", "0");  // S19 – Feed Used (formula cached in xlsx)
+      m.set("18,18", "0");  // S19 – Feed Used (formula, cached)
 
-      // ── Feed totals panel (col X=23, rows 19–22 → 0-based 18–21) ───────────
+      // Feed totals panel (col X = 23)
       m.set("18,23", "");   // X19 – feed on hand last batch (manual)
       m.set("19,23", "");   // X20 – feed delivered this batch (manual)
       m.set("20,23", "");   // X21 – feed on hand this batch (manual)
-      m.set("21,23", "0");  // X22 – total feed use (formula cached in xlsx)
+      m.set("21,23", "0");  // X22 – total feed use (formula, cached)
 
       return m;
     });
