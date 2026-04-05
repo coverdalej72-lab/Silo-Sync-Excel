@@ -1,16 +1,158 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql } from "drizzle-orm";
-import { db, readingsTable, silosTable } from "@workspace/db";
+import { eq, desc, and, gte, lte, asc } from "drizzle-orm";
+import { db, readingsTable, silosTable, shedGroupsTable } from "@workspace/db";
 import {
+  BatchCreateReadingsBody,
   ListReadingsQueryParams,
   ListReadingsResponse,
-  CreateReadingBody,
-  GetReadingsSummaryResponse,
   DeleteReadingParams,
 } from "@workspace/api-zod";
 import { pushReadingsToCloud } from "../lib/onedrive";
 
 const router: IRouter = Router();
+
+// ─── Today's progress ────────────────────────────────────────────────────────
+
+router.get("/readings/today", async (req, res): Promise<void> => {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const groups = await db
+    .select()
+    .from(shedGroupsTable)
+    .orderBy(asc(shedGroupsTable.displayOrder));
+
+  const silos = await db
+    .select()
+    .from(silosTable)
+    .orderBy(asc(silosTable.letter));
+
+  const todayReadings = await db
+    .select()
+    .from(readingsTable)
+    .where(
+      and(
+        gte(readingsTable.readingDate, todayStart),
+        lte(readingsTable.readingDate, todayEnd)
+      )
+    );
+
+  const sheds = groups.map((g) => {
+    const groupSilos = silos.filter((s) => s.shedGroupId === g.id);
+    const siloStatuses = groupSilos.map((s) => {
+      const reading = todayReadings.find((r) => r.siloId === s.id);
+      return {
+        siloId: s.id,
+        letter: s.letter ?? "",
+        name: s.name,
+        saved: !!reading,
+        readingId: reading?.id ?? null,
+        amountRemaining: reading ? Number(reading.amountRemaining) : null,
+        feedType: reading?.feedType ?? null,
+        unit: reading?.unit ?? null,
+      };
+    });
+
+    return {
+      shedGroupId: g.id,
+      shedGroupName: g.name,
+      allSaved: siloStatuses.length > 0 && siloStatuses.every((s) => s.saved),
+      silos: siloStatuses,
+    };
+  });
+
+  const savedCount = sheds.filter((s) => s.allSaved).length;
+  const date = new Date().toISOString().slice(0, 10);
+
+  res.json({
+    date,
+    savedCount,
+    totalCount: groups.length,
+    sheds,
+  });
+});
+
+// ─── Batch create readings ────────────────────────────────────────────────────
+
+router.post("/readings/batch", async (req, res): Promise<void> => {
+  const parsed = BatchCreateReadingsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { readings, readingDate } = parsed.data;
+  if (!readings || readings.length === 0) {
+    res.status(400).json({ error: "No readings provided" });
+    return;
+  }
+
+  const date = readingDate ? new Date(readingDate) : new Date();
+
+  const inserted = await db
+    .insert(readingsTable)
+    .values(
+      readings.map((r) => ({
+        siloId: r.siloId,
+        feedType: r.feedType,
+        amountRemaining: String(r.amountRemaining),
+        unit: r.unit,
+        notes: r.notes ?? null,
+        readingDate: date,
+      }))
+    )
+    .returning();
+
+  // Enrich with silo/shed info
+  const siloIds = inserted.map((r) => r.siloId);
+  const silosData = await db
+    .select({
+      id: silosTable.id,
+      name: silosTable.name,
+      letter: silosTable.letter,
+      shedGroupId: silosTable.shedGroupId,
+    })
+    .from(silosTable)
+    .where(eq(silosTable.id, siloIds[0]));
+
+  // Get all silos for the batch
+  const allSilos = await db.select({
+    id: silosTable.id,
+    name: silosTable.name,
+    letter: silosTable.letter,
+    shedGroupId: silosTable.shedGroupId,
+  }).from(silosTable);
+
+  const allGroups = await db.select().from(shedGroupsTable);
+
+  const enriched = inserted.map((r) => {
+    const silo = allSilos.find((s) => s.id === r.siloId);
+    const group = allGroups.find((g) => g.id === silo?.shedGroupId);
+    return {
+      id: r.id,
+      siloId: r.siloId,
+      siloName: silo?.name ?? "",
+      siloLetter: silo?.letter ?? "",
+      shedGroupName: group?.name ?? "",
+      feedType: r.feedType,
+      amountRemaining: Number(r.amountRemaining),
+      unit: r.unit,
+      notes: r.notes ?? null,
+      readingDate: r.readingDate.toISOString(),
+      createdAt: r.createdAt.toISOString(),
+    };
+  });
+
+  pushReadingsToCloud().catch((err) => {
+    req.log.warn({ err }, "Failed to sync to cloud");
+  });
+
+  res.status(201).json(enriched);
+});
+
+// ─── List readings ────────────────────────────────────────────────────────────
 
 router.get("/readings", async (req, res): Promise<void> => {
   const parsed = ListReadingsQueryParams.safeParse(req.query);
@@ -19,13 +161,15 @@ router.get("/readings", async (req, res): Promise<void> => {
     return;
   }
 
-  const { siloId, limit } = parsed.data;
+  const { limit } = parsed.data;
 
   let query = db
     .select({
       id: readingsTable.id,
       siloId: readingsTable.siloId,
       siloName: silosTable.name,
+      siloLetter: silosTable.letter,
+      shedGroupName: shedGroupsTable.name,
       feedType: readingsTable.feedType,
       amountRemaining: readingsTable.amountRemaining,
       unit: readingsTable.unit,
@@ -35,12 +179,9 @@ router.get("/readings", async (req, res): Promise<void> => {
     })
     .from(readingsTable)
     .innerJoin(silosTable, eq(readingsTable.siloId, silosTable.id))
+    .leftJoin(shedGroupsTable, eq(silosTable.shedGroupId, shedGroupsTable.id))
     .orderBy(desc(readingsTable.readingDate))
     .$dynamic();
-
-  if (siloId != null) {
-    query = query.where(eq(readingsTable.siloId, siloId));
-  }
 
   if (limit != null) {
     query = query.limit(limit);
@@ -49,83 +190,17 @@ router.get("/readings", async (req, res): Promise<void> => {
   const rows = await query;
   const mapped = rows.map((r) => ({
     ...r,
+    siloLetter: r.siloLetter ?? "",
+    shedGroupName: r.shedGroupName ?? "",
     amountRemaining: Number(r.amountRemaining),
     readingDate: r.readingDate.toISOString(),
     createdAt: r.createdAt.toISOString(),
   }));
+
   res.json(ListReadingsResponse.parse(mapped));
 });
 
-router.post("/readings", async (req, res): Promise<void> => {
-  const parsed = CreateReadingBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-
-  const silo = await db.select().from(silosTable).where(eq(silosTable.id, parsed.data.siloId)).limit(1);
-  if (!silo[0]) {
-    res.status(400).json({ error: "Silo not found" });
-    return;
-  }
-
-  const insertData = {
-    siloId: parsed.data.siloId,
-    feedType: parsed.data.feedType,
-    amountRemaining: String(parsed.data.amountRemaining),
-    unit: parsed.data.unit,
-    notes: parsed.data.notes ?? null,
-    readingDate: parsed.data.readingDate ? new Date(parsed.data.readingDate) : new Date(),
-  };
-
-  const [reading] = await db.insert(readingsTable).values(insertData).returning();
-
-  // Fire and forget — sync to any connected cloud services
-  pushReadingsToCloud().catch((err) => {
-    req.log.warn({ err }, "Failed to sync to cloud");
-  });
-
-  res.status(201).json({
-    ...reading,
-    siloName: silo[0].name,
-    amountRemaining: Number(reading.amountRemaining),
-    readingDate: reading.readingDate.toISOString(),
-    createdAt: reading.createdAt.toISOString(),
-  });
-});
-
-router.get("/readings/summary", async (_req, res): Promise<void> => {
-  const subquery = db
-    .select({
-      siloId: readingsTable.siloId,
-      maxId: sql<number>`max(${readingsTable.id})`.as("max_id"),
-    })
-    .from(readingsTable)
-    .groupBy(readingsTable.siloId)
-    .as("latest");
-
-  const rows = await db
-    .select({
-      siloId: readingsTable.siloId,
-      siloName: silosTable.name,
-      feedType: readingsTable.feedType,
-      amountRemaining: readingsTable.amountRemaining,
-      unit: readingsTable.unit,
-      readingDate: readingsTable.readingDate,
-      lastReadingId: readingsTable.id,
-    })
-    .from(readingsTable)
-    .innerJoin(silosTable, eq(readingsTable.siloId, silosTable.id))
-    .innerJoin(subquery, eq(readingsTable.id, subquery.maxId));
-
-  const mapped = rows.map((r) => ({
-    ...r,
-    amountRemaining: Number(r.amountRemaining),
-    readingDate: r.readingDate.toISOString(),
-  }));
-
-  res.json(GetReadingsSummaryResponse.parse(mapped));
-});
+// ─── Delete reading ───────────────────────────────────────────────────────────
 
 router.delete("/readings/:id", async (req, res): Promise<void> => {
   const params = DeleteReadingParams.safeParse(req.params);
