@@ -2290,14 +2290,11 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
                       </th>
                     );
                   })}
-                  <th style={{ ...TH, background: "#5a0e0e", minWidth: 46 }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {shedNums.map((s, si) => {
                   const shedBg = si % 2 === 0 ? "#fff" : "#fcfcfc";
-                  const mortTotal = shedMortWeekTotals[si];
-                  const cullTotal = shedCullWeekTotals[si];
                   return (
                     <React.Fragment key={s}>
                       {/* Morts row */}
@@ -2337,9 +2334,6 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
                             </td>
                           );
                         })}
-                        <td style={{ ...TD, background: "#fdf0f0", padding: "7px 5px", fontWeight: 700, color: mortTotal > 0 ? "#8b1a1a" : "#ccc", borderLeft: "2px solid #e5c5c5" }}>
-                          {mortTotal > 0 ? mortTotal : "—"}
-                        </td>
                       </tr>
                       {/* Culls row */}
                       <tr>
@@ -2372,9 +2366,6 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
                             </td>
                           );
                         })}
-                        <td style={{ ...TD, background: "#fafae0", padding: "7px 5px", fontWeight: 700, color: cullTotal > 0 ? "#666" : "#ccc", borderLeft: "2px solid #e5c5c5", borderBottom: "2px solid #e0c0c0" }}>
-                          {cullTotal > 0 ? cullTotal : "—"}
-                        </td>
                       </tr>
                     </React.Fragment>
                   );
