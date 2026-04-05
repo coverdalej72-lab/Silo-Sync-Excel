@@ -1073,16 +1073,98 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   return { sheds, summary: { farmName, batchNum, totalPlaced, totalOut, mortalityPct, aveWeight, fcr, cfcr, cage, feedOnHand, feedDelivered, feedConsumed } };
 }
 
+const BATCH_CATCHES_KEY = "silo-batch-catches";
+interface EditableCatch { date: string; age: string; birds: string; aveWgt: string; totalWgt: string; }
+type CatchMap = Record<number, EditableCatch[]>;
+
+function parseCatches(map: CatchMap, shedNum: number) {
+  const rows = map[shedNum] ?? [];
+  const totalCaught = rows.reduce((a, r) => a + (parseFloat(r.birds) || 0), 0);
+  const totalWgtKg  = rows.reduce((a, r) => {
+    const tw = parseFloat(r.totalWgt);
+    const bw = (parseFloat(r.birds) || 0) * (parseFloat(r.aveWgt) || 0);
+    return a + (tw > 0 ? tw * 1000 : bw);
+  }, 0);
+  const aveWgt = totalCaught > 0 ? totalWgtKg / totalCaught : 0;
+  return { rows, totalCaught, totalWgtKg, aveWgt };
+}
+
 function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number> }) {
-  const [sheds, setSheds] = useState<ShedBatchData[]>([]);
+  const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
+  const [catchMap, setCatchMap] = useState<CatchMap>(() => {
+    try { return JSON.parse(localStorage.getItem(BATCH_CATCHES_KEY) || "{}"); } catch { return {}; }
+  });
+  const [editCell, setEditCell] = useState<{ shedNum: number; rowIdx: number; field: keyof EditableCatch } | null>(null);
+  const [editVal, setEditVal] = useState("");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   useEffect(() => {
     loadBatchResultsXlsx(import.meta.env.BASE_URL)
-      .then(({ sheds, summary }) => { setSheds(sheds); setSummary(summary); setLoadState("ok"); })
+      .then(({ sheds, summary }) => { setXlSheds(sheds); setSummary(summary); setLoadState("ok"); })
       .catch(() => setLoadState("error"));
   }, []);
+
+  // Seed catchMap from xlsx on first load (if localStorage was empty)
+  useEffect(() => {
+    if (loadState !== "ok") return;
+    const stored = localStorage.getItem(BATCH_CATCHES_KEY);
+    if (stored && stored !== "{}") return;
+    const init: CatchMap = {};
+    xlSheds.forEach(s => {
+      if (s.catches.length > 0) {
+        init[s.shedNum] = s.catches.map(c => ({
+          date:     xlDateToStr(c.dateSerial),
+          age:      String(c.age),
+          birds:    String(c.birds),
+          aveWgt:   c.aveWeight.toFixed(3),
+          totalWgt: c.totalWeight > 0 ? (c.totalWeight / 1000).toFixed(2) : "",
+        }));
+      }
+    });
+    if (Object.keys(init).length > 0) {
+      setCatchMap(init);
+      localStorage.setItem(BATCH_CATCHES_KEY, JSON.stringify(init));
+    }
+  }, [loadState, xlSheds]);
+
+  const saveCatchMap = (next: CatchMap) => {
+    setCatchMap(next);
+    localStorage.setItem(BATCH_CATCHES_KEY, JSON.stringify(next));
+  };
+
+  const updateRow = (shedNum: number, rowIdx: number, field: keyof EditableCatch, value: string) => {
+    const rows = [...(catchMap[shedNum] ?? [])];
+    rows[rowIdx] = { ...rows[rowIdx], [field]: value };
+    saveCatchMap({ ...catchMap, [shedNum]: rows });
+  };
+
+  const addRow = (shedNum: number) => {
+    const rows = [...(catchMap[shedNum] ?? []), { date: "", age: "", birds: "", aveWgt: "", totalWgt: "" }];
+    saveCatchMap({ ...catchMap, [shedNum]: rows });
+  };
+
+  const removeRow = (shedNum: number, rowIdx: number) => {
+    const rows = (catchMap[shedNum] ?? []).filter((_, i) => i !== rowIdx);
+    saveCatchMap({ ...catchMap, [shedNum]: rows });
+  };
+
+  const handleClearBatch = () => {
+    setCatchMap({});
+    localStorage.removeItem(BATCH_CATCHES_KEY);
+    setShowClearConfirm(false);
+  };
+
+  const startEdit = (shedNum: number, rowIdx: number, field: keyof EditableCatch, current: string) => {
+    setEditCell({ shedNum, rowIdx, field });
+    setEditVal(current);
+  };
+
+  const commitEdit = () => {
+    if (editCell) { updateRow(editCell.shedNum, editCell.rowIdx, editCell.field, editVal); }
+    setEditCell(null);
+  };
 
   const isGroupActive = (shedNum: number) => {
     const groupId = Math.ceil(shedNum / 2);
@@ -1090,30 +1172,45 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
     return cfg ? cfg.active !== false : groupId <= 6;
   };
 
-  // Merge live shed placement counts (from shed sheets / edits) over xlsx values
-  const mergedSheds = sheds.map(s => ({
-    ...s,
-    placement: shedPlacement.get(s.shedNum) ?? s.placement,
-  }));
+  // All active shed numbers (union of xlsx sheds + live placement)
+  const xlShedNums = new Set(xlSheds.map(s => s.shedNum));
+  const allShedNums = new Set([...xlShedNums]);
+  shedPlacement.forEach((_, n) => allShedNums.add(n));
+  const activeShedNums = [...allShedNums].filter(n => isGroupActive(n)).sort((a, b) => a - b);
 
-  const activeSheds = mergedSheds.filter(s => isGroupActive(s.shedNum));
-  const totalPlaced  = activeSheds.reduce((a, s) => a + s.placement,   0);
-  const totalCaught  = activeSheds.reduce((a, s) => a + s.totalCaught, 0);
-  const totalMorts   = activeSheds.reduce((a, s) => a + s.morts,       0);
+  // Per-shed derived stats
+  const shedStats = activeShedNums.map(shedNum => {
+    const xlShed = xlSheds.find(s => s.shedNum === shedNum);
+    const placement = shedPlacement.get(shedNum) ?? xlShed?.placement ?? 0;
+    const { rows, totalCaught, totalWgtKg, aveWgt } = parseCatches(catchMap, shedNum);
+    const morts = placement - totalCaught;
+    const mortPct = placement > 0 ? (morts / placement) * 100 : 0;
+    return { shedNum, placement, rows, totalCaught, totalWgtKg, aveWgt, morts, mortPct };
+  });
+
+  const totalPlaced  = shedStats.reduce((a, s) => a + s.placement,    0);
+  const totalCaught  = shedStats.reduce((a, s) => a + s.totalCaught,  0);
+  const totalMorts   = shedStats.reduce((a, s) => a + s.morts,        0);
   const overallMortPct = totalPlaced > 0 ? ((totalMorts / totalPlaced) * 100).toFixed(2) + "%" : "—";
+
+  const totalWgtKgAll = shedStats.reduce((a, s) => a + s.totalWgtKg, 0);
+  const globalAveWgt  = totalCaught > 0 ? totalWgtKgAll / totalCaught : (summary?.aveWeight ?? 0);
 
   const fmtN = (n: number, dec = 0) => isNaN(n) || n === 0 ? "—" : dec > 0 ? n.toFixed(dec) : n.toLocaleString();
 
   const cardStyle = (color: string): React.CSSProperties => ({
-    background: "#fff",
-    border: `2px solid ${color}22`,
-    borderLeft: `4px solid ${color}`,
-    borderRadius: 10,
-    padding: "14px 16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
+    background: "#fff", border: `2px solid ${color}22`, borderLeft: `4px solid ${color}`,
+    borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 4,
   });
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", border: "none", outline: "2px solid #C9A227", borderRadius: 4,
+    padding: "2px 4px", fontSize: 12, background: "#fffde7", textAlign: "right",
+    boxSizing: "border-box",
+  };
+
+  const isEditing = (shedNum: number, rowIdx: number, field: keyof EditableCatch) =>
+    editCell?.shedNum === shedNum && editCell?.rowIdx === rowIdx && editCell?.field === field;
 
   if (loadState === "loading") return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#888", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
@@ -1134,15 +1231,26 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH RESULTS</div>
-        {summary && (
-          <>
-            {(farmConfig.farmName || summary.farmName) && <div style={{ fontSize: 16, fontWeight: 700 }}>{farmConfig.farmName || summary.farmName}</div>}
-            {summary.batchNum > 0 && <div style={{ fontSize: 16, opacity: 0.85 }}>Batch #{summary.batchNum}</div>}
-          </>
+        {(farmConfig.farmName || summary?.farmName) && (
+          <div style={{ fontSize: 16, fontWeight: 700 }}>{farmConfig.farmName || summary?.farmName}</div>
         )}
+        {summary && summary.batchNum > 0 && <div style={{ fontSize: 16, opacity: 0.85 }}>Batch #{summary.batchNum}</div>}
+        <div style={{ marginLeft: "auto" }}>
+          {showClearConfirm ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.25)", borderRadius: 8, padding: "6px 12px" }}>
+              <span style={{ fontSize: 13 }}>Clear all catch data?</span>
+              <button onClick={handleClearBatch} style={{ background: "#c0392b", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Yes, Clear</button>
+              <button onClick={() => setShowClearConfirm(false)} style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowClearConfirm(true)} style={{ background: "rgba(192,57,43,0.85)", color: "#fff", border: "none", borderRadius: 7, padding: "6px 16px", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+              Clear for New Batch
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Top stat cards — filtered totals */}
+      {/* Top stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(165px, 1fr))", gap: 12, marginBottom: 20 }}>
         <div style={cardStyle("#1a5c36")}>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#1a5c36" }}>{totalPlaced > 0 ? totalPlaced.toLocaleString() : "—"}</div>
@@ -1160,9 +1268,9 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
           <div style={{ fontSize: 22, fontWeight: 800, color: "#e67e22" }}>{overallMortPct}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Mortality %</div>
         </div>
-        {summary && summary.aveWeight > 0 && (
+        {globalAveWgt > 0 && (
           <div style={cardStyle("#8e44ad")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#8e44ad" }}>{summary.aveWeight.toFixed(3)} kg</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#8e44ad" }}>{globalAveWgt.toFixed(3)} kg</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
           </div>
         )}
@@ -1206,68 +1314,128 @@ function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]
       )}
 
       {/* Per-shed cards */}
-      {activeSheds.length > 0 && (
+      {activeShedNums.length > 0 && (
         <div>
           <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 10, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>
-            Per-Shed Breakdown ({activeSheds.length} active shed{activeSheds.length !== 1 ? "s" : ""})
+            Per-Shed Breakdown ({activeShedNums.length} active shed{activeShedNums.length !== 1 ? "s" : ""}) — tap a cell to edit
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))", gap: 12 }}>
-            {activeSheds.map(shed => (
-              <div key={shed.shedNum} style={{ background: "#fff", borderRadius: 10, border: "1px solid #dde8e0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+            {shedStats.map(({ shedNum, placement, rows, totalCaught: sc, totalWgtKg, aveWgt, morts, mortPct }) => (
+              <div key={shedNum} style={{ background: "#fff", borderRadius: 10, border: "1px solid #dde8e0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
+
                 {/* Card header */}
                 <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14 }}>SHED {shed.shedNum}</div>
+                  <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14 }}>SHED {shedNum}</div>
                   <div style={{ marginLeft: "auto", display: "flex", gap: 14, flexWrap: "wrap" }}>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800 }}>{shed.placement.toLocaleString()}</div>
+                      <div style={{ fontSize: 15, fontWeight: 800 }}>{placement > 0 ? placement.toLocaleString() : "—"}</div>
                       <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Placed</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800 }}>{shed.totalCaught > 0 ? shed.totalCaught.toLocaleString() : "—"}</div>
+                      <div style={{ fontSize: 15, fontWeight: 800 }}>{sc > 0 ? sc.toLocaleString() : "—"}</div>
                       <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Caught</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: shed.morts > 0 ? "#ffb3a7" : "#fff" }}>{shed.morts.toLocaleString()}</div>
-                      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Morts {shed.mortPct > 0 ? `(${shed.mortPct.toFixed(1)}%)` : ""}</div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: morts > 0 ? "#ffb3a7" : "#fff" }}>{morts > 0 ? morts.toLocaleString() : "—"}</div>
+                      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Morts{mortPct > 0 ? ` (${mortPct.toFixed(1)}%)` : ""}</div>
                     </div>
                   </div>
                 </div>
-                {/* Catches table */}
-                {shed.catches.length > 0 && (
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: "#f0f7f3" }}>
-                        <th style={{ padding: "6px 10px", textAlign: "left",  color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Date</th>
-                        <th style={{ padding: "6px 10px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Age</th>
-                        <th style={{ padding: "6px 10px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Birds</th>
-                        <th style={{ padding: "6px 10px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Ave Wgt</th>
-                        <th style={{ padding: "6px 10px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>Total Wgt</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {shed.catches.map((ct, ci) => (
+
+                {/* Catch rows table */}
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "#f0f7f3" }}>
+                      <th style={{ padding: "6px 8px", textAlign: "left",  color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "22%" }}>Date</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "10%" }}>Age</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "16%" }}>Birds</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Ave Wgt</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Total Wgt</th>
+                      <th style={{ width: "8%" }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, ci) => {
+                      const rowBirds = parseFloat(row.birds) || 0;
+                      const rowAve   = parseFloat(row.aveWgt) || 0;
+                      const rowTw    = parseFloat(row.totalWgt) > 0 ? parseFloat(row.totalWgt) : (rowBirds * rowAve) / 1000;
+                      const cellProps = (field: keyof EditableCatch, display: string, align: "left" | "right" = "right") => ({
+                        style: { padding: "5px 8px", textAlign: align as React.CSSProperties["textAlign"], color: "#333", cursor: "pointer", background: isEditing(shedNum, ci, field) ? "#fffde7" : "transparent" } as React.CSSProperties,
+                        onClick: () => startEdit(shedNum, ci, field, row[field]),
+                      });
+                      return (
                         <tr key={ci} style={{ borderTop: "1px solid #eef3ef", background: ci % 2 === 0 ? "#fff" : "#f9fcfa" }}>
-                          <td style={{ padding: "6px 10px", color: "#333" }}>{xlDateToStr(ct.dateSerial)}</td>
-                          <td style={{ padding: "6px 10px", textAlign: "right", color: "#333" }}>{ct.age}d</td>
-                          <td style={{ padding: "6px 10px", textAlign: "right", color: "#333", fontWeight: 600 }}>{ct.birds.toLocaleString()}</td>
-                          <td style={{ padding: "6px 10px", textAlign: "right", color: "#333" }}>{ct.aveWeight.toFixed(3)} kg</td>
-                          <td style={{ padding: "6px 10px", textAlign: "right", color: "#333" }}>{ct.totalWeight > 0 ? (ct.totalWeight / 1000).toFixed(2) + " t" : "—"}</td>
+                          <td {...cellProps("date", row.date, "left")}>
+                            {isEditing(shedNum, ci, "date") ? (
+                              <input style={{ ...inputStyle, textAlign: "left" }} value={editVal} autoFocus
+                                onChange={e => setEditVal(e.target.value)}
+                                onBlur={commitEdit} onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditCell(null); }} />
+                            ) : (row.date || <span style={{ color: "#aaa" }}>dd/mm/yyyy</span>)}
+                          </td>
+                          <td {...cellProps("age", row.age)}>
+                            {isEditing(shedNum, ci, "age") ? (
+                              <input style={inputStyle} type="number" value={editVal} autoFocus
+                                onChange={e => setEditVal(e.target.value)}
+                                onBlur={commitEdit} onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditCell(null); }} />
+                            ) : (row.age ? `${row.age}d` : <span style={{ color: "#aaa" }}>0d</span>)}
+                          </td>
+                          <td {...cellProps("birds", row.birds)}>
+                            {isEditing(shedNum, ci, "birds") ? (
+                              <input style={inputStyle} type="number" value={editVal} autoFocus
+                                onChange={e => setEditVal(e.target.value)}
+                                onBlur={commitEdit} onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditCell(null); }} />
+                            ) : (rowBirds > 0 ? rowBirds.toLocaleString() : <span style={{ color: "#aaa" }}>—</span>)}
+                          </td>
+                          <td {...cellProps("aveWgt", row.aveWgt)}>
+                            {isEditing(shedNum, ci, "aveWgt") ? (
+                              <input style={inputStyle} type="number" step="0.001" value={editVal} autoFocus
+                                onChange={e => setEditVal(e.target.value)}
+                                onBlur={commitEdit} onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditCell(null); }} />
+                            ) : (rowAve > 0 ? `${rowAve.toFixed(3)} kg` : <span style={{ color: "#aaa" }}>—</span>)}
+                          </td>
+                          <td {...cellProps("totalWgt", row.totalWgt)}>
+                            {isEditing(shedNum, ci, "totalWgt") ? (
+                              <input style={inputStyle} type="number" step="0.01" value={editVal} autoFocus
+                                onChange={e => setEditVal(e.target.value)}
+                                onBlur={commitEdit} onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditCell(null); }} />
+                            ) : (rowTw > 0 ? `${rowTw.toFixed(2)} t` : <span style={{ color: "#aaa" }}>—</span>)}
+                          </td>
+                          <td style={{ padding: "5px 6px", textAlign: "center" }}>
+                            <button onClick={() => removeRow(shedNum, ci)}
+                              style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 4px", borderRadius: 4 }}
+                              title="Remove catch">×</button>
+                          </td>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr style={{ borderTop: "2px solid #1a5c36", background: "#d4eddf" }}>
-                        <td colSpan={2} style={{ padding: "6px 10px", color: "#1a5c36", fontWeight: 800, fontSize: 11 }}>TOTAL</td>
-                        <td style={{ padding: "6px 10px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{shed.totalCaught.toLocaleString()}</td>
-                        <td style={{ padding: "6px 10px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{shed.aveWeight.toFixed(3)} kg</td>
-                        <td style={{ padding: "6px 10px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{shed.totalWeight > 0 ? (shed.totalWeight / 1000).toFixed(2) + " t" : "—"}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                )}
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: "2px solid #1a5c36", background: "#d4eddf" }}>
+                      <td colSpan={2} style={{ padding: "6px 8px", color: "#1a5c36", fontWeight: 800, fontSize: 11 }}>TOTAL</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{sc > 0 ? sc.toLocaleString() : "—"}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{aveWgt > 0 ? `${aveWgt.toFixed(3)} kg` : "—"}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{totalWgtKg > 0 ? `${(totalWgtKg / 1000).toFixed(2)} t` : "—"}</td>
+                      <td />
+                    </tr>
+                    <tr>
+                      <td colSpan={6} style={{ padding: "6px 8px" }}>
+                        <button onClick={() => addRow(shedNum)}
+                          style={{ width: "100%", background: "#f0f7f3", border: "1px dashed #1a5c36", borderRadius: 6, color: "#1a5c36", fontWeight: 700, cursor: "pointer", padding: "5px 0", fontSize: 12 }}>
+                          + Add Catch
+                        </button>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {activeShedNums.length === 0 && (
+        <div style={{ textAlign: "center", color: "#888", padding: "40px 20px", fontSize: 14 }}>
+          No active sheds configured. Add catch rows once sheds are set up.
         </div>
       )}
     </div>
