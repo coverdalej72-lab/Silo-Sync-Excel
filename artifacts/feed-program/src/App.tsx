@@ -787,11 +787,12 @@ function SummaryInputField({ label, value, onSave, wide }: { label: string; valu
 }
 
 function ShedSummaryCard({
-  sheetIdx, sheet, edits, onEdit, getCell,
+  sheetIdx, sheet, edits, onEdit, getCell, eobSheetIdx, shed1Num, shed2Num,
 }: {
   sheetIdx: number; sheet: SheetParsed; edits: Map<string, string>;
   onEdit: (si: number, key: string, val: string) => void;
   getCell: (si: number, r: number, c: number) => string;
+  eobSheetIdx: number; shed1Num: number; shed2Num: number;
 }) {
   if (!sheet) return null;
   const shedNum   = getCell(sheetIdx, 0, 6);
@@ -829,8 +830,14 @@ function ShedSummaryCard({
         <SummaryInputField label="Placement" value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>Birds Per Shed</div>
-        <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => onEdit(sheetIdx, "3,2", v)} />
-        <SummaryInputField label={shed2Name} value={shed2Birds} onSave={v => onEdit(sheetIdx, "4,2", v)} />
+        <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => {
+          onEdit(sheetIdx, "3,2", v);
+          if (eobSheetIdx >= 0) onEdit(eobSheetIdx, `${shed1Num + 3},22`, v);
+        }} />
+        <SummaryInputField label={shed2Name} value={shed2Birds} onSave={v => {
+          onEdit(sheetIdx, "4,2", v);
+          if (eobSheetIdx >= 0) onEdit(eobSheetIdx, `${shed2Num + 3},22`, v);
+        }} />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>Feed Allocations (kg)</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
@@ -873,6 +880,8 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     if (e?.has(`${r},${c}`)) return e.get(`${r},${c}`) ?? "";
     return String(sheets[si]?.cells.get(`${r},${c}`)?.value ?? "");
   };
+
+  const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
 
   let shedCount = 0;
   const shedItems: { sheetIdx: number; shedGroupId: number }[] = [];
@@ -932,6 +941,9 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
             edits={edits[sheetIdx] ?? new Map()}
             onEdit={handleEdit}
             getCell={getCell}
+            eobSheetIdx={eobIdx}
+            shed1Num={shedGroupId * 2 - 1}
+            shed2Num={shedGroupId * 2}
           />
         ))}
       </div>
@@ -1028,7 +1040,7 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   return { sheds, summary: { farmName, batchNum, totalPlaced, totalOut, mortalityPct, aveWeight, fcr, cfcr, feedOnHand, feedDelivered, feedConsumed } };
 }
 
-function BatchResultsView({ farmConfig }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData }) {
+function BatchResultsView({ farmConfig, shedPlacement }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number> }) {
   const [sheds, setSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
@@ -1045,7 +1057,13 @@ function BatchResultsView({ farmConfig }: { sheets: SheetParsed[]; edits: Map<st
     return cfg ? cfg.active !== false : groupId <= 6;
   };
 
-  const activeSheds = sheds.filter(s => isGroupActive(s.shedNum));
+  // Merge live shed placement counts (from shed sheets / edits) over xlsx values
+  const mergedSheds = sheds.map(s => ({
+    ...s,
+    placement: shedPlacement.get(s.shedNum) ?? s.placement,
+  }));
+
+  const activeSheds = mergedSheds.filter(s => isGroupActive(s.shedNum));
   const totalPlaced  = activeSheds.reduce((a, s) => a + s.placement,   0);
   const totalCaught  = activeSheds.reduce((a, s) => a + s.totalCaught, 0);
   const totalMorts   = activeSheds.reduce((a, s) => a + s.morts,       0);
@@ -1210,6 +1228,28 @@ export default function App() {
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
   const deliverySeedDoneRef = useRef(false);
+
+  // Map shedNum → current placement count (live from shed sheet edits)
+  const shedPlacement = useMemo<Map<number, number>>(() => {
+    const map = new Map<number, number>();
+    let sc = 0;
+    for (let i = 0; i < sheets.length; i++) {
+      const tab = sheets[i].name.trim().toUpperCase();
+      if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
+      if (tab.includes("SHED")) {
+        const gid = SHED_SHEET_ORDER[sc] ?? (sc + 1);
+        const getV = (key: string) => {
+          const e = edits[i];
+          const v = e?.has(key) ? e.get(key)! : String(sheets[i].cells.get(key)?.value ?? "");
+          return parseFloat(v.replace(/,/g, "")) || 0;
+        };
+        map.set(gid * 2 - 1, getV("3,2")); // odd shed (e.g., shed 1, 3, 5…)
+        map.set(gid * 2,     getV("4,2")); // even shed (e.g., shed 2, 4, 6…)
+        sc++;
+      }
+    }
+    return map;
+  }, [sheets, edits]);
 
   // Initialize and sync theme with Silo Tracker
   useEffect(() => {
@@ -1741,7 +1781,7 @@ export default function App() {
           </div>
         ) : activeView === "batchResults" ? (
           <div className="flex-1 overflow-auto">
-            <BatchResultsView sheets={sheets} edits={edits} farmConfig={farmConfig} />
+            <BatchResultsView sheets={sheets} edits={edits} farmConfig={farmConfig} shedPlacement={shedPlacement} />
           </div>
         ) : current && (() => {
           const tabName = current.name.trim().toUpperCase();
