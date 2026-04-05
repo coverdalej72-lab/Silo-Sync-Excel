@@ -784,6 +784,8 @@ export default function App() {
 
       // ── Shed sheets ─────────────────────────────────────────────────────────
       if (name.includes("SHED")) {
+        // Placement date: row 3 (r2,c2)
+        m.set("2,2", "");
         // Birds per shed: row 4 (r3,c2) and row 5 (r4,c2)
         m.set("3,2", "");
         m.set("4,2", "");
