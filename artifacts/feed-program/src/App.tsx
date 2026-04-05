@@ -2355,6 +2355,7 @@ export default function App() {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [edits, setEdits] = useState<Map<string, string>[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [batchKey, setBatchKey] = useState(0);
   const [farmConfig, setFarmConfig] = useState<FarmConfigData>(readFarmConfig);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
@@ -2743,6 +2744,12 @@ export default function App() {
 
     setEdits(newEdits);
     setHasChanges(false);
+
+    // Clear Batch Results catch data so it resets cleanly
+    localStorage.removeItem("silo-batch-catches");
+    localStorage.removeItem("silo-batch-num");
+    localStorage.removeItem("silo-batch-farm-name");
+    setBatchKey(k => k + 1);
   };
 
   const downloadFile = async () => {
@@ -2946,6 +2953,7 @@ export default function App() {
         ) : activeView === "batchResults" ? (
           <div className="flex-1 overflow-auto">
             <BatchResultsView
+              key={batchKey}
               sheets={sheets}
               edits={edits}
               farmConfig={farmConfig}
