@@ -2122,46 +2122,69 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
   const handlePrint = () => {
     const farmName = farmConfig.farmName ?? "Farm";
     const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    // A4 landscape printable area: ~277mm wide × ~190mm tall (with 10mm margins)
+    // 10 columns total: 2 label cols + 7 day cols + 1 total col
+    // Use fixed-width percentage columns so table never overflows page width
+    // Label cols: shed=5%, type=4%, 7 day cols=11% each, total=6% → total=5+4+77+6=92% (leaves slack)
+    const colWidths = `<col style="width:5%"><col style="width:4%">${days.map(() => `<col style="width:12.4%">`).join("")}<col style="width:7%">`;
+    const TH = `background:#8b1a1a;color:#fff;border:1px solid #6b1414;padding:3pt 4pt;font-size:8pt;text-align:center;`;
+    const TH2 = `background:#5a0e0e;color:#fff;border:1px solid #4a0a0a;padding:3pt 4pt;font-size:8pt;text-align:center;`;
+    const TD = `border:1px solid #ccc;padding:4pt 3pt;text-align:center;font-size:8pt;`;
     const dayHeaders = days.map((d, i) => {
       const dn = getDayNum(d);
-      return `<th style="background:#8b1a1a;color:#fff;border:1px solid #6b1414;padding:6px 4px;font-size:11px;text-align:center;min-width:44px">${DAYS[i]}<br/><span style="font-size:9px;opacity:0.8">${d.toLocaleDateString("en-AU",{day:"numeric",month:"short"})}${dn ? ` D${dn}` : ""}</span></th>`;
+      return `<th style="${TH}">${DAYS[i]}<br/><span style="font-size:6.5pt;opacity:0.85">${d.toLocaleDateString("en-AU",{day:"numeric",month:"short"})}${dn ? ` D${dn}` : ""}</span></th>`;
     }).join("");
     const shedRows = shedNums.map((s, si) => {
-      const mCells = days.map(d => { const v = mortsLog[isoDate(d)]?.[s]; return `<td style="border:1px solid #ddd;padding:6px 4px;text-align:center;min-height:24px">${v ?? ""}</td>`; }).join("");
-      const cCells = days.map(d => { const v = cullsLog[isoDate(d)]?.[s]; return `<td style="border:1px solid #ddd;padding:6px 4px;text-align:center;min-height:24px;background:#fefef4">${v ?? ""}</td>`; }).join("");
+      const mCells = days.map(d => { const v = mortsLog[isoDate(d)]?.[s]; return `<td style="${TD}">${v ?? ""}</td>`; }).join("");
+      const cCells = days.map(d => { const v = cullsLog[isoDate(d)]?.[s]; return `<td style="${TD}background:#fefef4;">${v ?? ""}</td>`; }).join("");
       const mTotal = shedMortWeekTotals[si]; const cTotal = shedCullWeekTotals[si];
-      const shBg = si % 2 === 0 ? "#fff" : "#f9f9f9";
+      const shBg = si % 2 === 0 ? "#fff" : "#f7f7f7";
       return `<tr style="background:${shBg}">
-        <td rowspan="2" style="background:#f8e8e8;border:1px solid #e5c5c5;font-weight:800;font-size:13px;text-align:center;padding:4px 6px;vertical-align:middle">S${s}</td>
-        <td style="background:#fff8f8;border:1px solid #e5c5c5;font-size:10px;font-weight:700;color:#8b1a1a;text-align:center;padding:4px 3px;width:20px">M</td>
+        <td rowspan="2" style="${TD}background:#f8e8e8;font-weight:800;font-size:9pt;vertical-align:middle;">S${s}</td>
+        <td style="${TD}background:#fff8f8;font-weight:700;color:#8b1a1a;font-size:7pt;">M</td>
         ${mCells}
-        <td style="border:1px solid #ddd;font-weight:700;text-align:center;padding:6px 4px;background:#fdf0f0">${mTotal > 0 ? mTotal : ""}</td>
+        <td style="${TD}background:#fdf0f0;font-weight:700;">${mTotal > 0 ? mTotal : ""}</td>
       </tr><tr style="background:${shBg}">
-        <td style="background:#fffff0;border:1px solid #d5d5a0;font-size:10px;font-weight:700;color:#666;text-align:center;padding:4px 3px;width:20px">C</td>
+        <td style="${TD}background:#fffff0;font-weight:700;color:#555;font-size:7pt;">C</td>
         ${cCells}
-        <td style="border:1px solid #ddd;font-weight:700;text-align:center;padding:6px 4px;background:#fafae0">${cTotal > 0 ? cTotal : ""}</td>
+        <td style="${TD}background:#fafae0;font-weight:700;">${cTotal > 0 ? cTotal : ""}</td>
       </tr>`;
     }).join("");
     const dayMTotals = days.map(d => shedNums.reduce((a, s) => a + (mortsLog[isoDate(d)]?.[s] ?? 0), 0));
     const dayCTotals = days.map(d => shedNums.reduce((a, s) => a + (cullsLog[isoDate(d)]?.[s] ?? 0), 0));
-    const totalMRow = dayMTotals.map(t => `<td style="border:1px solid #ddd;font-weight:700;text-align:center;padding:6px 4px;background:#fdf0f0">${t > 0 ? t : ""}</td>`).join("");
-    const totalCRow = dayCTotals.map(t => `<td style="border:1px solid #ddd;font-weight:700;text-align:center;padding:6px 4px;background:#fafae0">${t > 0 ? t : ""}</td>`).join("");
-    const totalsRows = `<tr style="background:#ffe8e8"><td rowspan="2" style="background:#efd0d0;border:1px solid #e5c5c5;font-weight:800;font-size:10px;text-align:center;padding:4px;vertical-align:middle">TOTAL</td><td style="background:#fff8f8;border:1px solid #e5c5c5;font-size:10px;font-weight:700;color:#8b1a1a;text-align:center;padding:4px 3px">M</td>${totalMRow}<td style="border:1px solid #ddd;font-weight:800;text-align:center;padding:6px 4px;background:#fdf0f0">${weekMortTotal > 0 ? weekMortTotal : ""}</td></tr><tr style="background:#fffff0"><td style="background:#fffff0;border:1px solid #d5d5a0;font-size:10px;font-weight:700;color:#666;text-align:center;padding:4px 3px">C</td>${totalCRow}<td style="border:1px solid #ddd;font-weight:800;text-align:center;padding:6px 4px;background:#fafae0">${weekCullTotal > 0 ? weekCullTotal : ""}</td></tr>`;
+    const totalMRow = dayMTotals.map(t => `<td style="${TD}background:#fdf0f0;font-weight:700;">${t > 0 ? t : ""}</td>`).join("");
+    const totalCRow = dayCTotals.map(t => `<td style="${TD}background:#fafae0;font-weight:700;">${t > 0 ? t : ""}</td>`).join("");
+    const totalsRows = `
+      <tr style="background:#ffe8e8">
+        <td rowspan="2" style="${TD}background:#efd0d0;font-weight:800;font-size:7.5pt;vertical-align:middle;">TOTAL</td>
+        <td style="${TD}background:#fff8f8;font-weight:700;color:#8b1a1a;font-size:7pt;">M</td>
+        ${totalMRow}
+        <td style="${TD}background:#fdf0f0;font-weight:800;">${weekMortTotal > 0 ? weekMortTotal : ""}</td>
+      </tr>
+      <tr style="background:#fffff0">
+        <td style="${TD}background:#fffff0;font-weight:700;color:#555;font-size:7pt;">C</td>
+        ${totalCRow}
+        <td style="${TD}background:#fafae0;font-weight:800;">${weekCullTotal > 0 ? weekCullTotal : ""}</td>
+      </tr>`;
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Morts & Culls — ${weekLabel}</title><style>
-      body{font-family:Arial,sans-serif;padding:14px;font-size:12px}
-      h2{color:#8b1a1a;margin:0 0 2px}p{margin:0 0 10px;color:#555;font-size:11px}
-      table{border-collapse:collapse;width:100%}
-      @media print{@page{margin:8mm;size:landscape}}
+    win.document.write(`<!DOCTYPE html><html><head><title>Morts &amp; Culls — ${weekLabel}</title><style>
+      @page{size:A4 landscape;margin:10mm}
+      *{box-sizing:border-box}
+      body{font-family:Arial,sans-serif;font-size:8pt;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      h2{color:#8b1a1a;margin:0 0 1mm;font-size:12pt}
+      p{margin:0 0 3mm;color:#555;font-size:8pt}
+      table{border-collapse:collapse;width:100%;table-layout:fixed}
+      @media print{body{padding:0}button{display:none}}
     </style></head><body>
       <h2>${farmName} — Daily Morts &amp; Culls</h2>
-      <p>Week: ${weekLabel} &nbsp;|&nbsp; <b>M</b> = Morts &nbsp; <b>C</b> = Culls</p>
+      <p>Week: ${weekLabel} &nbsp;|&nbsp; Printed: ${new Date().toLocaleDateString("en-AU")} &nbsp;|&nbsp; <b>M</b> = Morts &nbsp; <b>C</b> = Culls</p>
       <table>
+        <colgroup>${colWidths}</colgroup>
         <thead><tr>
-          <th colspan="2" style="background:#8b1a1a;color:#fff;border:1px solid #6b1414;padding:6px 8px;text-align:center">Shed</th>
+          <th colspan="2" style="${TH}font-size:9pt;">Shed</th>
           ${dayHeaders}
-          <th style="background:#5a0e0e;color:#fff;border:1px solid #4a0a0a;padding:6px 4px;text-align:center;min-width:40px">Total</th>
+          <th style="${TH2}font-size:9pt;">Total</th>
         </tr></thead>
         <tbody>${shedRows}${totalsRows}</tbody>
       </table>
