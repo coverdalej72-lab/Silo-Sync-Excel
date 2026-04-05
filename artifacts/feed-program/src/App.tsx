@@ -930,6 +930,7 @@ export default function App() {
       {/* Sheet tabs */}
       <div className="flex items-end gap-0.5 px-3 pt-2 bg-gray-200 overflow-x-auto shrink-0">
         {sheets.map((s, i) => {
+          if (s.name.trim().toUpperCase() === "WEEKLY STOCK TAKE") return null;
           const isActive = i === active;
           const bg = s.tabColor ?? "#217346";
           const fg = contrastColor(s.tabColor);
