@@ -8,7 +8,7 @@ import {
   GetReadingsSummaryResponse,
   DeleteReadingParams,
 } from "@workspace/api-zod";
-import { pushReadingsToOneDrive } from "../lib/onedrive";
+import { pushReadingsToGdrive } from "../lib/onedrive";
 
 const router: IRouter = Router();
 
@@ -80,9 +80,9 @@ router.post("/readings", async (req, res): Promise<void> => {
 
   const [reading] = await db.insert(readingsTable).values(insertData).returning();
 
-  // Fire and forget — push to OneDrive if connected
-  pushReadingsToOneDrive().catch((err) => {
-    req.log.warn({ err }, "Failed to push to OneDrive");
+  // Fire and forget — sync to Google Drive if connected
+  pushReadingsToGdrive().catch((err) => {
+    req.log.warn({ err }, "Failed to sync to Google Drive");
   });
 
   res.status(201).json({
@@ -95,7 +95,6 @@ router.post("/readings", async (req, res): Promise<void> => {
 });
 
 router.get("/readings/summary", async (_req, res): Promise<void> => {
-  // Get the latest reading per silo
   const subquery = db
     .select({
       siloId: readingsTable.siloId,
