@@ -1,6 +1,6 @@
 import { useListReadings, useDeleteReading, getListReadingsQueryKey, getGetReadingsSummaryQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
-import { Trash2, AlertCircle } from "lucide-react";
+import { Trash2, AlertCircle, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,9 +45,21 @@ export default function History() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Reading History</h1>
-        <p className="text-muted-foreground mt-1">Chronological log of all measurements.</p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Reading History</h1>
+          <p className="text-muted-foreground mt-1">Chronological log of all measurements.</p>
+        </div>
+        <a
+          href="/api/readings/export.csv"
+          download
+          data-testid="button-export-csv"
+        >
+          <Button variant="outline" className="gap-2 shrink-0">
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+        </a>
       </header>
 
       {isLoading ? (
