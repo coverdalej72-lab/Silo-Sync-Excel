@@ -925,6 +925,54 @@ function SheetView({
 
 // ── Summary Tab Components ────────────────────────────────────────────────
 
+function PlacementDateField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  // Convert stored D/M/YYYY → YYYY-MM-DD for <input type="date">
+  const toInputVal = (s: string): string => {
+    const d = parseDateInput(s);
+    if (!d) return "";
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  };
+  // Convert YYYY-MM-DD → D/M/YYYY for storage
+  const fromInputVal = (s: string): string => {
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return s;
+    return `${parseInt(m[3])}/${parseInt(m[2])}/${m[1]}`;
+  };
+  const displayDate = (s: string): string => {
+    const d = parseDateInput(s);
+    if (!d) return "";
+    return d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+      <span style={{ fontSize: 11, color: "#555", minWidth: 80, flexShrink: 0 }}>Placement</span>
+      <div style={{ flex: 1, position: "relative" }}>
+        <input
+          type="date"
+          value={toInputVal(value)}
+          onChange={e => onSave(fromInputVal(e.target.value))}
+          style={{
+            position: "absolute", opacity: 0, inset: 0, width: "100%", height: "100%",
+            cursor: "pointer", zIndex: 2,
+          }}
+        />
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6,
+          background: "#f5f5f5", borderRadius: 4, padding: "3px 7px",
+          fontSize: 13, cursor: "pointer", minHeight: 22,
+          color: value ? "#000" : "#aaa", border: "1px solid #ddd",
+        }}>
+          <span style={{ fontSize: 14 }}>📅</span>
+          <span>{value ? displayDate(value) : "tap to pick date…"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SummaryInputField({ label, value, onSave, wide }: { label: string; value: string; onSave: (v: string) => void; wide?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -1158,7 +1206,7 @@ function ShedSummaryCard({
         </div>
       </div>
       <div style={{ padding: "12px 14px" }}>
-        <SummaryInputField label="Placement" value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
+        <PlacementDateField value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>Birds Per Shed</div>
         <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => {
