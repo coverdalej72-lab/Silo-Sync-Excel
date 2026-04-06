@@ -2444,7 +2444,27 @@ export default function App() {
         });
 
         setSheets(result);
-        setEdits(result.map(() => new Map()));
+
+        // Seed initial edits: cascade Feed Alloc (col G=6) from cream row down
+        // for each shed sheet, using whatever Feed Usage (col H=7) values exist.
+        // G(r) = G(r-1) - H(r) starting from the cream row allocation at r=11.
+        const initialEdits = result.map((sheet) => {
+          const m = new Map<string, string>();
+          const isShed = sheet.name.toUpperCase().includes("SHED") &&
+                         !sheet.name.toUpperCase().includes("WEEKLY");
+          if (!isShed) return m;
+          const getCell = (r: number, c: number): number =>
+            parseFloat(sheet.cells.get(`${r},${c}`)?.value ?? "0") || 0;
+          let gPrev = getCell(11, COL_G); // cream row starting allocation
+          for (let r = 12; r <= 71; r++) {
+            const h = getCell(r, COL_H); // Feed Usage for this day
+            const g = gPrev - h;
+            m.set(`${r},${COL_G}`, String(Math.round(g * 100) / 100));
+            gPrev = g;
+          }
+          return m;
+        });
+        setEdits(initialEdits);
         setActive(startIdx);
         setLoading(false);
       })
