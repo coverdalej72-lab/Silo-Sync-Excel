@@ -2710,11 +2710,25 @@ export default function App() {
         m.set("11,9",  "0"); // col J – Silo Total
 
         // Data rows 13–72 (0-based 12–71):
+        const sheet = sheets[i];
+        const getCell = (r: number, c: number): number =>
+          parseFloat(sheet?.cells.get(`${r},${c}`)?.value ?? "0") || 0;
+
+        // Re-seed Feed Alloc (G) cascade from cream row, and restore Feed On Hand (I)
+        // from xlsx values — both are wiped by clearing but must remain visible.
+        let gPrev = getCell(11, COL_G); // cream row starting allocation
         for (let r = 12; r <= 71; r++) {
           m.set(`${r},3`,  ""); // col D – Feed Del (hidden but must be cleared)
           m.set(`${r},4`,  ""); // col E – Feed Ordered
           m.set(`${r},5`,  ""); // col F – Silo (letter)
-          m.set(`${r},8`,  ""); // col I – Feed On Hand
+          // Re-seed Feed Alloc: G(r) = G(r-1) - H(r)
+          const h = getCell(r, COL_H);
+          const g = gPrev - h;
+          m.set(`${r},${COL_G}`, String(Math.round(g * 100) / 100));
+          gPrev = g;
+          // Restore Feed On Hand from xlsx (cleared edits would blank it out)
+          const foh = sheet?.cells.get(`${r},${COL_I}`)?.value ?? "";
+          if (foh !== "") m.set(`${r},${COL_I}`, String(foh));
           m.set(`${r},9`,  ""); // col J – Silo Total
           m.set(`${r},10`, ""); // col K – Silo A
           m.set(`${r},11`, ""); // col L – Silo B
