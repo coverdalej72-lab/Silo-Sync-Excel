@@ -497,11 +497,11 @@ function ShedInfoPanel({ sheet, edits, onEdit, onClearFeedDel }: { sheet: SheetP
         )}
         {onClearFeedDel && (
           <button
-            onClick={() => { if (window.confirm("Zero out the entire FEED DEL column for this shed?")) onClearFeedDel(); }}
-            title="Set all FEED DEL values to 0"
+            onClick={() => { if (window.confirm("Zero out FEED DEL and FEED ORDERED for all rows on this shed?")) onClearFeedDel(); }}
+            title="Set all FEED DEL and FEED ORDERED values to 0"
             style={{ marginLeft: "auto", background: "rgba(220,38,38,0.18)", border: "1px solid rgba(220,38,38,0.5)", color: "#fca5a5", borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}
           >
-            ✕ Clear Feed Delivery
+            ✕ Clear Deliveries
           </button>
         )}
       </div>
@@ -2975,15 +2975,20 @@ export default function App() {
     });
   }, [sheets]);
 
-  const handleBatchEdit = useCallback((sheetIdx: number, entries: [string, string][]) => {
+  const handleBatchEdit = useCallback((sheetIdx: number, entries: [string, string][], recalcTrigger?: { r: number; c: number }) => {
     setEdits((prev) => {
       const next = [...prev];
       const m = new Map(next[sheetIdx]);
       entries.forEach(([key, val]) => m.set(key, val));
-      next[sheetIdx] = m;
+      if (recalcTrigger) {
+        const sheet = sheets[sheetIdx];
+        next[sheetIdx] = sheet ? recalculate(sheet.cells, m, recalcTrigger.r, recalcTrigger.c, sheet.maxRow) : m;
+      } else {
+        next[sheetIdx] = m;
+      }
       return next;
     });
-  }, []);
+  }, [sheets]);
 
   const resetForNewBatch = async () => {
     const currentBatch = batchNumCacheRef.current;
@@ -3323,7 +3328,7 @@ export default function App() {
           const activeEdits = edits[active] ?? new Map();
           return (
             <>
-              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} onClearFeedDel={() => { const entries: [string, string][] = []; for (let r = 12; r <= 71; r++) entries.push([`${r},3`, "0"]); handleBatchEdit(active, entries); }} />}
+              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} onClearFeedDel={() => { const entries: [string, string][] = []; for (let r = 12; r <= 71; r++) { entries.push([`${r},3`, "0"]); entries.push([`${r},4`, "0"]); } handleBatchEdit(active, entries, { r: 12, c: 4 }); }} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <div className="flex-1 overflow-auto">
                 <SheetView
