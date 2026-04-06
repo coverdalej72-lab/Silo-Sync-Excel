@@ -153,17 +153,16 @@ function recalculate(
     return newEdits;
   }
 
-  // Only cascade for silo columns (K,L,M) or delivery (E) below
-  if (![COL_K, COL_L, COL_M, COL_E, COL_J].includes(triggeredCol)) return newEdits;
+  // Only cascade for silo columns (K,L,M), delivery (E), feed usage (H), or silo total (J)
+  if (![COL_K, COL_L, COL_M, COL_E, COL_H, COL_J].includes(triggeredCol)) return newEdits;
 
-  // Cascade G (FEED ALLOC remaining) down when E (delivery) is edited
-  if (triggeredCol === COL_E) {
+  // Cascade G (FEED ALLOC remaining) down when FEED USAGE (H) is edited
+  // G(row) = G(row-1) - H(row) — counts down remaining allocation each day
+  if (triggeredCol === COL_H) {
     for (let r = triggeredRow; r <= maxRow; r++) {
       const gPrev = getNum(r - 1, COL_G);
-      const e = getNum(r, COL_E);
-      if (e !== 0 || cells.has(`${r},${COL_E}`)) {
-        setNum(r, COL_G, gPrev - e);
-      }
+      const h = getNum(r, COL_H);
+      setNum(r, COL_G, gPrev - h);
     }
   }
 
