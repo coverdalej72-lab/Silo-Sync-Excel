@@ -3028,6 +3028,7 @@ export default function App() {
 
         // Data rows 13–72 (0-based 12–71):
         for (let r = 12; r <= 71; r++) {
+          m.set(`${r},3`,  ""); // col D – Feed Delivered
           m.set(`${r},4`,  ""); // col E – Feed Ordered
           m.set(`${r},10`, ""); // col K – Silo A
           m.set(`${r},11`, ""); // col L – Silo B
