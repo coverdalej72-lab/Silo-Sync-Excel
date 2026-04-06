@@ -3499,27 +3499,17 @@ export default function App() {
               {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} onClearFeedDel={handleClearAllDeliveries} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <div className="flex-1 overflow-auto">
-                {isEob ? (
-                  <EobCustomView
-                    sheets={sheets}
-                    edits={edits}
-                    handleEdit={handleEdit}
-                    eobIdx={active}
-                    farmConfig={farmConfig}
-                  />
-                ) : (
-                  <SheetView
-                    sheet={current}
-                    sheetIdx={active}
-                    edits={activeEdits}
-                    onEdit={(key, val) => handleEdit(active, key, val)}
-                    editingCell={editingCell}
-                    setEditingCell={setEditingCell}
-                    startRow={isShed ? 7 : undefined}
-                    isShedSheet={isShed}
-                    isEobSheet={false}
-                  />
-                )}
+                <SheetView
+                  sheet={current}
+                  sheetIdx={active}
+                  edits={activeEdits}
+                  onEdit={(key, val) => handleEdit(active, key, val)}
+                  editingCell={editingCell}
+                  setEditingCell={setEditingCell}
+                  startRow={isEob ? 3 : isShed ? 7 : undefined}
+                  isShedSheet={isShed}
+                  isEobSheet={isEob}
+                />
               </div>
             </>
           );
