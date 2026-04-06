@@ -811,7 +811,9 @@ function SheetView({
                 const key = `${r},${c}`;
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
                 const rawVal = edits.has(key) ? edits.get(key)! : info.value;
-                const displayVal = (isAnyHeader && info.isDateCell) ? "" : rawVal;
+                // Normalize "SILOST" header label → "SILO" (Excel split-header artefact across shed sheets)
+                const normVal = isAnyHeader && rawVal === "SILOST" ? "SILO" : rawVal;
+                const displayVal = (isAnyHeader && info.isDateCell) ? "" : normVal;
                 const fs = info.fontSize ?? 11;
 
                 // Column I (index 8) = FEED ON HAND — highlight red when negative
@@ -840,8 +842,8 @@ function SheetView({
                   cellBg = "#fff8e1";             // today gold
                 } else if (isShedData && isWeekend) {
                   cellBg = "#f0f4f0";             // weekend gray-green
-                } else if (c === COL_E || c === 5) {
-                  cellBg = null;             // strip FEED ORDERED yellow + SILO column background
+                } else if (c === COL_E || c === 5 || (c === COL_I && isShedData)) {
+                  cellBg = null;             // strip FEED ORDERED yellow + SILO + FOH Excel fills (FOH uses computed gradient)
                 } else {
                   cellBg = info.bgColor;
                 }
