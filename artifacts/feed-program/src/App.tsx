@@ -422,17 +422,23 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
           <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Birds</div>
         </div>
       </div>
-      {/* Middle row: individual sheds + allocations */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
-        {shed1Name && <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12 }}><span style={{ opacity: 0.7 }}>{shed1Name}: </span><strong>{fmt(shed1Birds)}</strong></div>}
-        {shed2Name && <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12 }}><span style={{ opacity: 0.7 }}>{shed2Name}: </span><strong>{fmt(shed2Birds)}</strong></div>}
+      {/* Middle row: individual sheds + allocations — always full height */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8, minHeight: 36 }}>
+        <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12, minWidth: 90 }}>
+          <span style={{ opacity: 0.7 }}>{shed1Name || "Shed A"}: </span>
+          <strong>{shed1Birds ? fmt(shed1Birds) : "—"}</strong>
+        </div>
+        <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12, minWidth: 90 }}>
+          <span style={{ opacity: 0.7 }}>{shed2Name || "Shed B"}: </span>
+          <strong>{shed2Birds ? fmt(shed2Birds) : "—"}</strong>
+        </div>
         <div style={{ flex: 1 }} />
-        {allocations.map(([lbl, val]) => val ? (
-          <div key={lbl} style={{ background: "rgba(201,162,39,0.25)", border: "1px solid rgba(201,162,39,0.45)", borderRadius: 5, padding: "4px 10px", textAlign: "center", fontSize: 12 }}>
+        {allocations.map(([lbl, val]) => (
+          <div key={lbl} style={{ background: "rgba(201,162,39,0.25)", border: "1px solid rgba(201,162,39,0.45)", borderRadius: 5, padding: "4px 10px", textAlign: "center", fontSize: 12, minWidth: 72 }}>
             <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>{lbl}</div>
-            <div style={{ fontWeight: 700 }}>{fmt(val)} kg</div>
+            <div style={{ fontWeight: 700 }}>{val ? `${fmt(val)} kg` : "—"}</div>
           </div>
-        ) : null)}
+        ))}
       </div>
       {/* Bottom row: feed totals */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 8, flexWrap: "wrap" }}>
