@@ -77,6 +77,10 @@ function readFarmConfig(): FarmConfigData {
     return raw ? JSON.parse(raw) : {};
   } catch { return {}; }
 }
+function saveFarmConfig(cfg: FarmConfigData) {
+  localStorage.setItem(FARM_CONFIG_KEY, JSON.stringify(cfg));
+  window.dispatchEvent(new StorageEvent("storage", { key: FARM_CONFIG_KEY }));
+}
 
 // Maps shed sheet index (0-based, counting only SHED sheets) → shedGroupId (1–10)
 const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -2368,6 +2372,8 @@ export default function App() {
   const [edits, setEdits] = useState<Map<string, string>[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [farmConfig, setFarmConfig] = useState<FarmConfigData>(readFarmConfig);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsFarmName, setSettingsFarmName] = useState("");
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
@@ -2864,6 +2870,13 @@ export default function App() {
             ↺ New Batch
           </button>
           <button
+            onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setShowSettings(true); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
+            title="Settings"
+          >
+            ⚙ Settings
+          </button>
+          <button
             onClick={downloadFile}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors"
             style={{ background: hasChanges ? "#f59e0b" : "#2d8653", color: hasChanges ? "#000" : "#fff" }}
@@ -3041,6 +3054,89 @@ export default function App() {
           );
         })()}
       </div>
+
+      {/* ── Settings Panel ── */}
+      {showSettings && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.45)", display: "flex", justifyContent: "flex-end" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}
+        >
+          <div style={{ width: 340, maxWidth: "100vw", height: "100%", background: "#fff", boxShadow: "-4px 0 24px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", overflowY: "auto" }}>
+            {/* Header */}
+            <div style={{ background: "#1a5c36", color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 800, fontSize: 17 }}>⚙ Settings</span>
+              <button onClick={() => setShowSettings(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+
+            <div style={{ padding: "20px 20px 32px", flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
+              {/* Farm Name */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Farm Name</label>
+                <input
+                  value={settingsFarmName}
+                  onChange={e => setSettingsFarmName(e.target.value)}
+                  placeholder="e.g. Double B Farm"
+                  style={{ width: "100%", border: "1.5px solid #c8d8c8", borderRadius: 6, padding: "8px 12px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+
+              {/* Active Sheds */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Active Sheds</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {SHED_SHEET_ORDER.map(shedGroupId => {
+                    const shedNums = `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
+                    const existing = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+                    const isActive = existing ? existing.active !== false : shedGroupId <= 6;
+                    return (
+                      <label key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "8px 12px", borderRadius: 7, background: isActive ? "#eef6f1" : "#f5f5f5", border: `1.5px solid ${isActive ? "#1a5c36" : "#ddd"}` }}>
+                        <input
+                          type="checkbox"
+                          checked={isActive}
+                          onChange={() => {
+                            const groups = SHED_SHEET_ORDER.map(id => {
+                              const ex = farmConfig.shedGroups?.find(g => g.shedGroupId === id);
+                              const act = ex ? ex.active !== false : id <= 6;
+                              return { shedGroupId: id, active: id === shedGroupId ? !act : act, silos: ex?.silos ?? [] };
+                            });
+                            const updated = { ...farmConfig, shedGroups: groups };
+                            saveFarmConfig(updated);
+                            setFarmConfig(updated);
+                          }}
+                          style={{ width: 17, height: 17, accentColor: "#1a5c36", cursor: "pointer" }}
+                        />
+                        <span style={{ fontWeight: 600, fontSize: 14, color: isActive ? "#1a5c36" : "#888" }}>{shedNums}</span>
+                        {isActive && <span style={{ marginLeft: "auto", fontSize: 11, color: "#2d8653", fontWeight: 700 }}>ACTIVE</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div style={{ padding: "16px 20px", borderTop: "1px solid #e5e5e5", display: "flex", gap: 10 }}>
+              <button
+                onClick={() => {
+                  const updated = { ...farmConfig, farmName: settingsFarmName.trim() || undefined };
+                  saveFarmConfig(updated);
+                  setFarmConfig(updated);
+                  setShowSettings(false);
+                }}
+                style={{ flex: 1, background: "#1a5c36", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+              >
+                Save & Close
+              </button>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{ flex: 1, background: "#f5f5f5", color: "#333", border: "1px solid #ddd", borderRadius: 7, padding: "10px 0", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
