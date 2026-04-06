@@ -133,9 +133,19 @@ function recalculate(
     newEdits.set(`${r},${c}`, String(Math.round(val * 100) / 100));
   };
 
-  // ── Bird count (C2, r=1, c=2) → allocation headers + daily feed usage ──
-  if (triggeredRow === 1 && triggeredCol === COL_C) {
-    const birds = getNum(1, COL_C);
+  // ── Bird count → allocation headers + daily feed usage ──
+  // Handles: total birds cell (r=1,c=2) OR individual shed cells (r=3,c=2 / r=4,c=2)
+  if (triggeredCol === COL_C && (triggeredRow === 1 || triggeredRow === 3 || triggeredRow === 4)) {
+    let birds: number;
+    if (triggeredRow === 1) {
+      birds = getNum(1, COL_C);
+    } else {
+      // Individual shed counts changed — sum both sheds and update total cell
+      const bA = getNum(3, COL_C);
+      const bB = getNum(4, COL_C);
+      birds = bA + bB;
+      setNum(1, COL_C, birds);
+    }
     setNum(1, COL_H, Math.round(birds * 0.325));   // STR ALL
     setNum(2, COL_H, Math.round(birds * 1.15));    // GWR ALL
     setNum(3, COL_H, Math.round(birds * 1.7));     // FIN ALL
