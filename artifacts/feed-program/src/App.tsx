@@ -84,6 +84,11 @@ const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 // Cobb 500 grams per bird per day (day 1 → day 54)
 const COBB500_GRAMS = [22,24,26,28,30,32,34,36,40,45,50,55,60,65,74,75,80,87,93,97,103,107,113,118,122,128,134,139,140,142,149,153,158,163,165,168,171,174,176,178,180,181,188,190,192,193,194,195,196,197,197,197,198,197];
 
+const MONTH_NAMES: Record<string, number> = {
+  january:1,february:2,march:3,april:4,may:5,june:6,
+  july:7,august:8,september:9,october:10,november:11,december:12,
+  jan:1,feb:2,mar:3,apr:4,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,
+};
 function parseDateInput(str: string): Date | null {
   if (!str) return null;
   // DD/MM/YYYY or D/M/YYYY
@@ -92,9 +97,18 @@ function parseDateInput(str: string): Date | null {
   // YYYY-MM-DD (ISO)
   const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]));
-  // MM/DD/YYYY (US, fallback)
-  const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (mdy) return new Date(parseInt(mdy[3]), parseInt(mdy[1]) - 1, parseInt(mdy[2]));
+  // "Thursday 26 March 2026" or "26 March 2026" — day-name optional, day before month
+  const nat = str.match(/(?:(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+)?(\d{1,2})\s+([a-z]+)\s+(\d{4})/i);
+  if (nat) {
+    const mo = MONTH_NAMES[nat[2].toLowerCase()];
+    if (mo) return new Date(parseInt(nat[3]), mo - 1, parseInt(nat[1]));
+  }
+  // "March 26, 2026" or "26 March, 2026"
+  const natUs = str.match(/([a-z]+)\s+(\d{1,2}),?\s+(\d{4})/i);
+  if (natUs) {
+    const mo = MONTH_NAMES[natUs[1].toLowerCase()];
+    if (mo) return new Date(parseInt(natUs[3]), mo - 1, parseInt(natUs[2]));
+  }
   // Natural language fallback
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
@@ -1395,8 +1409,14 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     }
   }
 
-  // Placement date — read from the first shed sheet (shared across all sheds)
-  const globalPlacement = shedItems.length > 0 ? getCell(shedItems[0].sheetIdx, 2, 2) : "";
+  // Placement date — find the first active shed that has a parseable date set
+  const globalPlacement = (() => {
+    for (const { sheetIdx } of shedItems) {
+      const v = getCell(sheetIdx, 2, 2);
+      if (v && parseDateInput(v)) return v;
+    }
+    return shedItems.length > 0 ? getCell(shedItems[0].sheetIdx, 2, 2) : "";
+  })();
 
   let grandBirds = 0, grandFeed = 0;
   for (const { sheetIdx } of shedItems) {
