@@ -926,7 +926,8 @@ function SheetView({
 // ── Summary Tab Components ────────────────────────────────────────────────
 
 function PlacementDateField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
-  // Convert stored D/M/YYYY → YYYY-MM-DD for <input type="date">
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const toInputVal = (s: string): string => {
     const d = parseDateInput(s);
     if (!d) return "";
@@ -934,41 +935,26 @@ function PlacementDateField({ value, onSave }: { value: string; onSave: (v: stri
     const dd = String(d.getDate()).padStart(2, "0");
     return `${d.getFullYear()}-${mm}-${dd}`;
   };
-  // Convert YYYY-MM-DD → D/M/YYYY for storage
   const fromInputVal = (s: string): string => {
     const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return s;
     return `${parseInt(m[3])}/${parseInt(m[2])}/${m[1]}`;
   };
-  const displayDate = (s: string): string => {
-    const d = parseDateInput(s);
-    if (!d) return "";
-    return d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-  };
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-      <span style={{ fontSize: 11, color: "#555", minWidth: 80, flexShrink: 0 }}>Placement</span>
-      <div style={{ flex: 1, position: "relative" }}>
-        <input
-          type="date"
-          value={toInputVal(value)}
-          onChange={e => onSave(fromInputVal(e.target.value))}
-          style={{
-            position: "absolute", opacity: 0, inset: 0, width: "100%", height: "100%",
-            cursor: "pointer", zIndex: 2,
-          }}
-        />
-        <div style={{
-          display: "flex", alignItems: "center", gap: 6,
-          background: "#f5f5f5", borderRadius: 4, padding: "3px 7px",
-          fontSize: 13, cursor: "pointer", minHeight: 22,
-          color: value ? "#000" : "#aaa", border: "1px solid #ddd",
-        }}>
-          <span style={{ fontSize: 14 }}>📅</span>
-          <span>{value ? displayDate(value) : "tap to pick date…"}</span>
-        </div>
-      </div>
+      <span style={{ fontSize: 11, color: "#555", minWidth: 80, flexShrink: 0 }}>📅 Placement</span>
+      <input
+        ref={inputRef}
+        type="date"
+        value={toInputVal(value)}
+        onChange={e => onSave(fromInputVal(e.target.value))}
+        style={{
+          flex: 1, fontSize: 13, border: "2px solid #1a5c36", borderRadius: 4,
+          padding: "3px 7px", background: "#f5f5f5", cursor: "pointer",
+          outline: "none", minHeight: 22, minWidth: 0,
+        }}
+      />
     </div>
   );
 }
