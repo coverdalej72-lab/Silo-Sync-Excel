@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/plans/"
+title = "Silo Mate — Plans & Pricing"
+version = "1.0.0"
+id = "artifacts/silo-mate-plans"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/plans/" ]
+localPort = 19661
+
+[services.development]
+run = "pnpm --filter @workspace/silo-mate-plans run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/silo-mate-plans", "run", "build" ]
+publicDir = "artifacts/silo-mate-plans/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19661"
+BASE_PATH = "/plans/"
