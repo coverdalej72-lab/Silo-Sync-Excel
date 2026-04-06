@@ -625,6 +625,23 @@ function SheetView({
   const inputRef = useRef<HTMLInputElement>(null);
   const navigatingRef = useRef(false);  // true while a keyboard navigation is in flight
 
+  // Pre-compute max FEED ON HAND value in column I (for traffic-light colour gradient)
+  const maxFOH = useMemo(() => {
+    if (!isShedSheet) return 0;
+    let max = 0;
+    for (const [key, cellInfo] of cells) {
+      const parts = key.split(",");
+      const c = parseInt(parts[1]);
+      if (c !== COL_I) continue;
+      const r = parseInt(parts[0]);
+      if (r < effectiveStart) continue;
+      const raw = edits.get(key) ?? cellInfo.value ?? "";
+      const v = parseFloat(raw.replace(/,/g, ""));
+      if (!isNaN(v) && v > max) max = v;
+    }
+    return max;
+  }, [cells, edits, isShedSheet, effectiveStart]);
+
   // Trim empty trailing columns — only consider visible rows (r >= effectiveStart)
   const displayMaxCol = useMemo(() => {
     let last = minCol;
@@ -773,12 +790,25 @@ function SheetView({
 
                 // Column I (index 8) = FEED ON HAND — highlight red when negative
                 const numVal = parseFloat(displayVal.replace(/,/g, ""));
-                const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0 && !isAnyHeader;
+                const isFeedRunOut = c === COL_I && !isNaN(numVal) && numVal < 0 && !isAnyHeader;
+
+                // FEED ON HAND traffic-light colour (positive values)
+                const fohGradient = (() => {
+                  if (c !== COL_I || isAnyHeader || isFeedRunOut || isNaN(numVal) || numVal <= 0 || maxFOH <= 0 || !isShedSheet) return null;
+                  const pct = numVal / maxFOH;
+                  if (pct > 0.65) return "#c8e6c9"; // green — plenty
+                  if (pct > 0.45) return "#dcedc8"; // light green
+                  if (pct > 0.30) return "#fff9c4"; // yellow
+                  if (pct > 0.15) return "#ffe0b2"; // orange
+                  return "#ffccbc";                  // deep orange — nearly gone
+                })();
 
                 // Cell background
                 let cellBg: string | null;
                 if (isAnyHeader) {
                   cellBg = "#1a5c36";
+                } else if (fohGradient) {
+                  cellBg = fohGradient;
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
                 } else {
