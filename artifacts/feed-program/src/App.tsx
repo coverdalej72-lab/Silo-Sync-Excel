@@ -633,7 +633,7 @@ function SheetView({
           const rowBg = isAnyHeader
             ? "#1a5c36"
             : isShedTotals
-            ? "#f5f0dc"
+            ? "#ffffff"
             : isShedSummary
             ? "#eef4ee"
             : isShedData
