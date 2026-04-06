@@ -440,7 +440,7 @@ function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) 
       )}
 
       <a
-        href="mailto:hello@silomate.com.au"
+        href="mailto:coverdalej72@gmail.com"
         style={{
           display: "block",
           textAlign: "center",
@@ -542,7 +542,7 @@ export default function App() {
             {shareLabel === "copied" ? "✅ Copied!" : "🔗 Share"}
           </button>
           <a
-            href="mailto:hello@silomate.com.au"
+            href="mailto:coverdalej72@gmail.com"
             style={{
               background: GOLD,
               color: "#1a1a1a",
@@ -612,7 +612,7 @@ export default function App() {
               See Plans & Pricing
             </a>
             <a
-              href="mailto:hello@silomate.com.au"
+              href="mailto:coverdalej72@gmail.com"
               style={{
                 background: "rgba(255,255,255,0.15)",
                 color: "#fff",
@@ -1007,7 +1007,7 @@ export default function App() {
             Start your free 30-day trial today. No credit card needed. Cancel anytime.
           </p>
           <a
-            href="mailto:hello@silomate.com.au"
+            href="mailto:coverdalej72@gmail.com"
             style={{
               display: "inline-block",
               background: GOLD,
@@ -1036,7 +1036,7 @@ export default function App() {
           <SiloIcon />
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Poultry Mate</span>
         </div>
-        <p>© {new Date().getFullYear()} Poultry Mate Australia · ABN registered · <a href="mailto:hello@silomate.com.au" style={{ color: GOLD }}>hello@silomate.com.au</a></p>
+        <p>© {new Date().getFullYear()} Poultry Mate Australia · ABN registered · <a href="mailto:coverdalej72@gmail.com" style={{ color: GOLD }}>coverdalej72@gmail.com</a></p>
         <p style={{ marginTop: 6 }}>Proudly built for Australian broiler growers.</p>
       </footer>
     </div>
