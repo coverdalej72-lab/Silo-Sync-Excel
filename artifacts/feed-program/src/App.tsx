@@ -652,6 +652,12 @@ function SheetView({
   const effectiveStart = startRow ?? minRow;
   const inputRef = useRef<HTMLInputElement>(null);
   const navigatingRef = useRef(false);  // true while a keyboard navigation is in flight
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
+  const [prefillChar, setPrefillChar] = useState<string | null>(null);
+
+  // Clear selection when switching sheets
+  useEffect(() => { setSelectedCell(null); setPrefillChar(null); }, [sheetIdx]);
 
   // Pre-compute max FEED ON HAND value in column I (for traffic-light colour gradient)
   const maxFOH = useMemo(() => {
@@ -695,8 +701,15 @@ function SheetView({
   }, [editingCell]);
 
   const commitEdit = (r: number, c: number, val: string, next?: EditingCell | null) => {
+    setPrefillChar(null);
     onEdit(`${r},${c}`, val);
-    setEditingCell(next !== undefined ? next : null);
+    const nextCell = next !== undefined ? next : null;
+    setEditingCell(nextCell);
+    if (nextCell) {
+      setSelectedCell({ r: nextCell.r, c: nextCell.c });
+    } else {
+      setTimeout(() => containerRef.current?.focus(), 10);
+    }
   };
 
   // Navigate to an adjacent editable cell (skips header rows)
@@ -713,6 +726,50 @@ function SheetView({
     setTimeout(() => { navigatingRef.current = false; }, 50);
   };
 
+  // Move keyboard selection (no editing) — respects shed data bounds
+  const moveSelection = (nr: number, nc: number) => {
+    if (isShedSheet) {
+      const forbidden = new Set([7, 8, 9, 10, 11]);
+      while (forbidden.has(nr)) nr++;
+      nr = Math.max(12, Math.min(nr, maxRow));
+    }
+    nc = Math.max(minCol, Math.min(nc, displayMaxCol));
+    setSelectedCell({ r: nr, c: nc });
+    containerRef.current?.focus();
+  };
+
+  // Keydown on the container div — fires when a cell is selected but NOT being edited
+  const handleContainerKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!selectedCell || editingCell) return;
+    const { r, c } = selectedCell;
+    switch (e.key) {
+      case "ArrowDown":  e.preventDefault(); moveSelection(r + 1, c); break;
+      case "ArrowUp":    e.preventDefault(); moveSelection(r - 1, c); break;
+      case "ArrowRight": e.preventDefault(); moveSelection(r, c + 1); break;
+      case "ArrowLeft":  e.preventDefault(); moveSelection(r, c - 1); break;
+      case "Tab":        e.preventDefault(); moveSelection(r, e.shiftKey ? c - 1 : c + 1); break;
+      case "Enter": case "F2":
+        e.preventDefault();
+        setEditingCell({ r, c, sheetIdx });
+        break;
+      case "Delete": case "Backspace":
+        e.preventDefault();
+        onEdit(`${r},${c}`, "");
+        break;
+      case "Escape":
+        e.preventDefault();
+        setSelectedCell(null);
+        break;
+      default:
+        // Any printable character (digit, letter, symbol) → start editing with it
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          setPrefillChar(e.key);
+          setEditingCell({ r, c, sheetIdx });
+        }
+    }
+  };
+
   // Pre-compute header row heights for sticky offsets
   const row7Height  = isShedSheet ? Math.max(rowHeights[7]  ?? 20, 26) : 0;
   // EOB header row 3 is sticky at top=0
@@ -726,13 +783,21 @@ function SheetView({
 
   return (
     <>
-    {/* Inject hover + today styles without polluting inline state */}
+    {/* Inject hover + today + selected-cell styles */}
     <style>{`
       .shed-data-row:hover > td { background-color: rgba(26,92,54,0.10) !important; cursor: pointer; }
       .shed-data-row:hover.shed-today-row > td { background-color: #fff0c0 !important; }
       .shed-data-row:hover.shed-weekend-row > td { background-color: rgba(26,92,54,0.12) !important; }
       .shed-today-row > td:first-child { border-left: 4px solid #C9A227; }
+      .sheet-container:focus { outline: none; }
     `}</style>
+    <div
+      ref={containerRef}
+      className="sheet-container"
+      tabIndex={0}
+      onKeyDown={handleContainerKey}
+      style={{ outline: "none" }}
+    >
     <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: "100%" }}>
       <colgroup>
         {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
@@ -871,13 +936,22 @@ function SheetView({
                   ? eobStickyTop
                   : undefined;
 
+                const isSelected = !isAnyHeader && !isEditing &&
+                  selectedCell?.r === r && selectedCell?.c === c;
+
                 return (
                   <td
                     key={c}
                     colSpan={info.colSpan}
                     rowSpan={info.rowSpan}
+                    onClick={() => {
+                      if (!isAnyHeader) {
+                        setSelectedCell({ r, c });
+                        containerRef.current?.focus();
+                      }
+                    }}
                     onDoubleClick={() => !isAnyHeader && setEditingCell({ r, c, sheetIdx })}
-                    title={isFeedRunOut ? "⚠ FEED RUN OUT" : "Double-click to edit"}
+                    title={isFeedRunOut ? "⚠ FEED RUN OUT" : "Click to select · type to edit"}
                     style={{
                       background: isFeedRunOut ? "#dc2626" : (cellBg ?? (rowBg ?? "#fff")),
                       color: cellTextColor,
@@ -897,7 +971,8 @@ function SheetView({
                       height: rowH,
                       maxWidth: 400,
                       cursor: (isShedHeader || isEobHeader) ? "default" : "pointer",
-                      outline: isEditing ? "2px solid #1a5c36" : "none",
+                      outline: isEditing ? "2px solid #1a5c36" : isSelected ? "2px solid #43a047" : "none",
+                      outlineOffset: isSelected ? "-2px" : undefined,
                       letterSpacing: isShedHeader ? 0.3 : 0,
                       position: (isShedHeader || isEobHeader) ? "sticky" : undefined,
                       top: stickyTop,
@@ -907,7 +982,7 @@ function SheetView({
                     {isEditing ? (
                       <input
                         ref={inputRef}
-                        defaultValue={displayVal}
+                        defaultValue={prefillChar !== null ? prefillChar : displayVal}
                         onBlur={(e) => {
                           // Skip blur-commit when keyboard navigation has already committed
                           if (!navigatingRef.current) commitEdit(r, c, e.target.value);
@@ -954,6 +1029,7 @@ function SheetView({
         })}
       </tbody>
     </table>
+    </div>
     </>
   );
 }
@@ -3205,7 +3281,17 @@ export default function App() {
 
       {/* Hint bar */}
       <div className="bg-[#e8f5ee] dark:bg-zinc-800 border-b border-green-200 dark:border-zinc-700 px-4 py-1 text-xs text-green-800 dark:text-green-300 shrink-0">
-        Double-click any cell to edit. Press <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd> or click away to confirm.
+        <span>Click a cell to select · </span>
+        <span>Type any number to edit instantly · </span>
+        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Tab</kbd><span>/</span>
+        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">↑↓←→</kbd>
+        <span> to move · </span>
+        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd>
+        <span> to confirm · </span>
+        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Del</kbd>
+        <span> to clear · </span>
+        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Esc</kbd>
+        <span> to deselect</span>
       </div>
 
       {/* Sheet tabs */}
