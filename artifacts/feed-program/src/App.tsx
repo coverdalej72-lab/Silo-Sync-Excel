@@ -2909,13 +2909,28 @@ export default function App() {
 
           const sheet = sheets[sheetIdx];
 
-          // Find the row where column B (index 1, the DATE column) matches today's date
+          // Find the row where column B (index 1, the DATE column) matches today's date.
+          // Check BOTH original Excel cells AND edits — dates may have been filled by the
+          // placement date cascade (typed by user) and therefore only exist in edits.
           let dateRow = -1;
           for (const [key, cell] of sheet.cells.entries()) {
             const parts = key.split(",");
             if (parseInt(parts[1]) === 1 && cell.value === today) {
               dateRow = parseInt(parts[0]);
               break;
+            }
+          }
+          if (dateRow === -1) {
+            // Fallback: check current edits for this sheet (dates from placement cascade)
+            const sheetEdits = edits[sheetIdx];
+            if (sheetEdits) {
+              for (const [key, val] of sheetEdits.entries()) {
+                const parts = key.split(",");
+                if (parseInt(parts[1]) === 1 && val === today) {
+                  dateRow = parseInt(parts[0]);
+                  break;
+                }
+              }
             }
           }
           if (dateRow === -1) continue;
