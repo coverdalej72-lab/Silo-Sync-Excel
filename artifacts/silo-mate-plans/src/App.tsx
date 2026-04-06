@@ -1,7 +1,198 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 const GREEN = "#1a5c36";
 const GOLD = "#C9A227";
+
+function ReceiptModal({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState({ name: "", email: "", address: "", amount: "", date: new Date().toISOString().split("T")[0] });
+  const [generated, setGenerated] = useState(false);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const receiptNum = useRef("SMDON-" + Date.now().toString().slice(-6));
+
+  const handlePrint = () => {
+    const content = receiptRef.current;
+    if (!content) return;
+    const win = window.open("", "_blank", "width=700,height=900");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>Donation Receipt — Silo Mate</title>
+      <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 40px; color: #111; }
+        .header { background: ${GREEN}; color: #fff; padding: 28px 32px; border-radius: 10px 10px 0 0; }
+        .header h1 { margin: 0 0 4px; font-size: 22px; }
+        .header p { margin: 0; opacity: 0.8; font-size: 13px; }
+        .body { border: 2px solid ${GREEN}; border-top: none; border-radius: 0 0 10px 10px; padding: 28px 32px; }
+        .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+        .row:last-child { border-bottom: none; }
+        .label { color: #666; }
+        .value { font-weight: 600; }
+        .amount-row { background: #f0fdf4; border-radius: 8px; padding: 14px 16px; margin: 20px 0; display: flex; justify-content: space-between; align-items: center; }
+        .amount-big { font-size: 28px; font-weight: 900; color: ${GREEN}; }
+        .notice { background: #fefce8; border: 1px solid #fde68a; border-radius: 8px; padding: 14px 16px; font-size: 12px; color: #92400e; line-height: 1.6; margin-top: 20px; }
+        .footer { margin-top: 28px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 16px; }
+        .gold { color: ${GOLD}; font-weight: 700; }
+        @media print { body { padding: 20px; } }
+      </style></head><body>
+      <div class="header">
+        <h1>🌾 Silo Mate — Donation Acknowledgment</h1>
+        <p>In partnership with Rural Aid Australia · ruralaid.org.au</p>
+      </div>
+      <div class="body">
+        <div class="row"><span class="label">Receipt Number</span><span class="value">${receiptNum.current}</span></div>
+        <div class="row"><span class="label">Date</span><span class="value">${new Date(form.date).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}</span></div>
+        <div class="row"><span class="label">Donor Name</span><span class="value">${form.name}</span></div>
+        ${form.email ? `<div class="row"><span class="label">Email</span><span class="value">${form.email}</span></div>` : ""}
+        ${form.address ? `<div class="row"><span class="label">Address</span><span class="value">${form.address}</span></div>` : ""}
+        <div class="amount-row">
+          <span style="font-size:15px;font-weight:600;">Donation Amount</span>
+          <span class="amount-big">$${parseFloat(form.amount).toFixed(2)} AUD</span>
+        </div>
+        <div class="row"><span class="label">Charity</span><span class="value">Rural Aid Australia</span></div>
+        <div class="row"><span class="label">Purpose</span><span class="value">General Donation — Farmer Support</span></div>
+        <div class="row"><span class="label">Facilitated by</span><span class="value">Silo Mate Australia</span></div>
+        <div class="notice">
+          ⚠️ <strong>Tax Deductibility Notice:</strong> Rural Aid Australia holds Deductible Gift Recipient (DGR) status with the Australian Tax Office. For an official tax-deductible receipt, please contact Rural Aid directly at <strong>1300 327 624</strong> or <strong>info@ruralaid.org.au</strong>. This document is an acknowledgment of your charitable contribution facilitated through Silo Mate and does not constitute an official tax receipt.
+        </div>
+        <div class="footer">
+          Thank you for supporting Australian farmers. <span class="gold">Every dollar makes a difference.</span><br/>
+          Silo Mate Australia · silomate.com.au · Generated ${new Date().toLocaleDateString("en-AU")}
+        </div>
+      </div>
+      </body></html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "#fff", borderRadius: 16, padding: "32px 28px", width: "100%", maxWidth: 480,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.2)", maxHeight: "90vh", overflowY: "auto",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div>
+            <h2 style={{ margin: 0, fontWeight: 800, fontSize: 20, color: "#111" }}>Donation Receipt</h2>
+            <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>Generate a contribution acknowledgment</p>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9ca3af" }}>✕</button>
+        </div>
+
+        {!generated ? (
+          <>
+            {[
+              { label: "Full Name *", key: "name", type: "text", placeholder: "John Smith" },
+              { label: "Email Address", key: "email", type: "email", placeholder: "john@example.com" },
+              { label: "Postal Address", key: "address", type: "text", placeholder: "123 Farm Rd, QLD 4350" },
+              { label: "Donation Amount (AUD) *", key: "amount", type: "number", placeholder: "50.00" },
+              { label: "Donation Date *", key: "date", type: "date", placeholder: "" },
+            ].map(({ label, key, type, placeholder }) => (
+              <div key={key} style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>{label}</label>
+                <input
+                  type={type}
+                  placeholder={placeholder}
+                  value={form[key as keyof typeof form]}
+                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                  style={{
+                    width: "100%", padding: "10px 14px", borderRadius: 8,
+                    border: "1.5px solid #d1d5db", fontSize: 14, outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            ))}
+
+            <div style={{
+              background: "#fefce8", border: "1px solid #fde68a", borderRadius: 8,
+              padding: "12px 14px", fontSize: 12, color: "#92400e", lineHeight: 1.6, marginBottom: 20,
+            }}>
+              <strong>Note:</strong> This is a contribution acknowledgment only. For an official tax-deductible receipt, contact Rural Aid directly at info@ruralaid.org.au — they hold DGR status with the ATO.
+            </div>
+
+            <button
+              onClick={() => {
+                if (!form.name || !form.amount || !form.date) return;
+                setGenerated(true);
+              }}
+              disabled={!form.name || !form.amount}
+              style={{
+                width: "100%", background: GREEN, color: "#fff", fontWeight: 700,
+                fontSize: 15, padding: "13px 0", borderRadius: 10, border: "none",
+                cursor: form.name && form.amount ? "pointer" : "not-allowed",
+                opacity: form.name && form.amount ? 1 : 0.5,
+              }}
+            >
+              Generate Receipt
+            </button>
+          </>
+        ) : (
+          <>
+            <div ref={receiptRef} style={{
+              border: `2px solid ${GREEN}`, borderRadius: 12, overflow: "hidden", marginBottom: 20,
+            }}>
+              <div style={{ background: GREEN, color: "#fff", padding: "20px 24px" }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>🌾 Silo Mate — Donation Acknowledgment</div>
+                <div style={{ fontSize: 12, opacity: 0.8, marginTop: 3 }}>In partnership with Rural Aid Australia</div>
+              </div>
+              <div style={{ padding: "20px 24px" }}>
+                {[
+                  ["Receipt No.", receiptNum.current],
+                  ["Date", new Date(form.date).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })],
+                  ["Donor", form.name],
+                  ...(form.email ? [["Email", form.email]] : []),
+                  ...(form.address ? [["Address", form.address]] : []),
+                  ["Charity", "Rural Aid Australia"],
+                  ["Purpose", "General Donation — Farmer Support"],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f3f4f6", fontSize: 13 }}>
+                    <span style={{ color: "#6b7280" }}>{label}</span>
+                    <span style={{ fontWeight: 600 }}>{value}</span>
+                  </div>
+                ))}
+                <div style={{
+                  background: "#f0fdf4", borderRadius: 8, padding: "12px 16px",
+                  display: "flex", justifyContent: "space-between", alignItems: "center", margin: "16px 0",
+                }}>
+                  <span style={{ fontWeight: 600, fontSize: 14 }}>Donation Amount</span>
+                  <span style={{ fontSize: 24, fontWeight: 900, color: GREEN }}>${parseFloat(form.amount).toFixed(2)} AUD</span>
+                </div>
+                <div style={{ background: "#fefce8", borderRadius: 8, padding: "10px 14px", fontSize: 11, color: "#92400e", lineHeight: 1.6 }}>
+                  For an official tax-deductible receipt, contact Rural Aid at info@ruralaid.org.au (DGR registered).
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={handlePrint}
+                style={{
+                  flex: 1, background: GREEN, color: "#fff", fontWeight: 700,
+                  fontSize: 14, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer",
+                }}
+              >
+                🖨️ Print / Save as PDF
+              </button>
+              <button
+                onClick={() => setGenerated(false)}
+                style={{
+                  flex: 1, background: "#f3f4f6", color: "#374151", fontWeight: 600,
+                  fontSize: 14, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer",
+                }}
+              >
+                Edit Details
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const PLANS = [
   {
@@ -288,9 +479,11 @@ function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) 
 
 export default function App() {
   const [yearly, setYearly] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#f9fafb", minHeight: "100vh" }}>
+      {showReceipt && <ReceiptModal onClose={() => setShowReceipt(false)} />}
 
       {/* NAVBAR */}
       <nav style={{
@@ -624,6 +817,25 @@ export default function App() {
               >
                 💚 Donate Directly to Rural Aid
               </a>
+              <button
+                onClick={() => setShowReceipt(true)}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "center",
+                  background: "transparent",
+                  color: GREEN,
+                  border: `2px solid ${GREEN}`,
+                  borderRadius: 10,
+                  padding: "12px 0",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  cursor: "pointer",
+                  marginTop: 8,
+                }}
+              >
+                🧾 Generate a Donation Receipt
+              </button>
             </div>
 
             {/* How it works card */}
