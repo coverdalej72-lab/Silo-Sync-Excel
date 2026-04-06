@@ -826,7 +826,7 @@ export default function App() {
           }}>
             "Finally an app that understands how broiler farms actually work. I can check my silos on the phone, and my Feed Mate on the desktop, and they're always in sync."
           </blockquote>
-          <p style={{ fontWeight: 700, color: GREEN, fontSize: 14 }}>— Early access grower, QLD</p>
+          <p style={{ fontWeight: 700, color: GREEN, fontSize: 14 }}>— Early access grower, Australia</p>
         </div>
       </section>
 
