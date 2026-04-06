@@ -819,8 +819,8 @@ function SheetView({
                 // Text colour
                 const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
-                  : isFeedRunOut
-                  ? "#ffffff"
+                  : (c === COL_I && !isAnyHeader)
+                  ? "#000000"
                   : (info.fontColor ?? "#000");
 
                 // Border — subtle throughout, just like shed sheets
