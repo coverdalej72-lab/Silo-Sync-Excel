@@ -634,27 +634,38 @@ export default function App() {
       <section style={{
         background: "#fff",
         borderBottom: "1px solid #e5e7eb",
-        padding: "40px 24px",
+        padding: "28px 24px",
       }}>
         <div style={{
-          maxWidth: 960,
+          maxWidth: 1100,
           margin: "0 auto",
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 32,
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: "6px 0",
         }}>
           {[
-            { icon: "📱", title: "No App Install", desc: "Works in any phone browser. Add to home screen for a native feel." },
-            { icon: "🔔", title: "Feed Alerts", desc: "Automatic 14-day alerts when silos are running low." },
-            { icon: "📊", title: "Feed Mate", desc: "Smart spreadsheet auto-synced from your silo readings." },
-            { icon: "📷", title: "QR Scanning", desc: "Scan delivery dockets straight into the system." },
-            { icon: "🔄", title: "Cross-device Sync", desc: "Phone and desktop always in sync — instantly." },
-            { icon: "🐥", title: "Batch Tracking", desc: "FCR, CFCR, Morts, Culls and catch data per batch." },
-          ].map(({ icon, title, desc }) => (
-            <div key={title} style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>{icon}</div>
-              <div style={{ fontWeight: 700, fontSize: 15, color: "#111827", marginBottom: 6 }}>{title}</div>
-              <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>{desc}</div>
+            { icon: "📱", title: "No App Install" },
+            { icon: "🔔", title: "Feed Alerts" },
+            { icon: "📊", title: "Feed Mate" },
+            { icon: "📷", title: "QR Scanning" },
+            { icon: "🔄", title: "Cross-device Sync" },
+            { icon: "🐥", title: "Batch Tracking" },
+            { icon: "🏗️", title: "Multi-shed Support" },
+            { icon: "📈", title: "Batch History" },
+            { icon: "💧", title: "Water Tracking" },
+            { icon: "⚖️", title: "Live Weights" },
+            { icon: "📋", title: "Daily Reports" },
+            { icon: "🔐", title: "Secure Data" },
+          ].map(({ icon, title }, i, arr) => (
+            <div key={title} style={{ display: "flex", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 18px" }}>
+                <span style={{ fontSize: 20 }}>{icon}</span>
+                <span style={{ fontWeight: 600, fontSize: 13, color: "#374151", whiteSpace: "nowrap" }}>{title}</span>
+              </div>
+              {i < arr.length - 1 && (
+                <span style={{ color: "#d1d5db", fontSize: 18, lineHeight: 1, flexShrink: 0 }}>|</span>
+              )}
             </div>
           ))}
         </div>
