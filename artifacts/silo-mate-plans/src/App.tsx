@@ -15,7 +15,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
     const win = window.open("", "_blank", "width=700,height=900");
     if (!win) return;
     win.document.write(`
-      <html><head><title>Donation Receipt — Silo Mate</title>
+      <html><head><title>Donation Receipt — Poultry Mate</title>
       <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 40px; color: #111; }
         .header { background: ${GREEN}; color: #fff; padding: 28px 32px; border-radius: 10px 10px 0 0; }
@@ -34,7 +34,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
         @media print { body { padding: 20px; } }
       </style></head><body>
       <div class="header">
-        <h1>🌾 Silo Mate — Donation Acknowledgment</h1>
+        <h1>🌾 Poultry Mate — Donation Acknowledgment</h1>
         <p>In partnership with Rural Aid Australia · ruralaid.org.au</p>
       </div>
       <div class="body">
@@ -49,13 +49,13 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
         </div>
         <div class="row"><span class="label">Charity</span><span class="value">Rural Aid Australia</span></div>
         <div class="row"><span class="label">Purpose</span><span class="value">General Donation — Farmer Support</span></div>
-        <div class="row"><span class="label">Facilitated by</span><span class="value">Silo Mate Australia</span></div>
+        <div class="row"><span class="label">Facilitated by</span><span class="value">Poultry Mate Australia</span></div>
         <div class="notice">
-          ⚠️ <strong>Tax Deductibility Notice:</strong> Rural Aid Australia holds Deductible Gift Recipient (DGR) status with the Australian Tax Office. For an official tax-deductible receipt, please contact Rural Aid directly at <strong>1300 327 624</strong> or <strong>info@ruralaid.org.au</strong>. This document is an acknowledgment of your charitable contribution facilitated through Silo Mate and does not constitute an official tax receipt.
+          ⚠️ <strong>Tax Deductibility Notice:</strong> Rural Aid Australia holds Deductible Gift Recipient (DGR) status with the Australian Tax Office. For an official tax-deductible receipt, please contact Rural Aid directly at <strong>1300 327 624</strong> or <strong>info@ruralaid.org.au</strong>. This document is an acknowledgment of your charitable contribution facilitated through Poultry Mate and does not constitute an official tax receipt.
         </div>
         <div class="footer">
           Thank you for supporting Australian farmers. <span class="gold">Every dollar makes a difference.</span><br/>
-          Silo Mate Australia · silomate.com.au · Generated ${new Date().toLocaleDateString("en-AU")}
+          Poultry Mate Australia · silomate.com.au · Generated ${new Date().toLocaleDateString("en-AU")}
         </div>
       </div>
       </body></html>
@@ -136,7 +136,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
               border: `2px solid ${GREEN}`, borderRadius: 12, overflow: "hidden", marginBottom: 20,
             }}>
               <div style={{ background: GREEN, color: "#fff", padding: "20px 24px" }}>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>🌾 Silo Mate — Donation Acknowledgment</div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>🌾 Poultry Mate — Donation Acknowledgment</div>
                 <div style={{ fontSize: 12, opacity: 0.8, marginTop: 3 }}>In partnership with Rural Aid Australia</div>
               </div>
               <div style={{ padding: "20px 24px" }}>
@@ -210,7 +210,7 @@ const PLANS = [
       "Works on any phone — no install needed",
     ],
     notIncluded: [
-      "Feed Program spreadsheet",
+      "Feed Mate spreadsheet",
       "Batch Results & Morts tracking",
       "QR docket scanning",
       "Multi-user access",
@@ -227,7 +227,7 @@ const PLANS = [
     monthlyPrice: 50,
     features: [
       "Everything in Bronze",
-      "Feed Program spreadsheet viewer",
+      "Feed Mate spreadsheet viewer",
       "Batch Results, FCR & Morts tracking",
       "Unlimited reading history",
       "QR docket scanning",
@@ -278,7 +278,7 @@ const FAQS = [
   },
   {
     q: "Do I need to install an app?",
-    a: "No. Silo Mate is a Progressive Web App (PWA) — it works in any browser on any phone. You can add it to your home screen for an app-like experience.",
+    a: "No. Poultry Mate is a Progressive Web App (PWA) — it works in any browser on any phone. You can add it to your home screen for an app-like experience.",
   },
   {
     q: "What happens to my data if I cancel?",
@@ -500,7 +500,7 @@ export default function App() {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <SiloIcon />
-          <span style={{ fontWeight: 800, fontSize: 20, letterSpacing: "-0.03em" }}>Silo Mate</span>
+          <span style={{ fontWeight: 800, fontSize: 20, letterSpacing: "-0.03em" }}>Poultry Mate</span>
         </div>
         <a
           href="mailto:hello@silomate.com.au"
@@ -554,7 +554,7 @@ export default function App() {
             lineHeight: 1.6,
             marginBottom: 36,
           }}>
-            Silo Mate replaces paper & Excel with a mobile-first app and smart Feed Program spreadsheet that update automatically — across every device on your farm.
+            Poultry Mate replaces paper & Excel with a mobile-first app and smart Feed Mate spreadsheet that update automatically — across every device on your farm.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <a
@@ -606,7 +606,7 @@ export default function App() {
           {[
             { icon: "📱", title: "No App Install", desc: "Works in any phone browser. Add to home screen for a native feel." },
             { icon: "🔔", title: "Feed Alerts", desc: "Automatic 14-day alerts when silos are running low." },
-            { icon: "📊", title: "Feed Program", desc: "Smart spreadsheet auto-synced from your silo readings." },
+            { icon: "📊", title: "Feed Mate", desc: "Smart spreadsheet auto-synced from your silo readings." },
             { icon: "📷", title: "QR Scanning", desc: "Scan delivery dockets straight into the system." },
             { icon: "🔄", title: "Cross-device Sync", desc: "Phone and desktop always in sync — instantly." },
             { icon: "🐥", title: "Batch Tracking", desc: "FCR, CFCR, Morts, Culls and catch data per batch." },
@@ -726,7 +726,7 @@ export default function App() {
             lineHeight: 1.65,
             marginBottom: 20,
           }}>
-            "Finally an app that understands how broiler farms actually work. I can check my silos on the phone, and my Feed Program on the desktop, and they're always in sync."
+            "Finally an app that understands how broiler farms actually work. I can check my silos on the phone, and my Feed Mate on the desktop, and they're always in sync."
           </blockquote>
           <p style={{ fontWeight: 700, color: GREEN, fontSize: 14 }}>— Early access grower, QLD</p>
         </div>
@@ -751,7 +751,7 @@ export default function App() {
               Giving back to the farming community
             </h2>
             <p style={{ color: "#6b7280", fontSize: 16, lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
-              For every active Silo Mate subscription, <strong style={{ color: GREEN }}>$1 per month</strong> goes directly to{" "}
+              For every active Poultry Mate subscription, <strong style={{ color: GREEN }}>$1 per month</strong> goes directly to{" "}
               <strong>Rural Aid Australia</strong> — an organisation that supports Aussie farmers
               battling drought, floods, and financial hardship.
             </p>
@@ -796,7 +796,7 @@ export default function App() {
                 color: GREEN,
                 fontWeight: 600,
               }}>
-                🤝 Silo Mate donates every quarter — we hand over a cheque in person and share the moment publicly so you can see exactly where your support goes.
+                🤝 Poultry Mate donates every quarter — we hand over a cheque in person and share the moment publicly so you can see exactly where your support goes.
               </div>
               <a
                 href="https://www.ruralaid.org.au/donate/"
@@ -852,7 +852,7 @@ export default function App() {
             }}>
               <div style={{ fontWeight: 800, fontSize: 17, color: "#111827" }}>How it works</div>
               {[
-                { icon: "📱", text: "You subscribe to any Silo Mate plan" },
+                { icon: "📱", text: "You subscribe to any Poultry Mate plan" },
                 { icon: "💰", text: "$1 from your monthly fee is set aside for charity" },
                 { icon: "📅", text: "Every 3 months we total it up and donate the full amount" },
                 { icon: "🎥", text: "We film the cheque handover and post it publicly — full transparency" },
@@ -867,7 +867,7 @@ export default function App() {
           </div>
 
           <p style={{ textAlign: "center", color: "#9ca3af", fontSize: 13, marginTop: 32 }}>
-            You can also donate directly to Rural Aid at any time using the button above — no Silo Mate subscription required.
+            You can also donate directly to Rural Aid at any time using the button above — no Poultry Mate subscription required.
           </p>
         </div>
       </section>
@@ -936,9 +936,9 @@ export default function App() {
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
           <SiloIcon />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Silo Mate</span>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Poultry Mate</span>
         </div>
-        <p>© {new Date().getFullYear()} Silo Mate Australia · ABN registered · <a href="mailto:hello@silomate.com.au" style={{ color: GOLD }}>hello@silomate.com.au</a></p>
+        <p>© {new Date().getFullYear()} Poultry Mate Australia · ABN registered · <a href="mailto:hello@silomate.com.au" style={{ color: GOLD }}>hello@silomate.com.au</a></p>
         <p style={{ marginTop: 6 }}>Proudly built for Australian broiler growers.</p>
       </footer>
     </div>

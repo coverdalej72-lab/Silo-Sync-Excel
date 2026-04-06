@@ -148,7 +148,7 @@ export default function Settings() {
       const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
       const res = await fetch(`${BASE}/api/batch/reset`, { method: "DELETE" });
       if (res.ok) {
-        // Fetch and store the new batch version so Feed Program syncs on next load
+        // Fetch and store the new batch version so Feed Mate syncs on next load
         try {
           const vRes = await fetch(`${BASE}/api/batch/version`);
           if (vRes.ok) {
@@ -417,7 +417,7 @@ export default function Settings() {
       <div>
         <SectionLabel title="Share App Links" />
         <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
-          {/* Feed Program link */}
+          {/* Feed Mate link */}
           {(() => {
             const feedUrl = `${window.location.origin}/feed-program/`;
             const feedCopied = copiedLink === "feed";
@@ -427,7 +427,7 @@ export default function Settings() {
                   <FileSpreadsheet className="h-5 w-5 text-[#4caf50]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground">Feed Program</p>
+                  <p className="font-semibold text-sm text-foreground">Feed Mate</p>
                   <p className="text-xs text-muted-foreground truncate">{feedUrl}</p>
                 </div>
                 <button
@@ -498,7 +498,7 @@ export default function Settings() {
                 <FileSpreadsheet className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="font-semibold text-sm text-foreground">Feed Program Spreadsheet</p>
+                <p className="font-semibold text-sm text-foreground">Feed Mate Spreadsheet</p>
                 <p className="text-xs text-muted-foreground">Download the styled Excel workbook</p>
               </div>
             </div>
@@ -523,7 +523,7 @@ export default function Settings() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-foreground">Start New Batch</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  The <span className="font-semibold text-foreground">Feed Program</span> is the primary place to start a new batch. Use this button only if you need to reset from the field — it will clear all readings, deliveries, and both apps' local data automatically.
+                  The <span className="font-semibold text-foreground">Feed Mate</span> is the primary place to start a new batch. Use this button only if you need to reset from the field — it will clear all readings, deliveries, and both apps' local data automatically.
                 </p>
               </div>
             </div>

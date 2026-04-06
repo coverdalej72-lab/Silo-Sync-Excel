@@ -3115,7 +3115,7 @@ export default function App() {
     <div className="flex items-center justify-center h-screen bg-green-50">
       <div className="text-center">
         <div className="w-10 h-10 border-4 border-green-700 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-green-800 font-semibold">Loading Feed Program…</p>
+        <p className="text-green-800 font-semibold">Loading Feed Mate…</p>
       </div>
     </div>
   );
@@ -3132,7 +3132,7 @@ export default function App() {
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-zinc-900">
       {/* Header */}
       <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
-        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
+        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Mate</span>
         <div className="ml-auto flex items-center gap-2">
           {autoSaved && (
             <span className="text-green-300 text-xs font-semibold transition-opacity duration-500">✓ Saved</span>

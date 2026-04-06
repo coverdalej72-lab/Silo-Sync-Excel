@@ -22,7 +22,7 @@ export function useTheme() {
   useEffect(() => {
     applyTheme(theme);
     localStorage.setItem("silo-theme", theme);
-    // Dispatch storage event so Feed Program can react
+    // Dispatch storage event so Feed Mate can react
     window.dispatchEvent(new StorageEvent("storage", {
       key: "silo-theme",
       newValue: theme,
