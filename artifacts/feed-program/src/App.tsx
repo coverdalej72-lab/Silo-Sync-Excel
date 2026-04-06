@@ -650,7 +650,7 @@ function SheetView({
                 const c = minCol + ci;
                 if (isShedSheet && c === 3) return null;
                 const info = cells.get(`${r},${c}`);
-                if (!info) return <td key={c} style={{ height: rowH, background: isAnyHeader ? "#1a5c36" : (rowBg ?? "#fff"), borderRight: "1px solid rgba(0,0,0,0.07)", position: isAnyHeader ? "sticky" : undefined, top: isAnyHeader ? (isShedHeader ? (r === 7 ? 0 : row7Height) : eobStickyTop) : undefined, zIndex: isAnyHeader ? 3 : undefined }} />;
+                if (!info) return <td key={c} style={{ height: rowH, background: isAnyHeader ? "#1a5c36" : (rowBg ?? "#fff"), border: isAnyHeader ? "1px solid rgba(255,255,255,0.15)" : "1px solid #000", position: isAnyHeader ? "sticky" : undefined, top: isAnyHeader ? (isShedHeader ? (r === 7 ? 0 : row7Height) : eobStickyTop) : undefined, zIndex: isAnyHeader ? 3 : undefined }} />;
                 if (info.hidden) return null;
                 const key = `${r},${c}`;
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
@@ -689,7 +689,7 @@ function SheetView({
 
                 const borderStyle = isAnyHeader
                   ? "1px solid rgba(255,255,255,0.15)"
-                  : "1px solid rgba(0,0,0,0.08)";
+                  : "1px solid #000";
 
                 const stickyTop = isShedHeader
                   ? (r === 7 ? 0 : row7Height)
