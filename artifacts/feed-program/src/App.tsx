@@ -624,7 +624,24 @@ function SheetView({
   const row7Height  = isShedSheet ? Math.max(rowHeights[7]  ?? 20, 26) : 0;
   // EOB header row 3 is sticky at top=0
 
+  // Today detection — match " 6 april 2026" with a leading space to avoid "16" matching "6"
+  const todayTag = useMemo(() => {
+    const now = new Date();
+    const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+    return ` ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  }, []);
+
   return (
+    <>
+    {/* Inject hover + today styles without polluting inline state */}
+    <style>{`
+      .shed-data-row:hover > td { background-color: rgba(26,92,54,0.10) !important; cursor: pointer; }
+      .shed-today-row > td { background-color: #fff8e1 !important; }
+      .shed-today-row > td:first-child { border-left: 4px solid #C9A227 !important; }
+      .shed-weekend-row > td { background-color: #f0f4f0 !important; }
+      .shed-data-row:hover.shed-today-row > td { background-color: #fff0c0 !important; }
+      .shed-data-row:hover.shed-weekend-row > td { background-color: rgba(26,92,54,0.12) !important; }
+    `}</style>
     <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: "100%" }}>
       <colgroup>
         {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
@@ -650,22 +667,36 @@ function SheetView({
           const isEobHeader   = isEobSheet  && r === 3;
           const isAnyHeader   = isShedHeader || isEobHeader;
 
+          // Shed data row enrichment — weekend & today detection
+          const dayCell  = isShedData ? cells.get(`${r},1`) : null;  // column B = DAY name
+          const dateCell = isShedData ? cells.get(`${r},2`) : null;  // column C = DATE
+          const dayName  = (dayCell?.value ?? "").toLowerCase();
+          const isWeekend = isShedData && (dayName.includes("saturday") || dayName.includes("sunday"));
+          const isToday   = isShedData && (dateCell?.value ?? "").toLowerCase().includes(todayTag);
+
           const rowBg = isAnyHeader
             ? "#1a5c36"
             : isShedTotals
             ? "#f5f0dc"
             : isShedSummary
             ? "#eef4ee"
+            : isToday
+            ? "#fffbea"                          // soft gold tint for today
+            : isWeekend
+            ? "#f5f8f5"                          // cool green-tinted for weekend
             : isShedData
-            ? (r % 2 === 0 ? "#f9f9f9" : "#ffffff")
+            ? (r % 2 === 0 ? "#f0f5f1" : "#ffffff")   // green-tinted even rows
             : isEobSheet && r % 2 === 0
             ? "#f4f8f5"
             : undefined;
 
           const eobStickyTop = 0;
+          const rowClass = isShedData
+            ? `shed-data-row${isToday ? " shed-today-row" : ""}${isWeekend && !isToday ? " shed-weekend-row" : ""}`
+            : undefined;
 
           return (
-            <tr key={r} style={{ height: rowH, background: rowBg }}>
+            <tr key={r} className={rowClass} style={{ height: rowH, background: rowBg }}>
 
               {Array.from({ length: displayMaxCol - minCol + 1 }, (_, ci) => {
                 const c = minCol + ci;
@@ -807,6 +838,7 @@ function SheetView({
         })}
       </tbody>
     </table>
+    </>
   );
 }
 
