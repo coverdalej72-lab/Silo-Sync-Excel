@@ -363,7 +363,7 @@ function parseSheet(
 interface EditingCell { r: number; c: number; sheetIdx: number }
 
 // ── ShedInfoPanel ──────────────────────────────────────────────────────────
-function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<string, string> }) {
+function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: Map<string, string>; onEdit?: (key: string, val: string) => void }) {
   const { cells } = sheet;
   const safeEdits = edits ?? new Map<string, string>();
   const g = (r: number, c: number) => {
@@ -371,6 +371,10 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
     if (edited !== undefined) return edited;
     return String(cells.get(`${r},${c}`)?.value ?? "");
   };
+
+  // Inline edit state for bird count fields in the info panel
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [draftVal, setDraftVal] = useState("");
   const fmt = (v: string | number) => { const n = parseFloat(String(v).replace(/,/g, "")); return isNaN(n) ? String(v) : n.toLocaleString(); };
 
   const shedNum    = g(0, 6);
@@ -424,14 +428,52 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
       </div>
       {/* Middle row: individual sheds + allocations — always full height */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8, minHeight: 36 }}>
-        <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12, minWidth: 90 }}>
-          <span style={{ opacity: 0.7 }}>{shed1Name || "Shed A"}: </span>
-          <strong>{shed1Birds ? fmt(shed1Birds) : "—"}</strong>
-        </div>
-        <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12, minWidth: 90 }}>
-          <span style={{ opacity: 0.7 }}>{shed2Name || "Shed B"}: </span>
-          <strong>{shed2Birds ? fmt(shed2Birds) : "—"}</strong>
-        </div>
+        {/* Shed 1 bird count — double-click to edit */}
+        {editingField === "3,2" ? (
+          <input
+            autoFocus
+            value={draftVal}
+            onChange={e => setDraftVal(e.target.value)}
+            onBlur={() => { onEdit?.("3,2", draftVal); setEditingField(null); }}
+            onKeyDown={e => {
+              if (e.key === "Enter") { onEdit?.("3,2", draftVal); setEditingField(null); }
+              if (e.key === "Escape") setEditingField(null);
+            }}
+            style={{ width: 100, borderRadius: 5, border: "2px solid #C9A227", background: "#fff", color: "#000", fontWeight: 700, fontSize: 12, padding: "4px 8px" }}
+          />
+        ) : (
+          <div
+            title="Double-click to edit bird count"
+            onDoubleClick={() => { setEditingField("3,2"); setDraftVal(shed1Birds.replace(/,/g, "")); }}
+            style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12, minWidth: 90, cursor: "pointer" }}
+          >
+            <span style={{ opacity: 0.7 }}>{shed1Name || "Shed A"}: </span>
+            <strong style={{ color: shed1Birds ? "#fff" : "#f0c040" }}>{shed1Birds ? fmt(shed1Birds) : "✏ enter"}</strong>
+          </div>
+        )}
+        {/* Shed 2 bird count — double-click to edit */}
+        {editingField === "4,2" ? (
+          <input
+            autoFocus
+            value={draftVal}
+            onChange={e => setDraftVal(e.target.value)}
+            onBlur={() => { onEdit?.("4,2", draftVal); setEditingField(null); }}
+            onKeyDown={e => {
+              if (e.key === "Enter") { onEdit?.("4,2", draftVal); setEditingField(null); }
+              if (e.key === "Escape") setEditingField(null);
+            }}
+            style={{ width: 100, borderRadius: 5, border: "2px solid #C9A227", background: "#fff", color: "#000", fontWeight: 700, fontSize: 12, padding: "4px 8px" }}
+          />
+        ) : (
+          <div
+            title="Double-click to edit bird count"
+            onDoubleClick={() => { setEditingField("4,2"); setDraftVal(shed2Birds.replace(/,/g, "")); }}
+            style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12, minWidth: 90, cursor: "pointer" }}
+          >
+            <span style={{ opacity: 0.7 }}>{shed2Name || "Shed B"}: </span>
+            <strong style={{ color: shed2Birds ? "#fff" : "#f0c040" }}>{shed2Birds ? fmt(shed2Birds) : "✏ enter"}</strong>
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         {allocations.map(([lbl, val]) => (
           <div key={lbl} style={{ background: "rgba(201,162,39,0.25)", border: "1px solid rgba(201,162,39,0.45)", borderRadius: 5, padding: "4px 10px", textAlign: "center", fontSize: 12, minWidth: 72 }}>
@@ -3195,7 +3237,7 @@ export default function App() {
           const activeEdits = edits[active] ?? new Map();
           return (
             <>
-              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} />}
+              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <div className="flex-1 overflow-auto">
                 <SheetView
