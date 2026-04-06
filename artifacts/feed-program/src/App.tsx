@@ -677,11 +677,11 @@ function SheetView({
           const isEobHeader   = isEobSheet  && r === 3;
           const isAnyHeader   = isShedHeader || isEobHeader;
 
-          // Row background — EOB uses Excel-style alternating rows; EOB header row gets Excel gray
+          // Row background — EOB uses Excel-style alternating rows; EOB header row stays green
           const rowBg = isShedHeader
             ? "#1a5c36"
             : isEobHeader
-            ? XL_HDR_BG                           // Excel column-header gray for the EOB header row
+            ? "#1a5c36"                            // Keep green header on EOB, same as shed sheets
             : isShedTotals
             ? "#f5f0dc"
             : isShedSummary
@@ -724,7 +724,7 @@ function SheetView({
                 // Empty cell
                 if (!info) {
                   const emptyBg = isShedHeader ? "#1a5c36"
-                    : isEobHeader ? XL_HDR_BG
+                    : isEobHeader ? "#1a5c36"
                     : (rowBg ?? "#fff");
                   return (
                     <td key={c} style={{
@@ -754,7 +754,7 @@ function SheetView({
                 if (isShedHeader) {
                   cellBg = "#1a5c36";
                 } else if (isEobHeader) {
-                  cellBg = info.bgColor ?? XL_HDR_BG;   // keep any Excel colour from file on the EOB header row
+                  cellBg = "#1a5c36";                    // Green header on EOB, same as shed sheets
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
                 } else {
@@ -765,7 +765,7 @@ function SheetView({
                 const cellTextColor = isShedHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
                   : isEobHeader
-                  ? (info.bold ? "#1a5c36" : XL_HDR_FG)  // dark text on gray for EOB col header row
+                  ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")  // White/gold on green, same as shed
                   : isFeedRunOut
                   ? "#ffffff"
                   : (info.fontColor ?? "#000");
