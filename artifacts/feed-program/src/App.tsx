@@ -800,7 +800,8 @@ function SheetView({
                   if (pct > 0.45) return "#dcedc8"; // light green
                   if (pct > 0.30) return "#fff9c4"; // yellow
                   if (pct > 0.15) return "#ffe0b2"; // orange
-                  return "#ffccbc";                  // deep orange — nearly gone
+                  if (pct > 0.07) return "#ffccbc"; // deep orange — getting critical
+                  return "#ef9a9a";                  // red — running out!
                 })();
 
                 // Cell background
