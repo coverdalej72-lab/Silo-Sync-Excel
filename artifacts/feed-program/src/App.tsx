@@ -609,56 +609,14 @@ function SheetView({
   const row7Height  = isShedSheet ? Math.max(rowHeights[7]  ?? 20, 26) : 0;
   // EOB header row 3 is sticky at top=0
 
-  // Convert 0-based column index to Excel letter(s): 0→A, 1→B, 25→Z, 26→AA
-  const colToLetter = (c: number): string => {
-    let s = ""; let n = c + 1;
-    while (n > 0) { n--; s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); }
-    return s;
-  };
-
-  // Excel UI constants for EOB
-  const XL_ROW_NUM_W  = 36;  // px — left row-number gutter
-  const XL_COL_HDR_H  = 18;  // px — top column-letter header height
-  const XL_BORDER     = "1px solid #B8C4CC";
-  const XL_HDR_BG     = "#E8ECEF";  // Excel column/row header gray
-  const XL_HDR_FG     = "#404040";
-  const XL_SEL_BG     = "#BBDEFB";  // highlight col/row when a cell in that col/row is selected
-
   return (
     <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: "100%" }}>
       <colgroup>
-        {/* Row-number gutter column for EOB */}
-        {isEobSheet && <col style={{ width: XL_ROW_NUM_W, minWidth: XL_ROW_NUM_W }} />}
         {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
           const c = minCol + i;
           return <col key={c} style={{ width: colWidths[c] ?? 80, minWidth: 24 }} />;
         })}
       </colgroup>
-
-      {/* Excel-style column letter header row — EOB only */}
-      {isEobSheet && (
-        <thead>
-          <tr style={{ height: XL_COL_HDR_H }}>
-            {/* Corner cell (top-left, above row numbers) */}
-            <th style={{ height: XL_COL_HDR_H, width: XL_ROW_NUM_W, background: XL_HDR_BG, border: XL_BORDER, position: "sticky", top: 0, left: 0, zIndex: 10 }} />
-            {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
-              const c = minCol + i;
-              const isActivCol = editingCell?.c === c;
-              return (
-                <th key={c} style={{
-                  height: XL_COL_HDR_H, textAlign: "center", fontSize: 11, fontWeight: 600,
-                  color: isActivCol ? "#1a5c36" : XL_HDR_FG,
-                  background: isActivCol ? XL_SEL_BG : XL_HDR_BG,
-                  border: XL_BORDER, position: "sticky", top: 0, zIndex: 5,
-                  userSelect: "none", letterSpacing: 0, padding: "0 2px",
-                }}>
-                  {colToLetter(c)}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-      )}
 
       <tbody>
         {Array.from({ length: maxRow - effectiveStart + 1 }, (_, ri) => {
@@ -677,11 +635,8 @@ function SheetView({
           const isEobHeader   = isEobSheet  && r === 3;
           const isAnyHeader   = isShedHeader || isEobHeader;
 
-          // Row background — EOB uses Excel-style alternating rows; EOB header row stays green
-          const rowBg = isShedHeader
+          const rowBg = isAnyHeader
             ? "#1a5c36"
-            : isEobHeader
-            ? "#1a5c36"                            // Keep green header on EOB, same as shed sheets
             : isShedTotals
             ? "#f5f0dc"
             : isShedSummary
@@ -689,33 +644,13 @@ function SheetView({
             : isShedData
             ? (r % 2 === 0 ? "#f9f9f9" : "#ffffff")
             : isEobSheet && r % 2 === 0
-            ? "#F2F7FC"                            // Excel-like light blue-gray alternating rows
-            : isEobSheet
-            ? "#FFFFFF"
+            ? "#f4f8f5"
             : undefined;
 
-          const eobStickyTop = XL_COL_HDR_H;      // EOB header row sticks below the column-letter row
-          const isActiveRow  = isEobSheet && editingCell?.r === r;
+          const eobStickyTop = 0;
 
           return (
             <tr key={r} style={{ height: rowH, background: rowBg }}>
-
-              {/* Row-number gutter cell — EOB only */}
-              {isEobSheet && (
-                <td style={{
-                  height: rowH, width: XL_ROW_NUM_W, textAlign: "center",
-                  fontSize: 11, fontWeight: isEobHeader || isActiveRow ? 700 : 400,
-                  color: isActiveRow ? "#1a5c36" : XL_HDR_FG,
-                  background: isEobHeader ? XL_HDR_BG : (isActiveRow ? XL_SEL_BG : XL_HDR_BG),
-                  border: XL_BORDER,
-                  userSelect: "none",
-                  position: isEobHeader ? "sticky" : undefined,
-                  top: isEobHeader ? eobStickyTop : undefined,
-                  zIndex: isEobHeader ? 4 : undefined,
-                }}>
-                  {isEobHeader ? "" : r + 1}
-                </td>
-              )}
 
               {Array.from({ length: displayMaxCol - minCol + 1 }, (_, ci) => {
                 const c = minCol + ci;
@@ -723,17 +658,14 @@ function SheetView({
 
                 // Empty cell
                 if (!info) {
-                  const emptyBg = isShedHeader ? "#1a5c36"
-                    : isEobHeader ? "#1a5c36"
-                    : (rowBg ?? "#fff");
                   return (
                     <td key={c} style={{
                       height: rowH,
-                      background: emptyBg,
-                      border: isEobSheet ? XL_BORDER : "1px solid rgba(0,0,0,0.07)",
-                      position: (isShedHeader || isEobHeader) ? "sticky" : undefined,
-                      top: isShedHeader ? (r === 7 ? 0 : row7Height) : isEobHeader ? eobStickyTop : undefined,
-                      zIndex: (isShedHeader || isEobHeader) ? 3 : undefined,
+                      background: isAnyHeader ? "#1a5c36" : (rowBg ?? "#fff"),
+                      borderRight: "1px solid rgba(0,0,0,0.07)",
+                      position: isAnyHeader ? "sticky" : undefined,
+                      top: isAnyHeader ? (isShedHeader ? (r === 7 ? 0 : row7Height) : eobStickyTop) : undefined,
+                      zIndex: isAnyHeader ? 3 : undefined,
                     }} />
                   );
                 }
@@ -749,12 +681,10 @@ function SheetView({
                 const numVal = parseFloat(displayVal.replace(/,/g, ""));
                 const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0 && !isAnyHeader;
 
-                // Cell background — EOB header row uses Excel gray; shed strips yellow from E/F
+                // Cell background
                 let cellBg: string | null;
-                if (isShedHeader) {
+                if (isAnyHeader) {
                   cellBg = "#1a5c36";
-                } else if (isEobHeader) {
-                  cellBg = "#1a5c36";                    // Green header on EOB, same as shed sheets
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
                 } else {
@@ -762,19 +692,15 @@ function SheetView({
                 }
 
                 // Text colour
-                const cellTextColor = isShedHeader
+                const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
-                  : isEobHeader
-                  ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")  // White/gold on green, same as shed
                   : isFeedRunOut
                   ? "#ffffff"
                   : (info.fontColor ?? "#000");
 
-                // Border
-                const borderStyle = isShedHeader
+                // Border — subtle throughout, just like shed sheets
+                const borderStyle = isAnyHeader
                   ? "1px solid rgba(255,255,255,0.15)"
-                  : isEobSheet
-                  ? XL_BORDER                             // solid visible Excel grid lines
                   : "1px solid rgba(0,0,0,0.08)";
 
                 const stickyTop = isShedHeader
@@ -793,7 +719,7 @@ function SheetView({
                     style={{
                       background: isFeedRunOut ? "#dc2626" : (cellBg ?? (rowBg ?? "#fff")),
                       color: cellTextColor,
-                      fontWeight: info.bold || isShedHeader ? "bold" : isEobHeader ? 600 : "normal",
+                      fontWeight: info.bold || isAnyHeader ? "bold" : "normal",
                       fontStyle: info.italic ? "italic" : "normal",
                       fontSize: fs,
                       textAlign: (info.hAlign as any) ?? "left",
