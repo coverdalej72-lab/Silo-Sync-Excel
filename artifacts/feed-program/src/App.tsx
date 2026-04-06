@@ -146,7 +146,8 @@ function recalculate(
       birds = bA + bB;
       setNum(1, COL_C, birds);
     }
-    setNum(1, COL_H, Math.round(birds * 0.325));   // STR ALL
+    const strAlloc = Math.round(birds * 0.325);
+    setNum(1, COL_H, strAlloc);                    // STR ALL
     setNum(2, COL_H, Math.round(birds * 1.15));    // GWR ALL
     setNum(3, COL_H, Math.round(birds * 1.7));     // FIN ALL
     setNum(4, COL_H, Math.round(birds * 1.5));     // WDW ALL
@@ -155,6 +156,20 @@ function recalculate(
       const age = parseInt(cells.get(`${r},0`)?.value ?? "");
       if (!isNaN(age) && age >= 1 && age <= COBB500_GRAMS.length) {
         setNum(r, COL_H, Math.round(COBB500_GRAMS[age - 1] * birds / 1000));
+      }
+    }
+    // Update FEED ALLOC seed (row 11, col G = G12 in Excel = H2 = STR allocation)
+    // and re-cascade FEED ALLOC for any existing deliveries
+    setNum(11, COL_G, strAlloc);
+    let gRunning = strAlloc;
+    for (let r = 12; r <= maxRow; r++) {
+      const e = getNum(r, COL_E);
+      if (e !== 0) {
+        gRunning = gRunning - e;
+        setNum(r, COL_G, gRunning);
+      } else {
+        // No delivery on this row — clear any stale FEED ALLOC value
+        newEdits.set(`${r},${COL_G}`, "");
       }
     }
     return newEdits;
@@ -180,13 +195,17 @@ function recalculate(
   // Only cascade for silo columns (K,L,M) or delivery (E) below
   if (![COL_K, COL_L, COL_M, COL_E, COL_J].includes(triggeredCol)) return newEdits;
 
-  // Cascade G (FEED ALLOC remaining) down when E (delivery) is edited
+  // Cascade G (FEED ALLOC remaining) down when E (delivery) is edited.
+  // Only set G on rows that have an actual delivery — non-delivery rows stay blank.
   if (triggeredCol === COL_E) {
+    let gRunning = getNum(triggeredRow - 1, COL_G);
     for (let r = triggeredRow; r <= maxRow; r++) {
-      const gPrev = getNum(r - 1, COL_G);
       const e = getNum(r, COL_E);
-      if (e !== 0 || cells.has(`${r},${COL_E}`)) {
-        setNum(r, COL_G, gPrev - e);
+      if (e !== 0) {
+        gRunning = gRunning - e;
+        setNum(r, COL_G, gRunning);
+      } else {
+        newEdits.set(`${r},${COL_G}`, "");
       }
     }
   }
@@ -2892,13 +2911,30 @@ export default function App() {
         // always carries Excel formula values that should not be shown as actual deliveries.
         setEdits(prev => result.map((sheet, i) => {
           const m = new Map<string, string>();
-          // Pre-clear FEED DEL (col 3) for shed sheets — the Excel file has formula values
-          // there that look like deliveries but aren't. User edits layer on top.
-          if (sheet.name.trim().toUpperCase().includes("SHED")) {
-            for (let r = 12; r <= 71; r++) m.set(`${r},3`, "");
-          }
-          // Restore any saved edits from localStorage on top of the pre-clear
+          // Restore any saved edits from localStorage first
           if (prev[i]) prev[i].forEach((v, k) => m.set(k, v));
+          // Then clear stale formula columns (overrides localStorage computed values).
+          // FEED DEL (col 3): Excel formula values that look like deliveries.
+          // FEED ALLOC (col 6): stale cached formula values — recomputed by cascade.
+          if (sheet.name.trim().toUpperCase().includes("SHED")) {
+            for (let r = 12; r <= 71; r++) {
+              m.set(`${r},3`, ""); // FEED DEL
+              m.set(`${r},6`, ""); // FEED ALLOC (will be recomputed from deliveries below)
+            }
+            // Re-cascade FEED ALLOC from any saved deliveries in FEED ORDERED (col 4)
+            const strAllocSeed = parseFloat(
+              m.get("11,6") ?? sheet.cells.get("11,6")?.value ?? "0"
+            ) || 0;
+            let gRunning = strAllocSeed;
+            for (let r = 12; r <= 71; r++) {
+              const eStr = m.get(`${r},4`) ?? sheet.cells.get(`${r},4`)?.value ?? "";
+              const e = parseFloat(String(eStr).replace(/,/g, "")) || 0;
+              if (e !== 0) {
+                gRunning = gRunning - e;
+                m.set(`${r},6`, String(Math.round(gRunning * 100) / 100));
+              }
+            }
+          }
           return m;
         }));
         setActive(startIdx);
@@ -3243,6 +3279,7 @@ export default function App() {
         for (let r = 12; r <= 71; r++) {
           m.set(`${r},3`,  ""); // col D – Feed Delivered
           m.set(`${r},4`,  ""); // col E – Feed Ordered
+          m.set(`${r},6`,  ""); // col G – Feed Alloc (clear stale Excel formula values)
           m.set(`${r},10`, ""); // col K – Silo A
           m.set(`${r},11`, ""); // col L – Silo B
           m.set(`${r},12`, ""); // col M – Silo C
