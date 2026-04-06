@@ -1067,6 +1067,8 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     }
   }
 
+  const batchNum = eobIdx >= 0 ? (parseFloat(getCell(eobIdx, 1, 2)) || null) : null;
+
   let grandBirds = 0, grandFeed = 0;
   for (const { sheetIdx } of shedItems) {
     const b1 = parseFloat(getCell(sheetIdx, 3, 2).replace(/,/g, "")) || 0;
@@ -1083,6 +1085,11 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
       <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH SUMMARY</div>
+        {batchNum && (
+          <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 7, padding: "3px 14px", fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>
+            Batch #{batchNum}
+          </div>
+        )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
             <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{grandBirds > 0 ? grandBirds.toLocaleString() : "—"}</div>
