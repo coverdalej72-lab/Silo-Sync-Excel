@@ -509,6 +509,130 @@ function ShedInfoPanel({ sheet, edits, onEdit, onClearFeedDel }: { sheet: SheetP
   );
 }
 
+// ── EobCustomView ─────────────────────────────────────────────────────────
+function EobCustomView({ sheets, edits, handleEdit, eobIdx, farmConfig }: {
+  sheets: SheetParsed[];
+  edits: Map<string, string>[];
+  handleEdit: (si: number, key: string, val: string) => void;
+  eobIdx: number;
+  farmConfig: FarmConfigData;
+}) {
+  const getCell = (si: number, r: number, c: number) => {
+    const e = edits[si];
+    if (e?.has(`${r},${c}`)) return e.get(`${r},${c}`) ?? "";
+    return String(sheets[si]?.cells.get(`${r},${c}`)?.value ?? "");
+  };
+
+  let shedCount = 0;
+  const shedItems: { sheetIdx: number; shedGroupId: number }[] = [];
+  for (let i = 0; i < sheets.length; i++) {
+    const tabName = sheets[i].name.trim().toUpperCase();
+    if (tabName === "WEEKLY STOCK TAKE" || tabName === "CONSUMPTION GUIDE") continue;
+    if (tabName.includes("SHED")) {
+      const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
+      const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+      const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+      if (groupActive) shedItems.push({ sheetIdx: i, shedGroupId });
+      shedCount++;
+    }
+  }
+
+  let grandBirds = 0, grandFeed = 0, grandCaught = 0, grandMorts = 0;
+
+  const rows = shedItems.map(({ sheetIdx, shedGroupId }) => {
+    const shed1Num = shedGroupId * 2 - 1;
+    const shed2Num = shedGroupId * 2;
+    const shed1Name    = getCell(sheetIdx, 3, 1) || `Shed ${shed1Num}`;
+    const shed2Name    = getCell(sheetIdx, 4, 1) || `Shed ${shed2Num}`;
+    const shed1BirdsRaw = getCell(sheetIdx, 3, 2);
+    const shed2BirdsRaw = getCell(sheetIdx, 4, 2);
+    const b1 = parseFloat(shed1BirdsRaw.replace(/,/g, "")) || 0;
+    const b2 = parseFloat(shed2BirdsRaw.replace(/,/g, "")) || 0;
+    const total = b1 + b2;
+
+    let feedTotal = 0;
+    for (let r = 12; r <= 71; r++) {
+      const f = parseFloat(getCell(sheetIdx, r, 4).replace(/,/g, ""));
+      if (!isNaN(f)) feedTotal += f;
+    }
+    const kgPerBird = total > 0 && feedTotal > 0 ? (feedTotal / total).toFixed(3) : "";
+
+    const caught1 = eobIdx >= 0 ? parseFloat(getCell(eobIdx, shed1Num + 3, 23).replace(/,/g, "")) || 0 : 0;
+    const caught2 = eobIdx >= 0 ? parseFloat(getCell(eobIdx, shed2Num + 3, 23).replace(/,/g, "")) || 0 : 0;
+    const morts1  = eobIdx >= 0 ? parseFloat(getCell(eobIdx, shed1Num + 3, 24).replace(/,/g, "")) || 0 : 0;
+    const morts2  = eobIdx >= 0 ? parseFloat(getCell(eobIdx, shed2Num + 3, 24).replace(/,/g, "")) || 0 : 0;
+    const caughtTotal = caught1 + caught2;
+    const mortsTotal  = morts1 + morts2;
+
+    grandBirds  += total;
+    grandFeed   += feedTotal;
+    grandCaught += caughtTotal;
+    grandMorts  += mortsTotal;
+
+    const shedLabel = getCell(sheetIdx, 0, 6) || `${shed1Num} & ${shed2Num}`;
+    return { sheetIdx, shedGroupId, shed1Num, shed2Num, shed1Name, shed2Name, shed1BirdsRaw, shed2BirdsRaw, total, feedTotal, kgPerBird, caughtTotal, mortsTotal, shedLabel };
+  });
+
+  const th: React.CSSProperties = { padding: "9px 12px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" as const, letterSpacing: 0.5, whiteSpace: "nowrap" as const };
+  const td: React.CSSProperties = { padding: "10px 12px", fontSize: 13 };
+
+  return (
+    <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
+          <thead>
+            <tr style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff" }}>
+              <th style={{ ...th, textAlign: "left" }}>Shed Group</th>
+              <th style={{ ...th, textAlign: "right" }}>Birds Placed A</th>
+              <th style={{ ...th, textAlign: "right" }}>Birds Placed B</th>
+              <th style={{ ...th, textAlign: "right", background: "rgba(0,0,0,0.15)" }}>Total Placed</th>
+              <th style={{ ...th, textAlign: "right" }}>Feed Ordered (kg)</th>
+              <th style={{ ...th, textAlign: "right", color: "#C9A227" }}>kg / Bird</th>
+              <th style={{ ...th, textAlign: "right" }}>Birds Caught</th>
+              <th style={{ ...th, textAlign: "right", color: "#fca5a5" }}>Morts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ sheetIdx, shedGroupId, shed1Num, shed2Num, shed1Name, shed2Name, shed1BirdsRaw, shed2BirdsRaw, total, feedTotal, kgPerBird, caughtTotal, mortsTotal, shedLabel }, idx) => (
+              <tr key={shedGroupId} style={{ background: idx % 2 === 0 ? "#f7faf8" : "#fff", borderBottom: "1px solid #e0ece5" }}>
+                <td style={{ ...td, fontWeight: 700, color: "#1a5c36" }}>SHED {shedLabel}</td>
+                <td style={{ ...td, textAlign: "right" }}>
+                  <SummaryInputField label={shed1Name} value={shed1BirdsRaw} onSave={v => {
+                    handleEdit(sheetIdx, "3,2", v);
+                    if (eobIdx >= 0 && shed1Num <= 12) handleEdit(eobIdx, `${shed1Num + 3},22`, v);
+                  }} />
+                </td>
+                <td style={{ ...td, textAlign: "right" }}>
+                  <SummaryInputField label={shed2Name} value={shed2BirdsRaw} onSave={v => {
+                    handleEdit(sheetIdx, "4,2", v);
+                    if (eobIdx >= 0 && shed2Num <= 12) handleEdit(eobIdx, `${shed2Num + 3},22`, v);
+                  }} />
+                </td>
+                <td style={{ ...td, textAlign: "right", fontWeight: 700, background: "rgba(26,92,54,0.06)" }}>{total > 0 ? total.toLocaleString() : "—"}</td>
+                <td style={{ ...td, textAlign: "right" }}>{feedTotal > 0 ? feedTotal.toLocaleString() : "—"}</td>
+                <td style={{ ...td, textAlign: "right", fontWeight: 600, color: "#8b6a00" }}>{kgPerBird || "—"}</td>
+                <td style={{ ...td, textAlign: "right" }}>{caughtTotal > 0 ? caughtTotal.toLocaleString() : "—"}</td>
+                <td style={{ ...td, textAlign: "right", color: mortsTotal > 0 ? "#8b1a1a" : "#999" }}>{mortsTotal > 0 ? mortsTotal.toLocaleString() : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", fontWeight: 700 }}>
+              <td style={{ ...td, fontWeight: 800 }}>TOTALS</td>
+              <td colSpan={2} style={td} />
+              <td style={{ ...td, textAlign: "right", background: "rgba(0,0,0,0.15)" }}>{grandBirds > 0 ? grandBirds.toLocaleString() : "—"}</td>
+              <td style={{ ...td, textAlign: "right" }}>{grandFeed > 0 ? grandFeed.toLocaleString() : "—"}</td>
+              <td style={{ ...td, textAlign: "right", color: "#C9A227" }}>{grandBirds > 0 && grandFeed > 0 ? (grandFeed / grandBirds).toFixed(3) : "—"}</td>
+              <td style={{ ...td, textAlign: "right" }}>{grandCaught > 0 ? grandCaught.toLocaleString() : "—"}</td>
+              <td style={{ ...td, textAlign: "right" }}>{grandMorts > 0 ? grandMorts.toLocaleString() : "—"}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── EobInfoPanel ──────────────────────────────────────────────────────────
 function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: Map<string, string>; farmName: string }) {
   const { cells } = sheet;
@@ -3375,17 +3499,27 @@ export default function App() {
               {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} onClearFeedDel={handleClearAllDeliveries} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <div className="flex-1 overflow-auto">
-                <SheetView
-                  sheet={current}
-                  sheetIdx={active}
-                  edits={activeEdits}
-                  onEdit={(key, val) => handleEdit(active, key, val)}
-                  editingCell={editingCell}
-                  setEditingCell={setEditingCell}
-                  startRow={isEob ? 3 : isShed ? 7 : undefined}
-                  isShedSheet={isShed}
-                  isEobSheet={isEob}
-                />
+                {isEob ? (
+                  <EobCustomView
+                    sheets={sheets}
+                    edits={edits}
+                    handleEdit={handleEdit}
+                    eobIdx={active}
+                    farmConfig={farmConfig}
+                  />
+                ) : (
+                  <SheetView
+                    sheet={current}
+                    sheetIdx={active}
+                    edits={activeEdits}
+                    onEdit={(key, val) => handleEdit(active, key, val)}
+                    editingCell={editingCell}
+                    setEditingCell={setEditingCell}
+                    startRow={isShed ? 7 : undefined}
+                    isShedSheet={isShed}
+                    isEobSheet={false}
+                  />
+                )}
               </div>
             </>
           );
