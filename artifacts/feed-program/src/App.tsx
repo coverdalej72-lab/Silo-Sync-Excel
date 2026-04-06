@@ -818,12 +818,17 @@ function SheetView({
                   cellBg = info.bgColor;
                 }
 
-                // Text colour
+                // Text colour — always black for non-header cells in shed sheets (strip Excel purple etc.)
                 const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
-                  : (c === COL_I && !isAnyHeader)
+                  : isShedSheet
                   ? "#000000"
                   : (info.fontColor ?? "#000");
+
+                // Suppress lone silo-letter in SILO column (col 5) — display only
+                const showVal = (c === 5 && isShedSheet && /^[a-zA-Z]$/.test(displayVal.trim()))
+                  ? ""
+                  : displayVal;
 
                 // Border — subtle throughout, just like shed sheets
                 const borderStyle = isAnyHeader
@@ -910,7 +915,7 @@ function SheetView({
                           padding: "1px 4px", boxSizing: "border-box",
                         }}
                       />
-                    ) : displayVal}
+                    ) : showVal}
                   </td>
                 );
               })}
