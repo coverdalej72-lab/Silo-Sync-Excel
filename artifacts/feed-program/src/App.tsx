@@ -2718,8 +2718,19 @@ export default function App() {
         });
 
         setSheets(result);
-        // Preserve any edits already loaded from localStorage; only expand the array if more sheets
-        setEdits(prev => result.map((_, i) => prev[i] ?? new Map()));
+        // Preserve edits from localStorage; for new sheets pre-clear FEED DEL (col 3) which
+        // always carries Excel formula values that should not be shown as actual deliveries.
+        setEdits(prev => result.map((sheet, i) => {
+          const m = new Map<string, string>();
+          // Pre-clear FEED DEL (col 3) for shed sheets — the Excel file has formula values
+          // there that look like deliveries but aren't. User edits layer on top.
+          if (sheet.name.trim().toUpperCase().includes("SHED")) {
+            for (let r = 12; r <= 71; r++) m.set(`${r},3`, "");
+          }
+          // Restore any saved edits from localStorage on top of the pre-clear
+          if (prev[i]) prev[i].forEach((v, k) => m.set(k, v));
+          return m;
+        }));
         setActive(startIdx);
         setLoading(false);
       })
