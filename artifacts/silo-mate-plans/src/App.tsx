@@ -536,7 +536,7 @@ export default function App() {
             marginBottom: 20,
             letterSpacing: "0.05em",
           }}>
-            🐔 Built for Poultry Producers
+            🐔 Built for Poultry Producers — Large or Small
           </div>
           <h1 style={{
             fontSize: "clamp(32px, 6vw, 52px)",
