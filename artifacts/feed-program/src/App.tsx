@@ -2692,6 +2692,8 @@ export default function App() {
           m.set(`${r},3`,  ""); // col D – Feed Del (hidden but must be cleared)
           m.set(`${r},4`,  ""); // col E – Feed Ordered
           m.set(`${r},5`,  ""); // col F – Silo (letter)
+          m.set(`${r},6`,  ""); // col G – Feed Alloc (old batch values lock cascade)
+          m.set(`${r},7`,  ""); // col H – Feed Usage (old batch daily figures)
           m.set(`${r},8`,  ""); // col I – Feed On Hand
           m.set(`${r},9`,  ""); // col J – Silo Total
           m.set(`${r},10`, ""); // col K – Silo A
