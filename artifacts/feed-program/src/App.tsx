@@ -147,10 +147,14 @@ function recalculate(
       setNum(1, COL_C, birds);
     }
     const strAlloc = Math.round(birds * 0.325);
-    setNum(1, COL_H, strAlloc);                    // STR ALL
-    setNum(2, COL_H, Math.round(birds * 1.15));    // GWR ALL
-    setNum(3, COL_H, Math.round(birds * 1.7));     // FIN ALL
-    setNum(4, COL_H, Math.round(birds * 1.5));     // WDW ALL
+    const gwrAlloc = Math.round(birds * 1.15);
+    const finAlloc = Math.round(birds * 1.7);
+    const wdwAlloc = Math.round(birds * 1.5);
+    const totalAlloc = strAlloc + gwrAlloc + finAlloc + wdwAlloc;
+    setNum(1, COL_H, strAlloc);   // STR ALL
+    setNum(2, COL_H, gwrAlloc);   // GWR ALL
+    setNum(3, COL_H, finAlloc);   // FIN ALL
+    setNum(4, COL_H, wdwAlloc);   // WDW ALL
     // Cascade daily feed usage using Cobb 500 table: H = grams[age-1] × birds / 1000
     for (let r = 0; r <= maxRow; r++) {
       const age = parseInt(cells.get(`${r},0`)?.value ?? "");
@@ -158,10 +162,10 @@ function recalculate(
         setNum(r, COL_H, Math.round(COBB500_GRAMS[age - 1] * birds / 1000));
       }
     }
-    // Update FEED ALLOC seed (row 11, col G = G12 in Excel = H2 = STR allocation)
-    // and re-cascade FEED ALLOC for any existing deliveries
-    setNum(11, COL_G, strAlloc);
-    let gRunning = strAlloc;
+    // Update FEED ALLOC seed (row 11, col G) = total batch budget (all phases)
+    // so the countdown stays positive and meaningful across the whole grow-out.
+    setNum(11, COL_G, totalAlloc);
+    let gRunning = totalAlloc;
     for (let r = 12; r <= maxRow; r++) {
       const e = getNum(r, COL_E);
       if (e !== 0) {
@@ -2921,11 +2925,17 @@ export default function App() {
               m.set(`${r},3`, ""); // FEED DEL
               m.set(`${r},6`, ""); // FEED ALLOC (will be recomputed from deliveries below)
             }
-            // Re-cascade FEED ALLOC from any saved deliveries in FEED ORDERED (col 4)
-            const strAllocSeed = parseFloat(
-              m.get("11,6") ?? sheet.cells.get("11,6")?.value ?? "0"
-            ) || 0;
-            let gRunning = strAllocSeed;
+            // Re-cascade FEED ALLOC from any saved deliveries in FEED ORDERED (col 4).
+            // Seed from TOTAL batch budget (all phases) so the countdown stays positive
+            // across the whole grow-out, not just the STR phase.
+            const birdsStr = m.get("1,2") ?? sheet.cells.get("1,2")?.value ?? "0";
+            const birdsLoad = parseFloat(String(birdsStr).replace(/,/g, "")) || 0;
+            const totalAllocSeed = birdsLoad > 0
+              ? Math.round(birdsLoad * 0.325) + Math.round(birdsLoad * 1.15)
+                + Math.round(birdsLoad * 1.7)  + Math.round(birdsLoad * 1.5)
+              : parseFloat(m.get("11,6") ?? sheet.cells.get("11,6")?.value ?? "0") || 0;
+            m.set("11,6", String(totalAllocSeed)); // refresh seed row
+            let gRunning = totalAllocSeed;
             for (let r = 12; r <= 71; r++) {
               const eStr = m.get(`${r},4`) ?? sheet.cells.get(`${r},4`)?.value ?? "";
               const e = parseFloat(String(eStr).replace(/,/g, "")) || 0;
