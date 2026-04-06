@@ -701,11 +701,9 @@ function SheetView({
     {/* Inject hover + today styles without polluting inline state */}
     <style>{`
       .shed-data-row:hover > td { background-color: rgba(26,92,54,0.10) !important; cursor: pointer; }
-      .shed-today-row > td { background-color: #fff8e1 !important; }
-      .shed-today-row > td:first-child { border-left: 4px solid #C9A227 !important; }
-      .shed-weekend-row > td { background-color: #f0f4f0 !important; }
       .shed-data-row:hover.shed-today-row > td { background-color: #fff0c0 !important; }
       .shed-data-row:hover.shed-weekend-row > td { background-color: rgba(26,92,54,0.12) !important; }
+      .shed-today-row > td:first-child { border-left: 4px solid #C9A227; }
     `}</style>
     <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: "100%" }}>
       <colgroup>
@@ -804,12 +802,16 @@ function SheetView({
                   return "#ef9a9a";                  // red — running out!
                 })();
 
-                // Cell background
+                // Cell background — FOH gradient beats today/weekend beats Excel fill
                 let cellBg: string | null;
                 if (isAnyHeader) {
                   cellBg = "#1a5c36";
                 } else if (fohGradient) {
-                  cellBg = fohGradient;
+                  cellBg = fohGradient;           // FOH gradient always wins
+                } else if (isShedData && isToday) {
+                  cellBg = "#fff8e1";             // today gold
+                } else if (isShedData && isWeekend) {
+                  cellBg = "#f0f4f0";             // weekend gray-green
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
                 } else {
