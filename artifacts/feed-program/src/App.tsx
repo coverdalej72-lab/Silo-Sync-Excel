@@ -951,9 +951,12 @@ function SheetView({
                   cellBg = info.bgColor;
                 }
 
-                // Text colour — always black for non-header cells in shed sheets (strip Excel purple etc.)
+                // Text colour — FEED ALLOC numbers use dark green + bold; all other shed cells = black
+                const isFeedAllocData = c === COL_G && isShedData;
                 const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
+                  : isFeedAllocData
+                  ? "#1a5c36"
                   : isShedSheet
                   ? "#000000"
                   : (info.fontColor ?? "#000");
@@ -993,7 +996,7 @@ function SheetView({
                     style={{
                       background: isFeedRunOut ? "#dc2626" : (cellBg ?? (rowBg ?? "#fff")),
                       color: cellTextColor,
-                      fontWeight: info.bold || isAnyHeader ? "bold" : "normal",
+                      fontWeight: info.bold || isAnyHeader || isFeedAllocData ? "bold" : "normal",
                       fontStyle: info.italic ? "italic" : "normal",
                       fontSize: fs,
                       textAlign: (info.hAlign as any) ?? "left",
