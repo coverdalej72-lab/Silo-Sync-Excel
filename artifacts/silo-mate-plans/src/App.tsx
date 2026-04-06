@@ -480,6 +480,25 @@ function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) 
 export default function App() {
   const [yearly, setYearly] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [shareLabel, setShareLabel] = useState<"share" | "copied">("share");
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: "Poultry Mate — Plans & Pricing",
+      text: "Check out Poultry Mate — feed tracking & silo management for poultry producers.",
+      url,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareLabel("copied");
+        setTimeout(() => setShareLabel("share"), 2500);
+      } catch {}
+    }
+  };
 
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#f9fafb", minHeight: "100vh" }}>
@@ -502,20 +521,41 @@ export default function App() {
           <SiloIcon />
           <span style={{ fontWeight: 800, fontSize: 20, letterSpacing: "-0.03em" }}>Poultry Mate</span>
         </div>
-        <a
-          href="mailto:hello@silomate.com.au"
-          style={{
-            background: GOLD,
-            color: "#1a1a1a",
-            fontWeight: 700,
-            fontSize: 14,
-            padding: "8px 18px",
-            borderRadius: 8,
-            textDecoration: "none",
-          }}
-        >
-          Contact Us
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            onClick={handleShare}
+            style={{
+              background: shareLabel === "copied" ? "#2d7a4f" : "rgba(255,255,255,0.15)",
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 14,
+              padding: "8px 18px",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.3)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              transition: "background 0.2s",
+            }}
+          >
+            {shareLabel === "copied" ? "✅ Copied!" : "🔗 Share"}
+          </button>
+          <a
+            href="mailto:hello@silomate.com.au"
+            style={{
+              background: GOLD,
+              color: "#1a1a1a",
+              fontWeight: 700,
+              fontSize: 14,
+              padding: "8px 18px",
+              borderRadius: 8,
+              textDecoration: "none",
+            }}
+          >
+            Contact Us
+          </a>
+        </div>
       </nav>
 
       {/* HERO */}
