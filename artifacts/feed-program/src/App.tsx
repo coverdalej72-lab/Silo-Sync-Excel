@@ -575,6 +575,7 @@ function SheetView({
   const { cells, minRow, maxRow, minCol, maxCol, colWidths, rowHeights } = sheet;
   const effectiveStart = startRow ?? minRow;
   const inputRef = useRef<HTMLInputElement>(null);
+  const navigatingRef = useRef(false);  // true while a keyboard navigation is in flight
 
   // Trim empty trailing columns — only consider visible rows (r >= effectiveStart)
   const displayMaxCol = useMemo(() => {
@@ -600,9 +601,23 @@ function SheetView({
     if (editingCell && inputRef.current) inputRef.current.focus();
   }, [editingCell]);
 
-  const commitEdit = (r: number, c: number, val: string) => {
+  const commitEdit = (r: number, c: number, val: string, next?: EditingCell | null) => {
     onEdit(`${r},${c}`, val);
-    setEditingCell(null);
+    setEditingCell(next !== undefined ? next : null);
+  };
+
+  // Navigate to an adjacent editable cell (skips header rows)
+  const navigate = (r: number, c: number, val: string, dr: number, dc: number) => {
+    navigatingRef.current = true;
+    let nr = r + dr;
+    let nc = c + dc;
+    // Skip shed header rows (7, 8) and blank rows (9, 10)
+    if (isShedSheet) {
+      const forbidden = new Set([7, 8, 9, 10]);
+      while (forbidden.has(nr)) nr += dr || 1;
+    }
+    commitEdit(r, c, val, { r: nr, c: nc, sheetIdx });
+    setTimeout(() => { navigatingRef.current = false; }, 50);
   };
 
   // Pre-compute header row heights for sticky offsets
@@ -746,13 +761,34 @@ function SheetView({
                       <input
                         ref={inputRef}
                         defaultValue={displayVal}
-                        onBlur={(e) => commitEdit(r, c, e.target.value)}
+                        onBlur={(e) => {
+                          // Skip blur-commit when keyboard navigation has already committed
+                          if (!navigatingRef.current) commitEdit(r, c, e.target.value);
+                        }}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === "Tab") {
+                          const inp = e.target as HTMLInputElement;
+                          const val = inp.value;
+                          if (e.key === "Enter" || e.key === "ArrowDown") {
                             e.preventDefault();
-                            commitEdit(r, c, (e.target as HTMLInputElement).value);
+                            navigate(r, c, val, 1, 0);
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            navigate(r, c, val, -1, 0);
+                          } else if (e.key === "Tab" && !e.shiftKey) {
+                            e.preventDefault();
+                            navigate(r, c, val, 0, 1);
+                          } else if (e.key === "Tab" && e.shiftKey) {
+                            e.preventDefault();
+                            navigate(r, c, val, 0, -1);
+                          } else if (e.key === "ArrowRight" && inp.selectionStart === inp.value.length) {
+                            e.preventDefault();
+                            navigate(r, c, val, 0, 1);
+                          } else if (e.key === "ArrowLeft" && inp.selectionStart === 0) {
+                            e.preventDefault();
+                            navigate(r, c, val, 0, -1);
+                          } else if (e.key === "Escape") {
+                            setEditingCell(null);
                           }
-                          if (e.key === "Escape") setEditingCell(null);
                         }}
                         style={{
                           width: "100%", height: "100%", border: "none", outline: "none",
