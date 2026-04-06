@@ -82,6 +82,22 @@ function saveFarmConfig(cfg: FarmConfigData) {
   window.dispatchEvent(new StorageEvent("storage", { key: FARM_CONFIG_KEY }));
 }
 
+const BATCH_HISTORY_KEY = "feedmate-batch-history";
+interface BatchHistoryEntry {
+  batchNum: number;
+  date: string;
+  totalBirds: number;
+  totalFeedKg: number;
+  fcr: number | null;
+  cfcr: number | null;
+  cage: number | null;
+  mortalityPct: number | null;
+  aveWeight: number | null;
+}
+function readBatchHistory(): BatchHistoryEntry[] {
+  try { return JSON.parse(localStorage.getItem(BATCH_HISTORY_KEY) ?? "[]"); } catch { return []; }
+}
+
 // Maps shed sheet index (0-based, counting only SHED sheets) → shedGroupId (1–10)
 const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -1317,7 +1333,7 @@ function parseEmailCatchText(text: string): ParsedEmailRow[] {
   return results;
 }
 
-function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void }) {
+function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch, onSummaryLoaded }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void; onSummaryLoaded?: (s: BatchSummary) => void }) {
   const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
@@ -1346,7 +1362,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
 
   useEffect(() => {
     loadBatchResultsXlsx(import.meta.env.BASE_URL)
-      .then(({ sheds, summary }) => { setXlSheds(sheds); setSummary(summary); setLoadState("ok"); })
+      .then(({ sheds, summary }) => { setXlSheds(sheds); setSummary(summary); setLoadState("ok"); if (summary) onSummaryLoaded?.(summary); })
       .catch(() => setLoadState("error"));
   }, []);
 
@@ -2362,10 +2378,133 @@ function MortsView({ sheets, edits, handleEdit, farmConfig }: {
   );
 }
 
+// ── HistoryView ───────────────────────────────────────────────────────────────
+function BarChart({ entries, getValue, label, format, color }: {
+  entries: BatchHistoryEntry[];
+  getValue: (e: BatchHistoryEntry) => number | null;
+  label: string;
+  format: (n: number) => string;
+  color: string;
+}) {
+  const vals = entries.map(getValue);
+  const max = Math.max(...vals.filter((v): v is number => v !== null), 0.001);
+  const W = 56, H = 90, gap = 8;
+  const totalW = entries.length * (W + gap) - gap;
+  return (
+    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", padding: "14px 16px 10px", minWidth: 200, flex: "1 1 180px" }}>
+      <div style={{ fontWeight: 700, fontSize: 12, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>{label}</div>
+      <svg width={totalW} height={H + 30} style={{ display: "block", overflow: "visible" }}>
+        {vals.map((v, i) => {
+          const x = i * (W + gap);
+          const pct = v !== null ? v / max : 0;
+          const barH = Math.max(pct * H, 2);
+          const barY = H - barH;
+          const bn = entries[i].batchNum;
+          return (
+            <g key={i}>
+              <rect x={x} y={barY} width={W} height={barH} rx={4} fill={v !== null ? color : "#e5e5e5"} opacity={i === 0 ? 1 : 0.65 + (i / vals.length) * 0.2} />
+              {v !== null && (
+                <text x={x + W / 2} y={barY - 4} textAnchor="middle" fontSize={10} fontWeight={700} fill="#333">{format(v)}</text>
+              )}
+              {v === null && (
+                <text x={x + W / 2} y={H / 2 + 5} textAnchor="middle" fontSize={10} fill="#aaa">—</text>
+              )}
+              <text x={x + W / 2} y={H + 16} textAnchor="middle" fontSize={10} fill="#666" fontWeight={600}>#{bn || "?"}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function HistoryView() {
+  const [history, setHistory] = useState<BatchHistoryEntry[]>(readBatchHistory);
+  const recent = history.slice(0, 6).reverse(); // oldest → newest so chart reads left to right
+
+  const fmtNum  = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n);
+  const fmtFeed = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}t` : `${n}kg`;
+  const fmtDec  = (n: number) => n.toFixed(2);
+  const fmtMort = (n: number) => `${n.toFixed(1)}%`;
+  const fmtKg   = (n: number) => `${n.toFixed(2)}kg`;
+
+  const clearHistory = () => {
+    if (!confirm("Clear all batch history? This cannot be undone.")) return;
+    localStorage.removeItem(BATCH_HISTORY_KEY);
+    setHistory([]);
+  };
+
+  if (recent.length === 0) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter,'Segoe UI',sans-serif", color: "#888" }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
+        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8, color: "#1a5c36" }}>No Batch History Yet</div>
+        <div style={{ fontSize: 14 }}>Each time you start a New Batch, the outgoing batch's stats are automatically saved here. Check back after your first new batch.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: "20px 20px 40px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, borderBottom: "3px solid #C9A227" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH HISTORY</div>
+          <span style={{ fontSize: 13, opacity: 0.8 }}>Last {recent.length} batch{recent.length !== 1 ? "es" : ""}</span>
+        </div>
+        <button onClick={clearHistory} style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 6, padding: "5px 14px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          Clear History
+        </button>
+      </div>
+
+      {/* Summary Table */}
+      <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", overflow: "auto", marginBottom: 24 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 600 }}>
+          <thead>
+            <tr style={{ background: "#1a5c36", color: "#fff" }}>
+              {["Batch", "Date", "Birds Placed", "Feed (kg)", "FCR", "CFCR", "Cage (kg)", "Mortality"].map(h => (
+                <th key={h} style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[...recent].reverse().map((e, i) => {
+              const date = e.date ? new Date(e.date).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+              return (
+                <tr key={i} style={{ background: i % 2 === 0 ? "#f9f9f9" : "#fff", borderBottom: "1px solid #eee" }}>
+                  <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: 800, color: "#1a5c36" }}>#{e.batchNum || "?"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center", color: "#555" }}>{date}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700 }}>{e.totalBirds > 0 ? e.totalBirds.toLocaleString() : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.totalFeedKg > 0 ? e.totalFeedKg.toLocaleString() : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.fcr !== null ? e.fcr.toFixed(3) : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cfcr !== null ? e.cfcr.toFixed(3) : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cage !== null ? `${e.cage.toFixed(2)} kg` : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center", color: e.mortalityPct !== null && e.mortalityPct > 5 ? "#c0392b" : "inherit" }}>{e.mortalityPct !== null ? `${e.mortalityPct.toFixed(2)}%` : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Charts */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+        <BarChart entries={recent} getValue={e => e.totalBirds || null} label="Birds Placed" format={fmtNum} color="#1a5c36" />
+        <BarChart entries={recent} getValue={e => e.totalFeedKg || null} label="Feed Ordered (kg)" format={fmtFeed} color="#217346" />
+        <BarChart entries={recent} getValue={e => e.fcr} label="FCR" format={fmtDec} color="#2980b9" />
+        <BarChart entries={recent} getValue={e => e.cfcr} label="CFCR" format={fmtDec} color="#8e44ad" />
+        <BarChart entries={recent} getValue={e => e.cage} label="Cage Weight (kg)" format={fmtKg} color="#C9A227" />
+        <BarChart entries={recent} getValue={e => e.mortalityPct} label="Mortality %" format={fmtMort} color="#c0392b" />
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
-  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts">(null);
+  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history">(null);
+  const [batchResultsSummary, setBatchResultsSummary] = useState<BatchSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -2696,10 +2835,47 @@ export default function App() {
     setHasChanges(true);
   }, [sheets]);
 
+  const captureAndSaveBatchHistory = () => {
+    const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
+    const getCell = (si: number, r: number, c: number) => {
+      const m = edits[si];
+      const v = m?.has(`${r},${c}`) ? m.get(`${r},${c}`) : String(sheets[si]?.cells.get(`${r},${c}`)?.value ?? "");
+      return parseFloat((v ?? "").replace(/,/g, "")) || 0;
+    };
+    const batchNum = eobIdx >= 0 ? getCell(eobIdx, 1, 2) : 0;
+    let totalBirds = 0, totalFeedKg = 0, shedCount = 0;
+    for (let i = 0; i < sheets.length; i++) {
+      const name = sheets[i].name.trim().toUpperCase();
+      if (!name.includes("SHED")) continue;
+      const shedGroupId = SHED_SHEET_ORDER[shedCount++] ?? shedCount;
+      const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+      const active = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+      if (!active) continue;
+      totalBirds += getCell(i, 3, 2) + getCell(i, 4, 2);
+      for (let r = 12; r <= 71; r++) { const f = getCell(i, r, 4); if (f) totalFeedKg += f; }
+    }
+    const entry: BatchHistoryEntry = {
+      batchNum,
+      date: new Date().toISOString(),
+      totalBirds,
+      totalFeedKg,
+      fcr:         batchResultsSummary?.fcr         ?? null,
+      cfcr:        batchResultsSummary?.cfcr        ?? null,
+      cage:        batchResultsSummary?.cage        ?? null,
+      mortalityPct:batchResultsSummary?.mortalityPct ?? null,
+      aveWeight:   batchResultsSummary?.aveWeight   ?? null,
+    };
+    try {
+      const existing: BatchHistoryEntry[] = JSON.parse(localStorage.getItem(BATCH_HISTORY_KEY) ?? "[]");
+      localStorage.setItem(BATCH_HISTORY_KEY, JSON.stringify([entry, ...existing].slice(0, 10)));
+    } catch {}
+  };
+
   const resetForNewBatch = async () => {
     if (!confirm(
       "Start New Batch?\n\nThis will clear ALL delivery and silo reading records from the app, and reset the spreadsheet to its base state.\n\nThis cannot be undone."
     )) return;
+    captureAndSaveBatchHistory();
     try {
       await fetch("/api/batch/reset", { method: "DELETE" });
     } catch {
@@ -2988,6 +3164,21 @@ export default function App() {
         >
           💀 Morts
         </button>
+        {/* History tab */}
+        <button
+          onClick={() => setActiveView("history")}
+          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          style={{
+            backgroundColor: activeView === "history" ? "#1a5c36" : "#1a5c3688",
+            color: "#fff",
+            borderColor: "#1a5c36",
+            opacity: activeView === "history" ? 1 : 0.72,
+            transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)",
+            marginLeft: 4,
+          }}
+        >
+          📈 History
+        </button>
       </div>
 
       {/* Feed Alert Banner */}
@@ -2998,7 +3189,11 @@ export default function App() {
 
       {/* Spreadsheet / Summary */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
-        {activeView === "summary" ? (
+        {activeView === "history" ? (
+          <div className="flex-1 overflow-auto">
+            <HistoryView />
+          </div>
+        ) : activeView === "summary" ? (
           <div className="flex-1 overflow-auto">
             <SummaryView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
           </div>
@@ -3013,6 +3208,7 @@ export default function App() {
               edits={edits}
               farmConfig={farmConfig}
               shedPlacement={shedPlacement}
+              onSummaryLoaded={setBatchResultsSummary}
               onEobCatch={(shedNum, totalCaught) => {
                 const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
                 if (eobIdx < 0) return;
