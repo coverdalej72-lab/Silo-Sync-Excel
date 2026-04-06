@@ -2863,13 +2863,6 @@ export default function App() {
         <div className="ml-auto flex items-center gap-2">
           {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
           <button
-            onClick={resetForNewBatch}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
-            title="Clear all data and start a new batch"
-          >
-            ↺ New Batch
-          </button>
-          <button
             onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
             title="Settings"
@@ -3111,6 +3104,18 @@ export default function App() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* New Batch */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Start New Batch</label>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Clears all delivery and silo records and resets the spreadsheet to its base state. This cannot be undone.</p>
+                <button
+                  onClick={() => { setShowSettings(false); resetForNewBatch(); }}
+                  style={{ width: "100%", background: "#c0392b", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                >
+                  ↺ New Batch
+                </button>
               </div>
             </div>
 
