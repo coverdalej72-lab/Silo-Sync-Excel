@@ -614,6 +614,7 @@ function SheetView({
       <colgroup>
         {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
           const c = minCol + i;
+          if (isShedSheet && c === 3) return null;
           return <col key={c} style={{ width: colWidths[c] ?? 80, minWidth: 24 }} />;
         })}
       </colgroup>
@@ -651,6 +652,7 @@ function SheetView({
             <tr key={r} style={{ height: rowH, background: rowBg }}>
               {Array.from({ length: displayMaxCol - minCol + 1 }, (_, ci) => {
                 const c = minCol + ci;
+                if (isShedSheet && c === 3) return null;
                 const info = cells.get(`${r},${c}`);
                 if (!info) return <td key={c} style={{ height: rowH, background: isAnyHeader ? "#1a5c36" : (rowBg ?? "#fff"), borderRight: "1px solid rgba(0,0,0,0.07)", position: isAnyHeader ? "sticky" : undefined, top: isAnyHeader ? (isShedHeader ? (r === 7 ? 0 : row7Height) : eobStickyTop) : undefined, zIndex: isAnyHeader ? 3 : undefined }} />;
                 if (info.hidden) return null;
