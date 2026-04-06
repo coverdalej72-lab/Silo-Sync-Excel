@@ -363,7 +363,7 @@ function parseSheet(
 interface EditingCell { r: number; c: number; sheetIdx: number }
 
 // ── ShedInfoPanel ──────────────────────────────────────────────────────────
-function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: Map<string, string>; onEdit?: (key: string, val: string) => void }) {
+function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<string, string> }) {
   const { cells } = sheet;
   const safeEdits = edits ?? new Map<string, string>();
   const g = (r: number, c: number) => {
@@ -371,10 +371,6 @@ function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: M
     if (edited !== undefined) return edited;
     return String(cells.get(`${r},${c}`)?.value ?? "");
   };
-
-  // Inline edit state for bird count fields in the info panel
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [draftVal, setDraftVal] = useState("");
   const fmt = (v: string | number) => { const n = parseFloat(String(v).replace(/,/g, "")); return isNaN(n) ? String(v) : n.toLocaleString(); };
 
   const shedNum    = g(0, 6);
@@ -409,22 +405,6 @@ function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: M
     ? (totalFeedOrdered / totalBirdsNum).toFixed(3)
     : null;
 
-  // Live-compute Total Morts (sum of col 13 = CATCH MORTS, rows 12–71)
-  let totalMorts = 0;
-  for (let r = 12; r <= 71; r++) {
-    const raw = safeEdits.has(`${r},13`) ? safeEdits.get(`${r},13`)! : (cells.get(`${r},13`)?.value ?? "");
-    const n = parseFloat(String(raw).replace(/,/g, ""));
-    if (!isNaN(n)) totalMorts += n;
-  }
-
-  // Live-compute Birds Left (last non-empty value of col 14 = BIRDS LEFT, rows 12–71)
-  let birdsLeft = 0;
-  for (let r = 71; r >= 12; r--) {
-    const raw = safeEdits.has(`${r},14`) ? safeEdits.get(`${r},14`)! : (cells.get(`${r},14`)?.value ?? "");
-    const n = parseFloat(String(raw).replace(/,/g, ""));
-    if (!isNaN(n) && n > 0) { birdsLeft = n; break; }
-  }
-
   return (
     <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "14px 20px 12px", borderBottom: "3px solid #C9A227", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
       {/* Top row: shed badge + date + bird count */}
@@ -442,63 +422,19 @@ function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: M
           <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Birds</div>
         </div>
       </div>
-      {/* Middle row: individual sheds + allocations — always full height */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8, minHeight: 36 }}>
-        {/* Shed 1 bird count — double-click to edit */}
-        {editingField === "3,2" ? (
-          <input
-            autoFocus
-            value={draftVal}
-            onChange={e => setDraftVal(e.target.value)}
-            onBlur={() => { onEdit?.("3,2", draftVal); setEditingField(null); }}
-            onKeyDown={e => {
-              if (e.key === "Enter") { onEdit?.("3,2", draftVal); setEditingField(null); }
-              if (e.key === "Escape") setEditingField(null);
-            }}
-            style={{ width: 100, borderRadius: 5, border: "2px solid #C9A227", background: "#fff", color: "#000", fontWeight: 700, fontSize: 12, padding: "4px 8px" }}
-          />
-        ) : (
-          <div
-            title="Double-click to edit bird count"
-            onDoubleClick={() => { setEditingField("3,2"); setDraftVal(shed1Birds.replace(/,/g, "")); }}
-            style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12, minWidth: 90, cursor: "pointer" }}
-          >
-            <span style={{ opacity: 0.7 }}>{shed1Name || "Shed A"}: </span>
-            <strong style={{ color: shed1Birds ? "#fff" : "#f0c040" }}>{shed1Birds ? fmt(shed1Birds) : "✏ enter"}</strong>
-          </div>
-        )}
-        {/* Shed 2 bird count — double-click to edit */}
-        {editingField === "4,2" ? (
-          <input
-            autoFocus
-            value={draftVal}
-            onChange={e => setDraftVal(e.target.value)}
-            onBlur={() => { onEdit?.("4,2", draftVal); setEditingField(null); }}
-            onKeyDown={e => {
-              if (e.key === "Enter") { onEdit?.("4,2", draftVal); setEditingField(null); }
-              if (e.key === "Escape") setEditingField(null);
-            }}
-            style={{ width: 100, borderRadius: 5, border: "2px solid #C9A227", background: "#fff", color: "#000", fontWeight: 700, fontSize: 12, padding: "4px 8px" }}
-          />
-        ) : (
-          <div
-            title="Double-click to edit bird count"
-            onDoubleClick={() => { setEditingField("4,2"); setDraftVal(shed2Birds.replace(/,/g, "")); }}
-            style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12, minWidth: 90, cursor: "pointer" }}
-          >
-            <span style={{ opacity: 0.7 }}>{shed2Name || "Shed B"}: </span>
-            <strong style={{ color: shed2Birds ? "#fff" : "#f0c040" }}>{shed2Birds ? fmt(shed2Birds) : "✏ enter"}</strong>
-          </div>
-        )}
+      {/* Middle row: individual sheds + allocations */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+        {shed1Name && <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12 }}><span style={{ opacity: 0.7 }}>{shed1Name}: </span><strong>{fmt(shed1Birds)}</strong></div>}
+        {shed2Name && <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "4px 10px", fontSize: 12 }}><span style={{ opacity: 0.7 }}>{shed2Name}: </span><strong>{fmt(shed2Birds)}</strong></div>}
         <div style={{ flex: 1 }} />
-        {allocations.map(([lbl, val]) => (
-          <div key={lbl} style={{ background: "rgba(201,162,39,0.25)", border: "1px solid rgba(201,162,39,0.45)", borderRadius: 5, padding: "4px 10px", textAlign: "center", fontSize: 12, minWidth: 72 }}>
+        {allocations.map(([lbl, val]) => val ? (
+          <div key={lbl} style={{ background: "rgba(201,162,39,0.25)", border: "1px solid rgba(201,162,39,0.45)", borderRadius: 5, padding: "4px 10px", textAlign: "center", fontSize: 12 }}>
             <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>{lbl}</div>
-            <div style={{ fontWeight: 700 }}>{val ? `${fmt(val)} kg` : "—"}</div>
+            <div style={{ fontWeight: 700 }}>{fmt(val)} kg</div>
           </div>
-        ))}
+        ) : null)}
       </div>
-      {/* Bottom row: feed + bird totals */}
+      {/* Bottom row: feed totals */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary:</div>
         <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
@@ -509,18 +445,6 @@ function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: M
           <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
             <span style={{ opacity: 0.75 }}>kg/Bird: </span>
             <strong>{kgPerBird}</strong>
-          </div>
-        )}
-        {totalMorts > 0 && (
-          <div style={{ background: "rgba(220,38,38,0.25)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
-            <span style={{ opacity: 0.75 }}>Total Morts: </span>
-            <strong>{fmt(String(totalMorts))}</strong>
-          </div>
-        )}
-        {birdsLeft > 0 && (
-          <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
-            <span style={{ opacity: 0.75 }}>Birds Left: </span>
-            <strong>{fmt(String(birdsLeft))}</strong>
           </div>
         )}
       </div>
@@ -651,54 +575,6 @@ function SheetView({
   const { cells, minRow, maxRow, minCol, maxCol, colWidths, rowHeights } = sheet;
   const effectiveStart = startRow ?? minRow;
   const inputRef = useRef<HTMLInputElement>(null);
-  const navigatingRef = useRef(false);  // true while a keyboard navigation is in flight
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedCell, setSelectedCell] = useState<{ r: number; c: number } | null>(null);
-  const [prefillChar, setPrefillChar] = useState<string | null>(null);
-
-  // Clear selection when switching sheets
-  useEffect(() => { setSelectedCell(null); setPrefillChar(null); }, [sheetIdx]);
-
-  // Pre-compute max FEED ON HAND value in column I (for traffic-light colour gradient)
-  const maxFOH = useMemo(() => {
-    if (!isShedSheet) return 0;
-    let max = 0;
-    for (const [key, cellInfo] of cells) {
-      const parts = key.split(",");
-      const c = parseInt(parts[1]);
-      if (c !== COL_I) continue;
-      const r = parseInt(parts[0]);
-      if (r < effectiveStart) continue;
-      const raw = edits.get(key) ?? cellInfo.value ?? "";
-      const v = parseFloat(raw.replace(/,/g, ""));
-      if (!isNaN(v) && v > max) max = v;
-    }
-    return max;
-  }, [cells, edits, isShedSheet, effectiveStart]);
-
-  // Phase allocation totals (from shed info rows 1-4, col 7)
-  const allocTotals = useMemo(() => {
-    if (!isShedSheet) return { str: 0, gwr: 0, fin: 0, wdw: 0 };
-    const n = (r: number, c: number) => {
-      const v = edits.get(`${r},${c}`) ?? cells.get(`${r},${c}`)?.value ?? "0";
-      return parseFloat(String(v).replace(/,/g, "")) || 0;
-    };
-    return { str: n(1, 7), gwr: n(2, 7), fin: n(3, 7), wdw: n(4, 7) };
-  }, [cells, edits, isShedSheet]);
-
-  // Cumulative FEED USAGE per data row — used to colour-code FEED ALLOC by phase
-  const rowCumUsage = useMemo(() => {
-    if (!isShedSheet) return new Map<number, number>();
-    const map = new Map<number, number>();
-    let cum = 0;
-    for (let r = 12; r <= 71; r++) {
-      const key = `${r},${COL_H}`;
-      const v = edits.get(key) ?? cells.get(key)?.value ?? "0";
-      cum += parseFloat(String(v).replace(/,/g, "")) || 0;
-      map.set(r, cum);
-    }
-    return map;
-  }, [cells, edits, isShedSheet]);
 
   // Trim empty trailing columns — only consider visible rows (r >= effectiveStart)
   const displayMaxCol = useMemo(() => {
@@ -724,104 +600,16 @@ function SheetView({
     if (editingCell && inputRef.current) inputRef.current.focus();
   }, [editingCell]);
 
-  const commitEdit = (r: number, c: number, val: string, next?: EditingCell | null) => {
-    setPrefillChar(null);
+  const commitEdit = (r: number, c: number, val: string) => {
     onEdit(`${r},${c}`, val);
-    const nextCell = next !== undefined ? next : null;
-    setEditingCell(nextCell);
-    if (nextCell) {
-      setSelectedCell({ r: nextCell.r, c: nextCell.c });
-    } else {
-      setTimeout(() => containerRef.current?.focus(), 10);
-    }
-  };
-
-  // Navigate to an adjacent editable cell (skips header rows)
-  const navigate = (r: number, c: number, val: string, dr: number, dc: number) => {
-    navigatingRef.current = true;
-    let nr = r + dr;
-    let nc = c + dc;
-    // Skip shed header rows (7, 8) and blank rows (9, 10)
-    if (isShedSheet) {
-      const forbidden = new Set([7, 8, 9, 10]);
-      while (forbidden.has(nr)) nr += dr || 1;
-    }
-    commitEdit(r, c, val, { r: nr, c: nc, sheetIdx });
-    setTimeout(() => { navigatingRef.current = false; }, 50);
-  };
-
-  // Move keyboard selection (no editing) — respects shed data bounds
-  const moveSelection = (nr: number, nc: number) => {
-    if (isShedSheet) {
-      const forbidden = new Set([7, 8, 9, 10, 11]);
-      while (forbidden.has(nr)) nr++;
-      nr = Math.max(12, Math.min(nr, maxRow));
-    }
-    nc = Math.max(minCol, Math.min(nc, displayMaxCol));
-    setSelectedCell({ r: nr, c: nc });
-    containerRef.current?.focus();
-  };
-
-  // Keydown on the container div — fires when a cell is selected but NOT being edited
-  const handleContainerKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (!selectedCell || editingCell) return;
-    const { r, c } = selectedCell;
-    switch (e.key) {
-      case "ArrowDown":  e.preventDefault(); moveSelection(r + 1, c); break;
-      case "ArrowUp":    e.preventDefault(); moveSelection(r - 1, c); break;
-      case "ArrowRight": e.preventDefault(); moveSelection(r, c + 1); break;
-      case "ArrowLeft":  e.preventDefault(); moveSelection(r, c - 1); break;
-      case "Tab":        e.preventDefault(); moveSelection(r, e.shiftKey ? c - 1 : c + 1); break;
-      case "Enter": case "F2":
-        e.preventDefault();
-        setEditingCell({ r, c, sheetIdx });
-        break;
-      case "Delete": case "Backspace":
-        e.preventDefault();
-        onEdit(`${r},${c}`, "");
-        break;
-      case "Escape":
-        e.preventDefault();
-        setSelectedCell(null);
-        break;
-      default:
-        // Any printable character (digit, letter, symbol) → start editing with it
-        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-          e.preventDefault();
-          setPrefillChar(e.key);
-          setEditingCell({ r, c, sheetIdx });
-        }
-    }
+    setEditingCell(null);
   };
 
   // Pre-compute header row heights for sticky offsets
   const row7Height  = isShedSheet ? Math.max(rowHeights[7]  ?? 20, 26) : 0;
   // EOB header row 3 is sticky at top=0
 
-  // Today detection — match " 6 april 2026" with a leading space to avoid "16" matching "6"
-  const todayTag = useMemo(() => {
-    const now = new Date();
-    const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
-    return ` ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-  }, []);
-
   return (
-    <>
-    {/* Inject hover + today + selected-cell styles */}
-    <style>{`
-      .shed-data-row:hover > td { background-color: rgba(26,92,54,0.10) !important; cursor: pointer; }
-      .shed-data-row:hover.shed-today-row > td { background-color: #fff0c0 !important; }
-      .shed-data-row:hover.shed-weekend-row > td { background-color: rgba(26,92,54,0.12) !important; }
-      .shed-today-row > td:first-child { border-left: 4px solid #C9A227; }
-      .sheet-container:focus { outline: none; }
-    `}</style>
-    <div
-      ref={containerRef}
-      className="sheet-container"
-      tabIndex={0}
-      onKeyDown={handleContainerKey}
-      style={{ outline: "none" }}
-    >
     <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: "100%" }}>
       <colgroup>
         {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
@@ -829,13 +617,12 @@ function SheetView({
           return <col key={c} style={{ width: colWidths[c] ?? 80, minWidth: 24 }} />;
         })}
       </colgroup>
-
       <tbody>
         {Array.from({ length: maxRow - effectiveStart + 1 }, (_, ri) => {
           const r = effectiveStart + ri;
 
-          // Skip blank setup rows and the cream totals row in shed sheets
-          if (isShedSheet && (r === 9 || r === 10 || r === 11)) return null;
+          // Skip blank setup rows in shed sheets (between the column headers and the data)
+          if (isShedSheet && (r === 9 || r === 10)) return null;
 
           const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : (rowHeights[r] ?? 20);
 
@@ -846,127 +633,55 @@ function SheetView({
           const isShedSummary = isShedSheet && r >= 72;
           const isEobHeader   = isEobSheet  && r === 3;
           const isAnyHeader   = isShedHeader || isEobHeader;
-
-          // Shed data row enrichment — weekend & today detection
-          const dayCell  = isShedData ? cells.get(`${r},1`) : null;  // column B = DAY name
-          const dateCell = isShedData ? cells.get(`${r},2`) : null;  // column C = DATE
-          const dayName  = (dayCell?.value ?? "").toLowerCase();
-          const isWeekend = isShedData && (dayName.includes("saturday") || dayName.includes("sunday"));
-          const isToday   = isShedData && (dateCell?.value ?? "").toLowerCase().includes(todayTag);
-
           const rowBg = isAnyHeader
             ? "#1a5c36"
             : isShedTotals
             ? "#f5f0dc"
             : isShedSummary
             ? "#eef4ee"
-            : isToday
-            ? "#fffbea"                          // soft gold tint for today
-            : isWeekend
-            ? "#f5f8f5"                          // cool green-tinted for weekend
             : isShedData
-            ? (r % 2 === 0 ? "#f0f5f1" : "#ffffff")   // green-tinted even rows
+            ? (r % 2 === 0 ? "#f9f9f9" : "#ffffff")
             : isEobSheet && r % 2 === 0
-            ? "#f4f8f5"
+            ? "#f9f9f9"
             : undefined;
-
+          // EOB row 3 is sticky at top=0
           const eobStickyTop = 0;
-          const rowClass = isShedData
-            ? `shed-data-row${isToday ? " shed-today-row" : ""}${isWeekend && !isToday ? " shed-weekend-row" : ""}`
-            : undefined;
 
           return (
-            <tr key={r} className={rowClass} style={{ height: rowH, background: rowBg }}>
-
+            <tr key={r} style={{ height: rowH, background: rowBg }}>
               {Array.from({ length: displayMaxCol - minCol + 1 }, (_, ci) => {
                 const c = minCol + ci;
                 const info = cells.get(`${r},${c}`);
-
-                // Empty cell
-                if (!info) {
-                  return (
-                    <td key={c} style={{
-                      height: rowH,
-                      background: isAnyHeader ? "#1a5c36" : (rowBg ?? "#fff"),
-                      borderRight: "1px solid rgba(0,0,0,0.07)",
-                      position: isAnyHeader ? "sticky" : undefined,
-                      top: isAnyHeader ? (isShedHeader ? (r === 7 ? 0 : row7Height) : eobStickyTop) : undefined,
-                      zIndex: isAnyHeader ? 3 : undefined,
-                    }} />
-                  );
-                }
-
+                if (!info) return <td key={c} style={{ height: rowH, background: isAnyHeader ? "#1a5c36" : (rowBg ?? "#fff"), borderRight: "1px solid rgba(0,0,0,0.07)", position: isAnyHeader ? "sticky" : undefined, top: isAnyHeader ? (isShedHeader ? (r === 7 ? 0 : row7Height) : eobStickyTop) : undefined, zIndex: isAnyHeader ? 3 : undefined }} />;
                 if (info.hidden) return null;
                 const key = `${r},${c}`;
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
                 const rawVal = edits.has(key) ? edits.get(key)! : info.value;
-                // Normalize "SILOST" header label → "SILO" (Excel split-header artefact across shed sheets)
-                const normVal = isAnyHeader && rawVal === "SILOST" ? "SILO" : rawVal;
-                const displayVal = (isAnyHeader && info.isDateCell) ? "" : normVal;
-                const fs = info.fontSize ?? 11;
+                // Hide template date values sitting in header rows (e.g. "Monday 16 July 2018")
+                const displayVal = (isAnyHeader && info.isDateCell) ? "" : rawVal;
+                const fs = isShedHeader ? (info.fontSize ?? 11) : (info.fontSize ?? 11);
 
-                // Column I (index 8) = FEED ON HAND — highlight red when negative
+                // Column I (index 8) = FEED ON HAND — highlight red when negative (feed run out)
                 const numVal = parseFloat(displayVal.replace(/,/g, ""));
-                const isFeedRunOut = c === COL_I && !isNaN(numVal) && numVal < 0 && !isAnyHeader;
+                const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0 && !isAnyHeader;
 
-                // FEED ON HAND traffic-light colour (positive values)
-                const fohGradient = (() => {
-                  if (c !== COL_I || isAnyHeader || isFeedRunOut || isNaN(numVal) || numVal <= 0 || maxFOH <= 0 || !isShedSheet) return null;
-                  const pct = numVal / maxFOH;
-                  if (pct > 0.65) return "#c8e6c9"; // green — plenty
-                  if (pct > 0.45) return "#dcedc8"; // light green
-                  if (pct > 0.30) return "#fff9c4"; // yellow
-                  if (pct > 0.15) return "#ffe0b2"; // orange
-                  if (pct > 0.07) return "#ffccbc"; // deep orange — getting critical
-                  return "#ef9a9a";                  // red — running out!
-                })();
-
-                // Cell background — FOH gradient beats today/weekend beats Excel fill
+                // Columns E & F (FEED ORDERED / SILO) — strip XLSX yellow highlight
+                // Header rows override everything; otherwise strip E/F yellow
                 let cellBg: string | null;
                 if (isAnyHeader) {
                   cellBg = "#1a5c36";
-                } else if (fohGradient) {
-                  cellBg = fohGradient;           // FOH gradient always wins
-                } else if (isShedData && isToday) {
-                  cellBg = "#fff8e1";             // today gold
-                } else if (isShedData && isWeekend) {
-                  cellBg = "#f0f4f0";             // weekend gray-green
-                } else if (c === COL_E || (c === COL_I && isShedData)) {
-                  cellBg = null;             // strip FEED ORDERED + FOH Excel fills (FOH uses computed gradient)
-                } else if (c === 5 && isShedData) {
-                  cellBg = "#EAF1DD";        // SILO: light green (matches real Excel fill)
-                } else if (c === COL_G && isShedData) {
-                  // Phase-based colour for FEED ALLOC based on cumulative feed usage
-                  const cum = rowCumUsage.get(r) ?? 0;
-                  const { str, gwr, fin } = allocTotals;
-                  if (str > 0 || gwr > 0 || fin > 0) {
-                    if (cum <= str) cellBg = "#D6E3BC";              // STR — pale green
-                    else if (cum <= str + gwr) cellBg = "#DAEEF3";   // GWR — pale blue
-                    else if (cum <= str + gwr + fin) cellBg = "#FDE9D9"; // FIN — pale peach
-                    else cellBg = "#FFF5C0";                         // WDW — pale gold
-                  } else {
-                    cellBg = info.bgColor;
-                  }
+                } else if (c === COL_E || c === 5) {
+                  cellBg = null;
                 } else {
                   cellBg = info.bgColor;
                 }
 
-                // Text colour — FEED ALLOC numbers use dark green + bold; all other shed cells = black
-                const isFeedAllocData = c === COL_G && isShedData;
                 const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
-                  : isFeedAllocData
-                  ? "#1a5c36"
-                  : isShedSheet
-                  ? "#000000"
+                  : isFeedRunOut
+                  ? "#ffffff"
                   : (info.fontColor ?? "#000");
 
-                // Suppress lone silo-letter in SILO column (col 5) — display only
-                const showVal = (c === 5 && isShedSheet && /^[a-zA-Z]$/.test(displayVal.trim()))
-                  ? ""
-                  : displayVal;
-
-                // Border — subtle throughout, just like shed sheets
                 const borderStyle = isAnyHeader
                   ? "1px solid rgba(255,255,255,0.15)"
                   : "1px solid rgba(0,0,0,0.08)";
@@ -977,26 +692,17 @@ function SheetView({
                   ? eobStickyTop
                   : undefined;
 
-                const isSelected = !isAnyHeader && !isEditing &&
-                  selectedCell?.r === r && selectedCell?.c === c;
-
                 return (
                   <td
                     key={c}
                     colSpan={info.colSpan}
                     rowSpan={info.rowSpan}
-                    onClick={() => {
-                      if (!isAnyHeader) {
-                        setSelectedCell({ r, c });
-                        containerRef.current?.focus();
-                      }
-                    }}
                     onDoubleClick={() => !isAnyHeader && setEditingCell({ r, c, sheetIdx })}
-                    title={isFeedRunOut ? "⚠ FEED RUN OUT" : "Click to select · type to edit"}
+                    title={isFeedRunOut ? "⚠ FEED RUN OUT" : "Double-click to edit"}
                     style={{
                       background: isFeedRunOut ? "#dc2626" : (cellBg ?? (rowBg ?? "#fff")),
                       color: cellTextColor,
-                      fontWeight: info.bold || isAnyHeader || isFeedAllocData ? "bold" : "normal",
+                      fontWeight: info.bold || isAnyHeader ? "bold" : "normal",
                       fontStyle: info.italic ? "italic" : "normal",
                       fontSize: fs,
                       textAlign: (info.hAlign as any) ?? "left",
@@ -1004,64 +710,42 @@ function SheetView({
                       whiteSpace: info.wrapText ? "pre-wrap" : "nowrap",
                       overflow: "hidden",
                       textOverflow: isEditing ? "clip" : "ellipsis",
-                      padding: isEditing ? 0 : (isShedHeader || isEobHeader) ? "2px 5px" : "1px 4px",
-                      borderTop: (isShedHeader || isEobHeader) ? "none" : (info.borderTop ?? borderStyle),
-                      borderBottom: (isShedHeader || isEobHeader) ? "none" : (info.borderBottom ?? borderStyle),
-                      borderLeft: borderStyle,
-                      borderRight: borderStyle,
+                      padding: isEditing ? 0 : isAnyHeader ? "2px 5px" : "1px 3px",
+                      borderTop: isAnyHeader ? "none" : (info.borderTop ?? borderStyle),
+                      borderBottom: isAnyHeader ? "none" : (info.borderBottom ?? borderStyle),
+                      borderLeft: isAnyHeader ? borderStyle : (info.borderLeft ?? borderStyle),
+                      borderRight: isAnyHeader ? borderStyle : (info.borderRight ?? borderStyle),
                       height: rowH,
                       maxWidth: 400,
-                      cursor: (isShedHeader || isEobHeader) ? "default" : "pointer",
-                      outline: isEditing ? "2px solid #1a5c36" : isSelected ? "2px solid #43a047" : "none",
-                      outlineOffset: isSelected ? "-2px" : undefined,
-                      letterSpacing: isShedHeader ? 0.3 : 0,
-                      position: (isShedHeader || isEobHeader) ? "sticky" : undefined,
+                      cursor: isAnyHeader ? "default" : "pointer",
+                      outline: isEditing ? "2px solid #1a5c36" : "none",
+                      letterSpacing: isAnyHeader ? 0.3 : 0,
+                      position: isAnyHeader ? "sticky" : undefined,
                       top: stickyTop,
-                      zIndex: (isShedHeader || isEobHeader) ? 3 : undefined,
+                      zIndex: isAnyHeader ? 3 : undefined,
                     }}
                   >
                     {isEditing ? (
                       <input
                         ref={inputRef}
-                        defaultValue={prefillChar !== null ? prefillChar : displayVal}
-                        onBlur={(e) => {
-                          // Skip blur-commit when keyboard navigation has already committed
-                          if (!navigatingRef.current) commitEdit(r, c, e.target.value);
-                        }}
+                        defaultValue={displayVal}
+                        onBlur={(e) => commitEdit(r, c, e.target.value)}
                         onKeyDown={(e) => {
-                          const inp = e.target as HTMLInputElement;
-                          const val = inp.value;
-                          if (e.key === "Enter" || e.key === "ArrowDown") {
+                          if (e.key === "Enter" || e.key === "Tab") {
                             e.preventDefault();
-                            navigate(r, c, val, 1, 0);
-                          } else if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            navigate(r, c, val, -1, 0);
-                          } else if (e.key === "Tab" && !e.shiftKey) {
-                            e.preventDefault();
-                            navigate(r, c, val, 0, 1);
-                          } else if (e.key === "Tab" && e.shiftKey) {
-                            e.preventDefault();
-                            navigate(r, c, val, 0, -1);
-                          } else if (e.key === "ArrowRight" && inp.selectionStart === inp.value.length) {
-                            e.preventDefault();
-                            navigate(r, c, val, 0, 1);
-                          } else if (e.key === "ArrowLeft" && inp.selectionStart === 0) {
-                            e.preventDefault();
-                            navigate(r, c, val, 0, -1);
-                          } else if (e.key === "Escape") {
-                            setEditingCell(null);
+                            commitEdit(r, c, (e.target as HTMLInputElement).value);
                           }
+                          if (e.key === "Escape") setEditingCell(null);
                         }}
                         style={{
                           width: "100%", height: "100%", border: "none", outline: "none",
                           background: cellBg ?? "#fff", color: info.fontColor ?? "#000",
                           fontWeight: info.bold ? "bold" : "normal",
                           fontSize: fs, fontFamily: "Calibri,sans-serif",
-                          padding: "1px 4px", boxSizing: "border-box",
+                          padding: "1px 3px", boxSizing: "border-box",
                         }}
                       />
-                    ) : showVal}
+                    ) : displayVal}
                   </td>
                 );
               })}
@@ -1070,46 +754,10 @@ function SheetView({
         })}
       </tbody>
     </table>
-    </div>
-    </>
   );
 }
 
 // ── Summary Tab Components ────────────────────────────────────────────────
-
-function PlacementDateField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const toInputVal = (s: string): string => {
-    const d = parseDateInput(s);
-    if (!d) return "";
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${d.getFullYear()}-${mm}-${dd}`;
-  };
-  const fromInputVal = (s: string): string => {
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return s;
-    return `${parseInt(m[3])}/${parseInt(m[2])}/${m[1]}`;
-  };
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-      <span style={{ fontSize: 11, color: "#555", minWidth: 80, flexShrink: 0 }}>📅 Placement</span>
-      <input
-        ref={inputRef}
-        type="date"
-        value={toInputVal(value)}
-        onChange={e => onSave(fromInputVal(e.target.value))}
-        style={{
-          flex: 1, fontSize: 13, border: "2px solid #1a5c36", borderRadius: 4,
-          padding: "3px 7px", background: "#f5f5f5", cursor: "pointer",
-          outline: "none", minHeight: 22, minWidth: 0,
-        }}
-      />
-    </div>
-  );
-}
 
 function SummaryInputField({ label, value, onSave, wide }: { label: string; value: string; onSave: (v: string) => void; wide?: boolean }) {
   const [editing, setEditing] = useState(false);
@@ -1344,7 +992,7 @@ function ShedSummaryCard({
         </div>
       </div>
       <div style={{ padding: "12px 14px" }}>
-        <PlacementDateField value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
+        <SummaryInputField label="Placement" value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>Birds Per Shed</div>
         <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => {
@@ -1595,20 +1243,6 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
 }
 
 const BATCH_CATCHES_KEY = "silo-batch-catches";
-const EDITS_KEY = "silo-fp-edits";
-
-function loadEditsFromStorage(): Map<string, string>[] {
-  try {
-    const s = localStorage.getItem(EDITS_KEY);
-    if (!s) return [];
-    return (JSON.parse(s) as [string, string][][]).map(arr => new Map(arr));
-  } catch { return []; }
-}
-
-function saveEditsToStorage(edits: Map<string, string>[]) {
-  localStorage.setItem(EDITS_KEY, JSON.stringify(edits.map(m => [...m.entries()])));
-}
-
 interface EditableCatch { date: string; age: string; birds: string; aveWgt: string; totalWgt: string; }
 type CatchMap = Record<number, EditableCatch[]>;
 
@@ -1667,7 +1301,7 @@ function parseEmailCatchText(text: string): ParsedEmailRow[] {
   return results;
 }
 
-function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch, onBatchNum }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void; onBatchNum?: (n: number) => void }) {
+function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void }) {
   const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
@@ -1696,26 +1330,15 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
 
   useEffect(() => {
     loadBatchResultsXlsx(import.meta.env.BASE_URL)
-      .then(({ sheds, summary }) => {
-        setXlSheds(sheds);
-        setSummary(summary);
-        setLoadState("ok");
-        const resolved = parseInt(localStorage.getItem("silo-batch-num") || "0", 10) || summary?.batchNum || 0;
-        if (resolved > 0 && onBatchNum) onBatchNum(resolved);
-      })
+      .then(({ sheds, summary }) => { setXlSheds(sheds); setSummary(summary); setLoadState("ok"); })
       .catch(() => setLoadState("error"));
   }, []);
 
   // Seed catchMap from xlsx on first load (if localStorage was empty)
-  // Skip seeding when we've just done a New Batch reset
   useEffect(() => {
     if (loadState !== "ok") return;
     const stored = localStorage.getItem(BATCH_CATCHES_KEY);
     if (stored && stored !== "{}") return;
-    if (localStorage.getItem("silo-batch-new") === "1") {
-      localStorage.removeItem("silo-batch-new");
-      return;
-    }
     const init: CatchMap = {};
     xlSheds.forEach(s => {
       if (s.catches.length > 0) {
@@ -1824,8 +1447,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const overallMortPct = totalPlaced > 0 ? ((totalMorts / totalPlaced) * 100).toFixed(2) + "%" : "—";
 
   const totalWgtKgAll = shedStats.reduce((a, s) => a + s.totalWgtKg, 0);
-  const globalAveWgt  = totalCaught > 0 ? totalWgtKgAll / totalCaught : 0;
-  const hasCatchData  = totalCaught > 0;
+  const globalAveWgt  = totalCaught > 0 ? totalWgtKgAll / totalCaught : (summary?.aveWeight ?? 0);
 
   const fmtN = (n: number, dec = 0) => isNaN(n) || n === 0 ? "—" : dec > 0 ? n.toFixed(dec) : n.toLocaleString();
 
@@ -1885,10 +1507,10 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         ) : (
           <div
             title="Click to edit farm name"
-            onClick={() => { setHeaderEditVal(overrideFarmName || farmConfig.farmName || ""); setEditingHeader("farm"); }}
+            onClick={() => { setHeaderEditVal(overrideFarmName || farmConfig.farmName || summary?.farmName || ""); setEditingHeader("farm"); }}
             style={{ fontSize: 15, fontWeight: 700, cursor: "pointer", borderBottom: "1px dashed rgba(255,255,255,0.5)", paddingBottom: 1 }}
           >
-            {overrideFarmName || farmConfig.farmName || <span style={{ opacity: 0.5 }}>Farm name</span>}
+            {overrideFarmName || farmConfig.farmName || summary?.farmName || <span style={{ opacity: 0.5 }}>Farm name</span>}
           </div>
         )}
 
@@ -1904,7 +1526,6 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               if (!isNaN(parsed) && parsed > 0) {
                 setOverrideBatchNum(parsed);
                 localStorage.setItem("silo-batch-num", String(parsed));
-                if (onBatchNum) onBatchNum(parsed);
               }
               setEditingHeader(null);
             }}
@@ -1912,23 +1533,16 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
               if (e.key === "Escape") setEditingHeader(null);
             }}
-            style={{ fontSize: 15, fontWeight: 600, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 6, color: "#fff", padding: "3px 10px", outline: "none", width: 110 }}
+            style={{ fontSize: 15, fontWeight: 600, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 6, color: "#fff", padding: "3px 10px", outline: "none", width: 100 }}
           />
         ) : (
-          <button
-            type="button"
-            title="Tap to set batch number"
+          <div
+            title="Click to edit batch number"
             onClick={() => { const bn = overrideBatchNum ?? summary?.batchNum; setHeaderEditVal(bn ? String(bn) : ""); setEditingHeader("batch"); }}
-            style={{ fontSize: 15, opacity: 0.9, cursor: "pointer", background: "rgba(255,255,255,0.12)", border: "1px dashed rgba(255,255,255,0.5)", borderRadius: 6, color: "#fff", padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}
+            style={{ fontSize: 15, opacity: 0.9, cursor: "pointer", borderBottom: "1px dashed rgba(255,255,255,0.5)", paddingBottom: 1 }}
           >
-            {(() => {
-              const bn = overrideBatchNum ?? summary?.batchNum;
-              if (bn && bn > 0) return `Batch #${bn}`;
-              const hint = summary?.batchNum ? summary.batchNum + 1 : null;
-              return <span style={{ opacity: 0.6 }}>{hint ? `e.g. Batch #${hint}` : "Set Batch #"}</span>;
-            })()}
-            <span style={{ fontSize: 11, opacity: 0.6 }}>✏</span>
-          </button>
+            {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? `Batch #${bn}` : <span style={{ opacity: 0.5 }}>Batch #</span>; })()}
+          </div>
         )}
         <button
           onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setShowEmailImport(true); }}
@@ -1963,28 +1577,34 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
           </div>
         )}
-        <div style={cardStyle("#2980b9")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: hasCatchData && summary && summary.fcr > 0 ? "#2980b9" : "#ccc" }}>
-            {hasCatchData && summary && summary.fcr > 0 ? summary.fcr.toFixed(3) : "—"}
+        {summary && summary.fcr > 0 && (
+          <div style={cardStyle("#2980b9")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
           </div>
-          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
-        </div>
-        <div style={cardStyle("#16a085")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: hasCatchData && summary && summary.cfcr > 0 ? "#16a085" : "#ccc" }}>
-            {hasCatchData && summary && summary.cfcr > 0 ? summary.cfcr.toFixed(3) : "—"}
+        )}
+        {summary && summary.cfcr > 0 && (
+          <div style={cardStyle("#16a085")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
           </div>
-          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
-        </div>
-        {hasCatchData && summary && summary.actualAge > 0 && (
+        )}
+        {summary && summary.actualAge > 0 && (
           <div style={cardStyle("#5b6fa6")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#5b6fa6" }}>{summary.actualAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Actual Age</div>
           </div>
         )}
-        {hasCatchData && summary && summary.correctedAge > 0 && (
+        {summary && summary.correctedAge > 0 && (
           <div style={cardStyle("#7d6aa0")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#7d6aa0" }}>{summary.correctedAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
+          </div>
+        )}
+        {summary && summary.cage > 0 && (
+          <div style={cardStyle("#7f8c8d")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE Eff.</div>
           </div>
         )}
       </div>
@@ -2005,9 +1625,9 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         const eobDelivered = getEobNum(19, 23);
         const eobOnHand    = getEobNum(20, 23);
         const eobConsumed  = getEobNum(21, 23);
-        const feedDelivered = eobDelivered > 0 ? eobDelivered : (hasCatchData ? summary.feedDelivered : 0);
-        const feedOnHand    = eobOnHand    > 0 ? eobOnHand    : (hasCatchData ? summary.feedOnHand    : 0);
-        const feedConsumed  = eobConsumed  > 0 ? eobConsumed  : (hasCatchData ? summary.feedConsumed  : 0);
+        const feedDelivered = eobDelivered > 0 ? eobDelivered : summary.feedDelivered;
+        const feedOnHand    = eobOnHand    > 0 ? eobOnHand    : summary.feedOnHand;
+        const feedConsumed  = eobConsumed  > 0 ? eobConsumed  : summary.feedConsumed;
         const fromEob = eobDelivered > 0;
         return (
           <div style={{ background: "#f4f9f6", border: "1px solid #c8e6d4", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
@@ -2068,7 +1688,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                       <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "10%" }}>Age</th>
                       <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "16%" }}>Birds</th>
                       <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Ave Wgt</th>
-                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Total Wgt (kg)</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Total Wgt</th>
                       <th style={{ width: "8%" }} />
                     </tr>
                   </thead>
@@ -2116,7 +1736,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                               <input style={inputStyle} type="number" step="0.01" value={editVal} autoFocus
                                 onChange={e => setEditVal(e.target.value)}
                                 onBlur={commitEdit} onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditCell(null); }} />
-                            ) : (rowTw > 0 ? `${Math.round(rowTw * 1000).toLocaleString()} kg` : <span style={{ color: "#aaa" }}>—</span>)}
+                            ) : (rowTw > 0 ? `${rowTw.toFixed(2)} t` : <span style={{ color: "#aaa" }}>—</span>)}
                           </td>
                           <td style={{ padding: "5px 6px", textAlign: "center", whiteSpace: "nowrap" }}>
                             {pendingDelete?.shedNum === shedNum && pendingDelete?.rowIdx === ci ? (
@@ -2146,7 +1766,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                       <td colSpan={2} style={{ padding: "6px 8px", color: "#1a5c36", fontWeight: 800, fontSize: 11 }}>TOTAL</td>
                       <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{sc > 0 ? sc.toLocaleString() : "—"}</td>
                       <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{aveWgt > 0 ? `${aveWgt.toFixed(3)} kg` : "—"}</td>
-                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{totalWgtKg > 0 ? `${Math.round(totalWgtKg).toLocaleString()} kg` : "—"}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{totalWgtKg > 0 ? `${(totalWgtKg / 1000).toFixed(2)} t` : "—"}</td>
                       <td />
                     </tr>
                     <tr>
@@ -2176,7 +1796,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         const shedsWithData = Object.values(catchMap).filter(r => r.length > 0).length;
         const totalRows = Object.values(catchMap).reduce((a, r) => a + r.length, 0);
         const batchLabel = summary?.batchNum && summary.batchNum > 0 ? `Batch #${summary.batchNum}` : "current batch";
-        const farmLabel = farmConfig.farmName || "";
+        const farmLabel = farmConfig.farmName || summary?.farmName || "";
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
             onClick={() => setShowClearConfirm(false)}>
@@ -2326,7 +1946,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "Inter,'Segoe UI',sans-serif" }}>
                         <thead>
                           <tr style={{ background: "#1a5c36", color: "#fff" }}>
-                            {["Shed", "Age (days)", "Birds", "Ave Wgt (kg)", "Total Wgt (kg)"].map(h => (
+                            {["Shed", "Age (days)", "Birds", "Ave Wgt (kg)", "Total Wgt (t)"].map(h => (
                               <th key={h} style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
                             ))}
                           </tr>
@@ -2338,7 +1958,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.age || "—"}</td>
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{parseInt(r.birds).toLocaleString()}</td>
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.aveWgt || "—"}</td>
-                              <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.totalWgt ? `${Math.round(parseFloat(r.totalWgt) * 1000).toLocaleString()} kg` : "—"}</td>
+                              <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.totalWgt || "—"}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2733,10 +2353,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
-  const [edits, setEdits] = useState<Map<string, string>[]>(loadEditsFromStorage);
-  const [autoSaved, setAutoSaved] = useState(false);
-  const [batchKey, setBatchKey] = useState(0);
-  const batchNumCacheRef = useRef(parseInt(localStorage.getItem("silo-batch-num") || "0", 10));
+  const [edits, setEdits] = useState<Map<string, string>[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
   const [farmConfig, setFarmConfig] = useState<FarmConfigData>(readFarmConfig);
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
@@ -2781,29 +2399,6 @@ export default function App() {
     return () => window.removeEventListener("storage", onThemeStorage);
   }, []);
 
-  // Detect if a batch reset was triggered from Silo Tracker (cross-device sync)
-  useEffect(() => {
-    fetch(`${BASE}api/batch/version`)
-      .then(r => r.ok ? r.json() : null)
-      .then((data: { version: string | null } | null) => {
-        if (!data || !data.version) return;
-        const stored = localStorage.getItem("silo-batch-version");
-        if (stored !== null && stored !== data.version) {
-          // A reset happened elsewhere — clear the Silo Tracker-originated batch data
-          localStorage.removeItem("silo-batch-catches");
-          localStorage.removeItem("silo-batch-farm-name");
-          localStorage.removeItem("silo-morts-log");
-          localStorage.removeItem("silo-culls-log");
-          localStorage.setItem("silo-batch-new", "1");
-        }
-        if (stored !== data.version) {
-          localStorage.setItem("silo-batch-version", data.version);
-        }
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Sync farm config whenever Silo Tracker updates localStorage
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -2812,16 +2407,6 @@ export default function App() {
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
-
-  // Auto-save edits to localStorage whenever they change
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (edits.length === 0) return;
-    saveEditsToStorage(edits);
-    setAutoSaved(true);
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => setAutoSaved(false), 2000);
-  }, [edits]);
 
   useEffect(() => {
     const xlsxUrl = `${BASE}feed-program.xlsx`;
@@ -2861,8 +2446,7 @@ export default function App() {
         });
 
         setSheets(result);
-        // Preserve any edits already loaded from localStorage; only expand the array if more sheets
-        setEdits(prev => result.map((_, i) => prev[i] ?? new Map()));
+        setEdits(result.map(() => new Map()));
         setActive(startIdx);
         setLoading(false);
       })
@@ -3060,51 +2644,6 @@ export default function App() {
       .catch(() => { /* silently ignore */ });
   }, [sheets]);
 
-  // ── Live-compute EOB formula cells ───────────────────────────────────────────
-  // S12 = SUM of delivery rows; S19 = S8 + S12 − S16; X20 mirrors S12; X22 mirrors S19
-  const prevEobSig = useRef("");
-  useEffect(() => {
-    if (sheets.length === 0) return;
-    const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
-    if (eobIdx < 0) return;
-
-    const eobEdits = edits[eobIdx] ?? new Map<string, string>();
-    const getNum = (r: number, c: number): number => {
-      const key = `${r},${c}`;
-      const e = eobEdits.get(key);
-      const v = e !== undefined ? e : String(sheets[eobIdx].cells.get(key)?.value ?? "");
-      return parseFloat(String(v).replace(/,/g, "")) || 0;
-    };
-
-    // Sum all delivery tonnes columns (D=3, I=8, M=12, Q=16) for data rows 6–35
-    let totalDelivered = 0;
-    for (let r = 6; r <= 35; r++) {
-      totalDelivered += getNum(r, 3) + getNum(r, 8) + getNum(r, 12) + getNum(r, 16);
-    }
-    const lastBatchLeft = getNum(7, 18);   // S8  – Last Batch Feed Left (manual)
-    const feedLeftNow   = getNum(15, 18);  // S16 – Feed Left This Batch (manual)
-    const feedUsed      = lastBatchLeft + totalDelivered - feedLeftNow; // S19
-
-    const computed: Record<string, string> = {
-      "11,18": String(Math.round(totalDelivered)), // S12 – Total Feed Purchased
-      "18,18": String(Math.round(feedUsed)),        // S19 – Feed Used
-      "19,23": String(Math.round(totalDelivered)), // X20 – Feed Delivered (mirror S12)
-      "21,23": String(Math.round(feedUsed)),        // X22 – Total Feed Use (mirror S19)
-    };
-
-    const sig = JSON.stringify(computed);
-    if (sig === prevEobSig.current) return;
-    prevEobSig.current = sig;
-
-    setEdits(prev => {
-      const next = [...prev];
-      const m = new Map(next[eobIdx] ?? []);
-      Object.entries(computed).forEach(([k, v]) => m.set(k, v));
-      next[eobIdx] = m;
-      return next;
-    });
-  }, [sheets, edits]);
-
   const handleEdit = useCallback((sheetIdx: number, key: string, value: string) => {
     setEdits((prev) => {
       const next = [...prev];
@@ -3116,24 +2655,15 @@ export default function App() {
       next[sheetIdx] = recalculated;
       return next;
     });
+    setHasChanges(true);
   }, [sheets]);
 
   const resetForNewBatch = async () => {
-    const currentBatch = batchNumCacheRef.current;
-    const suggestedNext = currentBatch > 0 ? String(currentBatch + 1) : "";
-    const batchInput = window.prompt(
-      "Start New Batch?\n\nThis will clear ALL delivery and silo reading records and reset the spreadsheet.\n\nEnter the new batch number (or leave blank to skip numbering):",
-      suggestedNext
-    );
-    if (batchInput === null) return; // user cancelled
+    if (!confirm(
+      "Start New Batch?\n\nThis will clear ALL delivery and silo reading records from the app, and reset the spreadsheet to its base state.\n\nThis cannot be undone."
+    )) return;
     try {
       await fetch("/api/batch/reset", { method: "DELETE" });
-      // Fetch and store the new batch version so Silo Tracker syncs on next load
-      const vRes = await fetch(`${BASE}api/batch/version`);
-      if (vRes.ok) {
-        const vData = await vRes.json() as { version: string | null };
-        if (vData.version) localStorage.setItem("silo-batch-version", vData.version);
-      }
     } catch {
       // best effort — still clear locally even if API fails
     }
@@ -3212,26 +2742,7 @@ export default function App() {
     });
 
     setEdits(newEdits);
-
-    // Clear Batch Results catch data so it resets cleanly
-    // Flag prevents the seeding effect re-populating catches from the xlsx on remount
-    localStorage.setItem("silo-batch-new", "1");
-    localStorage.removeItem("silo-batch-catches");
-    localStorage.removeItem("silo-batch-farm-name");
-    // Clear per-shed morts & culls daily log
-    localStorage.removeItem("silo-morts-log");
-    localStorage.removeItem("silo-culls-log");
-    localStorage.removeItem(EDITS_KEY);
-    // Save the batch number the user typed (or clear if left blank)
-    const nextBatch = parseInt(batchInput.trim(), 10);
-    if (!isNaN(nextBatch) && nextBatch > 0) {
-      localStorage.setItem("silo-batch-num", String(nextBatch));
-      batchNumCacheRef.current = nextBatch;
-    } else {
-      localStorage.removeItem("silo-batch-num");
-      batchNumCacheRef.current = 0;
-    }
-    setBatchKey(k => k + 1);
+    setHasChanges(false);
   };
 
   const downloadFile = async () => {
@@ -3261,13 +2772,14 @@ export default function App() {
     a.download = "feed-program.xlsx";
     a.click();
     URL.revokeObjectURL(url);
+    setHasChanges(false);
   };
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-green-50">
       <div className="text-center">
         <div className="w-10 h-10 border-4 border-green-700 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-green-800 font-semibold">Loading Feed Mate…</p>
+        <p className="text-green-800 font-semibold">Loading Feed Program…</p>
       </div>
     </div>
   );
@@ -3284,11 +2796,9 @@ export default function App() {
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-zinc-900">
       {/* Header */}
       <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
-        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Mate</span>
+        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
         <div className="ml-auto flex items-center gap-2">
-          {autoSaved && (
-            <span className="text-green-300 text-xs font-semibold transition-opacity duration-500">✓ Saved</span>
-          )}
+          {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
           <button
             onClick={resetForNewBatch}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
@@ -3298,9 +2808,10 @@ export default function App() {
           </button>
           <button
             onClick={downloadFile}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors bg-[#2d8653] hover:bg-[#1a5c36] text-white"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors"
+            style={{ background: hasChanges ? "#f59e0b" : "#2d8653", color: hasChanges ? "#000" : "#fff" }}
           >
-            ⬇ Download
+            ⬇ Save & Download
           </button>
           <button
             onClick={() => {
@@ -3322,17 +2833,7 @@ export default function App() {
 
       {/* Hint bar */}
       <div className="bg-[#e8f5ee] dark:bg-zinc-800 border-b border-green-200 dark:border-zinc-700 px-4 py-1 text-xs text-green-800 dark:text-green-300 shrink-0">
-        <span>Click a cell to select · </span>
-        <span>Type any number to edit instantly · </span>
-        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Tab</kbd><span>/</span>
-        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">↑↓←→</kbd>
-        <span> to move · </span>
-        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd>
-        <span> to confirm · </span>
-        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Del</kbd>
-        <span> to clear · </span>
-        <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Esc</kbd>
-        <span> to deselect</span>
+        Double-click any cell to edit. Press <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd> or click away to confirm.
       </div>
 
       {/* Sheet tabs */}
@@ -3440,17 +2941,15 @@ export default function App() {
           </div>
         ) : activeView === "morts" ? (
           <div className="flex-1 overflow-auto">
-            <MortsView key={batchKey} sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
+            <MortsView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
           </div>
         ) : activeView === "batchResults" ? (
           <div className="flex-1 overflow-auto">
             <BatchResultsView
-              key={batchKey}
               sheets={sheets}
               edits={edits}
               farmConfig={farmConfig}
               shedPlacement={shedPlacement}
-              onBatchNum={(n) => { batchNumCacheRef.current = n; }}
               onEobCatch={(shedNum, totalCaught) => {
                 const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
                 if (eobIdx < 0) return;
@@ -3466,7 +2965,7 @@ export default function App() {
           const activeEdits = edits[active] ?? new Map();
           return (
             <>
-              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} />}
+              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <div className="flex-1 overflow-auto">
                 <SheetView
