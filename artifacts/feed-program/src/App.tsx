@@ -2685,10 +2685,17 @@ export default function App() {
         m.set("3,2", "");
         m.set("4,2", "");
 
+        // Cream totals row (0-based r=11) — zero the starting Feed On Hand & Silo Total
+        // so the cascade in data rows begins from zero for the new batch
+        m.set("11,8",  "0"); // col I – Feed On Hand (starting point for cascade)
+        m.set("11,9",  "0"); // col J – Silo Total
+
         // Data rows 13–72 (0-based 12–71):
         for (let r = 12; r <= 71; r++) {
           m.set(`${r},4`,  ""); // col E – Feed Ordered
           m.set(`${r},5`,  ""); // col F – Silo (letter)
+          m.set(`${r},8`,  ""); // col I – Feed On Hand
+          m.set(`${r},9`,  ""); // col J – Silo Total
           m.set(`${r},10`, ""); // col K – Silo A
           m.set(`${r},11`, ""); // col L – Silo B
           m.set(`${r},12`, ""); // col M – Silo C
