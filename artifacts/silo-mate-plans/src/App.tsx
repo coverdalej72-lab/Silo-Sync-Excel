@@ -536,7 +536,7 @@ export default function App() {
             marginBottom: 20,
             letterSpacing: "0.05em",
           }}>
-            🐔 Built for Australian Broiler Growers
+            🐔 Built for Poultry Producers
           </div>
           <h1 style={{
             fontSize: "clamp(32px, 6vw, 52px)",
