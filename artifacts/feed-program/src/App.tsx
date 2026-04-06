@@ -812,10 +812,10 @@ function SheetView({
                   cellBg = "#fff8e1";             // today gold
                 } else if (isShedData && isWeekend) {
                   cellBg = "#f0f4f0";             // weekend gray-green
-                } else if (c === COL_E || c === 5) {
-                  cellBg = null;
+                } else if (c === 5) {
+                  cellBg = null;             // strip SILO column background
                 } else {
-                  cellBg = info.bgColor;
+                  cellBg = info.bgColor;     // keep Excel fill — yellow on FEED ORDERED delivery days etc.
                 }
 
                 // Text colour — always black for non-header cells in shed sheets (strip Excel purple etc.)
