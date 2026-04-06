@@ -1098,8 +1098,8 @@ function PlacementDateField({ value, onSave }: { value: string; onSave: (v: stri
         onChange={e => onSave(fromInputVal(e.target.value))}
         style={{
           flex: 1, fontSize: 13, border: "2px solid #1a5c36", borderRadius: 4,
-          padding: "3px 7px", background: "#f5f5f5", cursor: "pointer",
-          outline: "none", minHeight: 22, minWidth: 0,
+          padding: "3px 7px", background: "#fff", color: "#111", cursor: "pointer",
+          outline: "none", minHeight: 22, minWidth: 0, colorScheme: "light",
         }}
       />
     </div>
