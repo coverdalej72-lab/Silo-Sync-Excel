@@ -674,11 +674,18 @@ function SheetView({
                   cellBg = info.bgColor;
                 }
 
+                // If a cell's font colour is white but the background is white/light,
+                // the text is invisible — clamp it to black.
+                const safeFontColor = (fc: string | undefined): string => {
+                  if (!fc) return "#000";
+                  const fcl = fc.toLowerCase().replace(/\s/g, "");
+                  return (fcl === "#ffffff" || fcl === "#fff" || fcl === "white") ? "#000" : fc;
+                };
                 const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
                   : isFeedRunOut
                   ? "#ffffff"
-                  : (info.fontColor ?? "#000");
+                  : safeFontColor(info.fontColor);
 
                 const borderStyle = isAnyHeader
                   ? "1px solid rgba(255,255,255,0.15)"
@@ -737,7 +744,7 @@ function SheetView({
                         }}
                         style={{
                           width: "100%", height: "100%", border: "none", outline: "none",
-                          background: cellBg ?? "#fff", color: info.fontColor ?? "#000",
+                          background: cellBg ?? "#fff", color: safeFontColor(info.fontColor),
                           fontWeight: info.bold ? "bold" : "normal",
                           fontSize: fs, fontFamily: "Calibri,sans-serif",
                           padding: "1px 3px", boxSizing: "border-box",
