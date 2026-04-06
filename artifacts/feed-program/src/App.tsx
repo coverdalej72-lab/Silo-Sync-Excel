@@ -676,6 +676,30 @@ function SheetView({
     return max;
   }, [cells, edits, isShedSheet, effectiveStart]);
 
+  // Phase allocation totals (from shed info rows 1-4, col 7)
+  const allocTotals = useMemo(() => {
+    if (!isShedSheet) return { str: 0, gwr: 0, fin: 0, wdw: 0 };
+    const n = (r: number, c: number) => {
+      const v = edits.get(`${r},${c}`) ?? cells.get(`${r},${c}`)?.value ?? "0";
+      return parseFloat(String(v).replace(/,/g, "")) || 0;
+    };
+    return { str: n(1, 7), gwr: n(2, 7), fin: n(3, 7), wdw: n(4, 7) };
+  }, [cells, edits, isShedSheet]);
+
+  // Cumulative FEED USAGE per data row — used to colour-code FEED ALLOC by phase
+  const rowCumUsage = useMemo(() => {
+    if (!isShedSheet) return new Map<number, number>();
+    const map = new Map<number, number>();
+    let cum = 0;
+    for (let r = 12; r <= 71; r++) {
+      const key = `${r},${COL_H}`;
+      const v = edits.get(key) ?? cells.get(key)?.value ?? "0";
+      cum += parseFloat(String(v).replace(/,/g, "")) || 0;
+      map.set(r, cum);
+    }
+    return map;
+  }, [cells, edits, isShedSheet]);
+
   // Trim empty trailing columns — only consider visible rows (r >= effectiveStart)
   const displayMaxCol = useMemo(() => {
     let last = minCol;
@@ -907,8 +931,22 @@ function SheetView({
                   cellBg = "#fff8e1";             // today gold
                 } else if (isShedData && isWeekend) {
                   cellBg = "#f0f4f0";             // weekend gray-green
-                } else if (c === COL_E || c === 5 || (c === COL_I && isShedData)) {
-                  cellBg = null;             // strip FEED ORDERED yellow + SILO + FOH Excel fills (FOH uses computed gradient)
+                } else if (c === COL_E || (c === COL_I && isShedData)) {
+                  cellBg = null;             // strip FEED ORDERED + FOH Excel fills (FOH uses computed gradient)
+                } else if (c === 5 && isShedData) {
+                  cellBg = "#EAF1DD";        // SILO: light green (matches real Excel fill)
+                } else if (c === COL_G && isShedData) {
+                  // Phase-based colour for FEED ALLOC based on cumulative feed usage
+                  const cum = rowCumUsage.get(r) ?? 0;
+                  const { str, gwr, fin } = allocTotals;
+                  if (str > 0 || gwr > 0 || fin > 0) {
+                    if (cum <= str) cellBg = "#D6E3BC";              // STR — pale green
+                    else if (cum <= str + gwr) cellBg = "#DAEEF3";   // GWR — pale blue
+                    else if (cum <= str + gwr + fin) cellBg = "#FDE9D9"; // FIN — pale peach
+                    else cellBg = "#FFF5C0";                         // WDW — pale gold
+                  } else {
+                    cellBg = info.bgColor;
+                  }
                 } else {
                   cellBg = info.bgColor;
                 }
