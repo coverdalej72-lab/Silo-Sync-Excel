@@ -84,11 +84,6 @@ const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 // Cobb 500 grams per bird per day (day 1 → day 54)
 const COBB500_GRAMS = [22,24,26,28,30,32,34,36,40,45,50,55,60,65,74,75,80,87,93,97,103,107,113,118,122,128,134,139,140,142,149,153,158,163,165,168,171,174,176,178,180,181,188,190,192,193,194,195,196,197,197,197,198,197];
 
-const MONTH_NAMES: Record<string, number> = {
-  january:1,february:2,march:3,april:4,may:5,june:6,
-  july:7,august:8,september:9,october:10,november:11,december:12,
-  jan:1,feb:2,mar:3,apr:4,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12,
-};
 function parseDateInput(str: string): Date | null {
   if (!str) return null;
   // DD/MM/YYYY or D/M/YYYY
@@ -97,18 +92,9 @@ function parseDateInput(str: string): Date | null {
   // YYYY-MM-DD (ISO)
   const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]));
-  // "Thursday 26 March 2026" or "26 March 2026" — day-name optional, day before month
-  const nat = str.match(/(?:(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+)?(\d{1,2})\s+([a-z]+)\s+(\d{4})/i);
-  if (nat) {
-    const mo = MONTH_NAMES[nat[2].toLowerCase()];
-    if (mo) return new Date(parseInt(nat[3]), mo - 1, parseInt(nat[1]));
-  }
-  // "March 26, 2026" or "26 March, 2026"
-  const natUs = str.match(/([a-z]+)\s+(\d{1,2}),?\s+(\d{4})/i);
-  if (natUs) {
-    const mo = MONTH_NAMES[natUs[1].toLowerCase()];
-    if (mo) return new Date(parseInt(natUs[3]), mo - 1, parseInt(natUs[2]));
-  }
+  // MM/DD/YYYY (US, fallback)
+  const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mdy) return new Date(parseInt(mdy[3]), parseInt(mdy[1]) - 1, parseInt(mdy[2]));
   // Natural language fallback
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
@@ -133,47 +119,18 @@ function recalculate(
     newEdits.set(`${r},${c}`, String(Math.round(val * 100) / 100));
   };
 
-  // ── Bird count → allocation headers + daily feed usage ──
-  // Handles: total birds cell (r=1,c=2) OR individual shed cells (r=3,c=2 / r=4,c=2)
-  if (triggeredCol === COL_C && (triggeredRow === 1 || triggeredRow === 3 || triggeredRow === 4)) {
-    let birds: number;
-    if (triggeredRow === 1) {
-      birds = getNum(1, COL_C);
-    } else {
-      // Individual shed counts changed — sum both sheds and update total cell
-      const bA = getNum(3, COL_C);
-      const bB = getNum(4, COL_C);
-      birds = bA + bB;
-      setNum(1, COL_C, birds);
-    }
-    const strAlloc = Math.round(birds * 0.325);
-    const gwrAlloc = Math.round(birds * 1.15);
-    const finAlloc = Math.round(birds * 1.7);
-    const wdwAlloc = Math.round(birds * 1.5);
-    const totalAlloc = strAlloc + gwrAlloc + finAlloc + wdwAlloc;
-    setNum(1, COL_H, strAlloc);   // STR ALL
-    setNum(2, COL_H, gwrAlloc);   // GWR ALL
-    setNum(3, COL_H, finAlloc);   // FIN ALL
-    setNum(4, COL_H, wdwAlloc);   // WDW ALL
+  // ── Bird count (C2, r=1, c=2) → allocation headers + daily feed usage ──
+  if (triggeredRow === 1 && triggeredCol === COL_C) {
+    const birds = getNum(1, COL_C);
+    setNum(1, COL_H, Math.round(birds * 0.325));   // STR ALL
+    setNum(2, COL_H, Math.round(birds * 1.15));    // GWR ALL
+    setNum(3, COL_H, Math.round(birds * 1.7));     // FIN ALL
+    setNum(4, COL_H, Math.round(birds * 1.5));     // WDW ALL
     // Cascade daily feed usage using Cobb 500 table: H = grams[age-1] × birds / 1000
     for (let r = 0; r <= maxRow; r++) {
       const age = parseInt(cells.get(`${r},0`)?.value ?? "");
       if (!isNaN(age) && age >= 1 && age <= COBB500_GRAMS.length) {
         setNum(r, COL_H, Math.round(COBB500_GRAMS[age - 1] * birds / 1000));
-      }
-    }
-    // Update FEED ALLOC seed (row 11, col G) = total batch budget (all phases)
-    // so the countdown stays positive and meaningful across the whole grow-out.
-    setNum(11, COL_G, totalAlloc);
-    let gRunning = totalAlloc;
-    for (let r = 12; r <= maxRow; r++) {
-      const e = getNum(r, COL_E);
-      if (e !== 0) {
-        gRunning = gRunning - e;
-        setNum(r, COL_G, gRunning);
-      } else {
-        // No delivery on this row — clear any stale FEED ALLOC value
-        newEdits.set(`${r},${COL_G}`, "");
       }
     }
     return newEdits;
@@ -199,17 +156,13 @@ function recalculate(
   // Only cascade for silo columns (K,L,M) or delivery (E) below
   if (![COL_K, COL_L, COL_M, COL_E, COL_J].includes(triggeredCol)) return newEdits;
 
-  // Cascade G (FEED ALLOC remaining) down when E (delivery) is edited.
-  // Only set G on rows that have an actual delivery — non-delivery rows stay blank.
+  // Cascade G (FEED ALLOC remaining) down when E (delivery) is edited
   if (triggeredCol === COL_E) {
-    let gRunning = getNum(triggeredRow - 1, COL_G);
     for (let r = triggeredRow; r <= maxRow; r++) {
+      const gPrev = getNum(r - 1, COL_G);
       const e = getNum(r, COL_E);
-      if (e !== 0) {
-        gRunning = gRunning - e;
-        setNum(r, COL_G, gRunning);
-      } else {
-        newEdits.set(`${r},${COL_G}`, "");
+      if (e !== 0 || cells.has(`${r},${COL_E}`)) {
+        setNum(r, COL_G, gPrev - e);
       }
     }
   }
@@ -544,137 +497,13 @@ function ShedInfoPanel({ sheet, edits, onEdit, onClearFeedDel }: { sheet: SheetP
         )}
         {onClearFeedDel && (
           <button
-            onClick={() => { if (window.confirm("Zero out FEED DEL and FEED ORDERED for ALL sheds?")) onClearFeedDel(); }}
-            title="Set all FEED DEL and FEED ORDERED values to 0"
+            onClick={() => { if (window.confirm("Zero out the entire FEED DEL column for this shed?")) onClearFeedDel(); }}
+            title="Set all FEED DEL values to 0"
             style={{ marginLeft: "auto", background: "rgba(220,38,38,0.18)", border: "1px solid rgba(220,38,38,0.5)", color: "#fca5a5", borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}
           >
-            ✕ Clear Deliveries
+            ✕ Clear Feed Delivery
           </button>
         )}
-      </div>
-    </div>
-  );
-}
-
-// ── EobCustomView ─────────────────────────────────────────────────────────
-function EobCustomView({ sheets, edits, handleEdit, eobIdx, farmConfig }: {
-  sheets: SheetParsed[];
-  edits: Map<string, string>[];
-  handleEdit: (si: number, key: string, val: string) => void;
-  eobIdx: number;
-  farmConfig: FarmConfigData;
-}) {
-  const getCell = (si: number, r: number, c: number) => {
-    const e = edits[si];
-    if (e?.has(`${r},${c}`)) return e.get(`${r},${c}`) ?? "";
-    return String(sheets[si]?.cells.get(`${r},${c}`)?.value ?? "");
-  };
-
-  let shedCount = 0;
-  const shedItems: { sheetIdx: number; shedGroupId: number }[] = [];
-  for (let i = 0; i < sheets.length; i++) {
-    const tabName = sheets[i].name.trim().toUpperCase();
-    if (tabName === "WEEKLY STOCK TAKE" || tabName === "CONSUMPTION GUIDE") continue;
-    if (tabName.includes("SHED")) {
-      const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
-      const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-      const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
-      if (groupActive) shedItems.push({ sheetIdx: i, shedGroupId });
-      shedCount++;
-    }
-  }
-
-  let grandBirds = 0, grandFeed = 0, grandCaught = 0, grandMorts = 0;
-
-  const rows = shedItems.map(({ sheetIdx, shedGroupId }) => {
-    const shed1Num = shedGroupId * 2 - 1;
-    const shed2Num = shedGroupId * 2;
-    const shed1Name    = getCell(sheetIdx, 3, 1) || `Shed ${shed1Num}`;
-    const shed2Name    = getCell(sheetIdx, 4, 1) || `Shed ${shed2Num}`;
-    const shed1BirdsRaw = getCell(sheetIdx, 3, 2);
-    const shed2BirdsRaw = getCell(sheetIdx, 4, 2);
-    const b1 = parseFloat(shed1BirdsRaw.replace(/,/g, "")) || 0;
-    const b2 = parseFloat(shed2BirdsRaw.replace(/,/g, "")) || 0;
-    const total = b1 + b2;
-
-    let feedTotal = 0;
-    for (let r = 12; r <= 71; r++) {
-      const f = parseFloat(getCell(sheetIdx, r, 4).replace(/,/g, ""));
-      if (!isNaN(f)) feedTotal += f;
-    }
-    const kgPerBird = total > 0 && feedTotal > 0 ? (feedTotal / total).toFixed(3) : "";
-
-    const caught1 = eobIdx >= 0 ? parseFloat(getCell(eobIdx, shed1Num + 3, 23).replace(/,/g, "")) || 0 : 0;
-    const caught2 = eobIdx >= 0 ? parseFloat(getCell(eobIdx, shed2Num + 3, 23).replace(/,/g, "")) || 0 : 0;
-    const morts1  = eobIdx >= 0 ? parseFloat(getCell(eobIdx, shed1Num + 3, 24).replace(/,/g, "")) || 0 : 0;
-    const morts2  = eobIdx >= 0 ? parseFloat(getCell(eobIdx, shed2Num + 3, 24).replace(/,/g, "")) || 0 : 0;
-    const caughtTotal = caught1 + caught2;
-    const mortsTotal  = morts1 + morts2;
-
-    grandBirds  += total;
-    grandFeed   += feedTotal;
-    grandCaught += caughtTotal;
-    grandMorts  += mortsTotal;
-
-    const shedLabel = getCell(sheetIdx, 0, 6) || `${shed1Num} & ${shed2Num}`;
-    return { sheetIdx, shedGroupId, shed1Num, shed2Num, shed1Name, shed2Name, shed1BirdsRaw, shed2BirdsRaw, total, feedTotal, kgPerBird, caughtTotal, mortsTotal, shedLabel };
-  });
-
-  const th: React.CSSProperties = { padding: "9px 12px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" as const, letterSpacing: 0.5, whiteSpace: "nowrap" as const };
-  const td: React.CSSProperties = { padding: "10px 12px", fontSize: 13 };
-
-  return (
-    <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
-          <thead>
-            <tr style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff" }}>
-              <th style={{ ...th, textAlign: "left" }}>Shed Group</th>
-              <th style={{ ...th, textAlign: "right" }}>Birds Placed A</th>
-              <th style={{ ...th, textAlign: "right" }}>Birds Placed B</th>
-              <th style={{ ...th, textAlign: "right", background: "rgba(0,0,0,0.15)" }}>Total Placed</th>
-              <th style={{ ...th, textAlign: "right" }}>Feed Ordered (kg)</th>
-              <th style={{ ...th, textAlign: "right", color: "#C9A227" }}>kg / Bird</th>
-              <th style={{ ...th, textAlign: "right" }}>Birds Caught</th>
-              <th style={{ ...th, textAlign: "right", color: "#fca5a5" }}>Morts</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ sheetIdx, shedGroupId, shed1Num, shed2Num, shed1Name, shed2Name, shed1BirdsRaw, shed2BirdsRaw, total, feedTotal, kgPerBird, caughtTotal, mortsTotal, shedLabel }, idx) => (
-              <tr key={shedGroupId} style={{ background: idx % 2 === 0 ? "#f7faf8" : "#fff", borderBottom: "1px solid #e0ece5" }}>
-                <td style={{ ...td, fontWeight: 700, color: "#1a5c36" }}>SHED {shedLabel}</td>
-                <td style={{ ...td, textAlign: "right" }}>
-                  <SummaryInputField label={shed1Name} value={shed1BirdsRaw} onSave={v => {
-                    handleEdit(sheetIdx, "3,2", v);
-                    if (eobIdx >= 0 && shed1Num <= 12) handleEdit(eobIdx, `${shed1Num + 3},22`, v);
-                  }} />
-                </td>
-                <td style={{ ...td, textAlign: "right" }}>
-                  <SummaryInputField label={shed2Name} value={shed2BirdsRaw} onSave={v => {
-                    handleEdit(sheetIdx, "4,2", v);
-                    if (eobIdx >= 0 && shed2Num <= 12) handleEdit(eobIdx, `${shed2Num + 3},22`, v);
-                  }} />
-                </td>
-                <td style={{ ...td, textAlign: "right", fontWeight: 700, background: "rgba(26,92,54,0.06)" }}>{total > 0 ? total.toLocaleString() : "—"}</td>
-                <td style={{ ...td, textAlign: "right" }}>{feedTotal > 0 ? feedTotal.toLocaleString() : "—"}</td>
-                <td style={{ ...td, textAlign: "right", fontWeight: 600, color: "#8b6a00" }}>{kgPerBird || "—"}</td>
-                <td style={{ ...td, textAlign: "right" }}>{caughtTotal > 0 ? caughtTotal.toLocaleString() : "—"}</td>
-                <td style={{ ...td, textAlign: "right", color: mortsTotal > 0 ? "#8b1a1a" : "#999" }}>{mortsTotal > 0 ? mortsTotal.toLocaleString() : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", fontWeight: 700 }}>
-              <td style={{ ...td, fontWeight: 800 }}>TOTALS</td>
-              <td colSpan={2} style={td} />
-              <td style={{ ...td, textAlign: "right", background: "rgba(0,0,0,0.15)" }}>{grandBirds > 0 ? grandBirds.toLocaleString() : "—"}</td>
-              <td style={{ ...td, textAlign: "right" }}>{grandFeed > 0 ? grandFeed.toLocaleString() : "—"}</td>
-              <td style={{ ...td, textAlign: "right", color: "#C9A227" }}>{grandBirds > 0 && grandFeed > 0 ? (grandFeed / grandBirds).toFixed(3) : "—"}</td>
-              <td style={{ ...td, textAlign: "right" }}>{grandCaught > 0 ? grandCaught.toLocaleString() : "—"}</td>
-              <td style={{ ...td, textAlign: "right" }}>{grandMorts > 0 ? grandMorts.toLocaleString() : "—"}</td>
-            </tr>
-          </tfoot>
-        </table>
       </div>
     </div>
   );
@@ -1131,8 +960,8 @@ function PlacementDateField({ value, onSave }: { value: string; onSave: (v: stri
         onChange={e => onSave(fromInputVal(e.target.value))}
         style={{
           flex: 1, fontSize: 13, border: "2px solid #1a5c36", borderRadius: 4,
-          padding: "3px 7px", background: "#fff", color: "#111", cursor: "pointer",
-          outline: "none", minHeight: 22, minWidth: 0, colorScheme: "light",
+          padding: "3px 7px", background: "#f5f5f5", cursor: "pointer",
+          outline: "none", minHeight: 22, minWidth: 0,
         }}
       />
     </div>
@@ -1442,15 +1271,6 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     }
   }
 
-  // Placement date — find the first active shed that has a parseable date set
-  const globalPlacement = (() => {
-    for (const { sheetIdx } of shedItems) {
-      const v = getCell(sheetIdx, 2, 2);
-      if (v && parseDateInput(v)) return v;
-    }
-    return shedItems.length > 0 ? getCell(shedItems[0].sheetIdx, 2, 2) : "";
-  })();
-
   let grandBirds = 0, grandFeed = 0;
   for (const { sheetIdx } of shedItems) {
     const b1 = parseFloat(getCell(sheetIdx, 3, 2).replace(/,/g, "")) || 0;
@@ -1467,19 +1287,6 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
       <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH SUMMARY</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 11, opacity: 0.8 }}>📅 Placement</span>
-          <input
-            type="date"
-            value={(() => { const d = parseDateInput(globalPlacement); if (!d) return ""; const mm = String(d.getMonth()+1).padStart(2,"0"); const dd = String(d.getDate()).padStart(2,"0"); return `${d.getFullYear()}-${mm}-${dd}`; })()}
-            onChange={e => {
-              const m = e.target.value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-              const v = m ? `${parseInt(m[3])}/${parseInt(m[2])}/${m[1]}` : e.target.value;
-              shedItems.forEach(({ sheetIdx }) => handleEdit(sheetIdx, "2,2", v));
-            }}
-            style={{ fontSize: 13, border: "2px solid #C9A227", borderRadius: 4, padding: "3px 7px", background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", outline: "none", colorScheme: "dark" }}
-          />
-        </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
             <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{grandBirds > 0 ? grandBirds.toLocaleString() : "—"}</div>
@@ -2911,42 +2718,8 @@ export default function App() {
         });
 
         setSheets(result);
-        // Preserve edits from localStorage; for new sheets pre-clear FEED DEL (col 3) which
-        // always carries Excel formula values that should not be shown as actual deliveries.
-        setEdits(prev => result.map((sheet, i) => {
-          const m = new Map<string, string>();
-          // Restore any saved edits from localStorage first
-          if (prev[i]) prev[i].forEach((v, k) => m.set(k, v));
-          // Then clear stale formula columns (overrides localStorage computed values).
-          // FEED DEL (col 3): Excel formula values that look like deliveries.
-          // FEED ALLOC (col 6): stale cached formula values — recomputed by cascade.
-          if (sheet.name.trim().toUpperCase().includes("SHED")) {
-            for (let r = 12; r <= 71; r++) {
-              m.set(`${r},3`, ""); // FEED DEL
-              m.set(`${r},6`, ""); // FEED ALLOC (will be recomputed from deliveries below)
-            }
-            // Re-cascade FEED ALLOC from any saved deliveries in FEED ORDERED (col 4).
-            // Seed from TOTAL batch budget (all phases) so the countdown stays positive
-            // across the whole grow-out, not just the STR phase.
-            const birdsStr = m.get("1,2") ?? sheet.cells.get("1,2")?.value ?? "0";
-            const birdsLoad = parseFloat(String(birdsStr).replace(/,/g, "")) || 0;
-            const totalAllocSeed = birdsLoad > 0
-              ? Math.round(birdsLoad * 0.325) + Math.round(birdsLoad * 1.15)
-                + Math.round(birdsLoad * 1.7)  + Math.round(birdsLoad * 1.5)
-              : parseFloat(m.get("11,6") ?? sheet.cells.get("11,6")?.value ?? "0") || 0;
-            m.set("11,6", String(totalAllocSeed)); // refresh seed row
-            let gRunning = totalAllocSeed;
-            for (let r = 12; r <= 71; r++) {
-              const eStr = m.get(`${r},4`) ?? sheet.cells.get(`${r},4`)?.value ?? "";
-              const e = parseFloat(String(eStr).replace(/,/g, "")) || 0;
-              if (e !== 0) {
-                gRunning = gRunning - e;
-                m.set(`${r},6`, String(Math.round(gRunning * 100) / 100));
-              }
-            }
-          }
-          return m;
-        }));
+        // Preserve any edits already loaded from localStorage; only expand the array if more sheets
+        setEdits(prev => result.map((_, i) => prev[i] ?? new Map()));
         setActive(startIdx);
         setLoading(false);
       })
@@ -2985,28 +2758,13 @@ export default function App() {
 
           const sheet = sheets[sheetIdx];
 
-          // Find the row where column B (index 1, the DATE column) matches today's date.
-          // Check BOTH original Excel cells AND edits — dates may have been filled by the
-          // placement date cascade (typed by user) and therefore only exist in edits.
+          // Find the row where column B (index 1, the DATE column) matches today's date
           let dateRow = -1;
           for (const [key, cell] of sheet.cells.entries()) {
             const parts = key.split(",");
             if (parseInt(parts[1]) === 1 && cell.value === today) {
               dateRow = parseInt(parts[0]);
               break;
-            }
-          }
-          if (dateRow === -1) {
-            // Fallback: check current edits for this sheet (dates from placement cascade)
-            const sheetEdits = edits[sheetIdx];
-            if (sheetEdits) {
-              for (const [key, val] of sheetEdits.entries()) {
-                const parts = key.split(",");
-                if (parseInt(parts[1]) === 1 && val === today) {
-                  dateRow = parseInt(parts[0]);
-                  break;
-                }
-              }
             }
           }
           if (dateRow === -1) continue;
@@ -3217,36 +2975,15 @@ export default function App() {
     });
   }, [sheets]);
 
-  const handleBatchEdit = useCallback((sheetIdx: number, entries: [string, string][], recalcTrigger?: { r: number; c: number }) => {
+  const handleBatchEdit = useCallback((sheetIdx: number, entries: [string, string][]) => {
     setEdits((prev) => {
       const next = [...prev];
       const m = new Map(next[sheetIdx]);
       entries.forEach(([key, val]) => m.set(key, val));
-      if (recalcTrigger) {
-        const sheet = sheets[sheetIdx];
-        next[sheetIdx] = sheet ? recalculate(sheet.cells, m, recalcTrigger.r, recalcTrigger.c, sheet.maxRow) : m;
-      } else {
-        next[sheetIdx] = m;
-      }
+      next[sheetIdx] = m;
       return next;
     });
-  }, [sheets]);
-
-  const handleClearAllDeliveries = useCallback(() => {
-    setEdits((prev) => {
-      const next = [...prev];
-      sheets.forEach((sheet, si) => {
-        if (!sheet.name.trim().toUpperCase().includes("SHED")) return;
-        const m = new Map(next[si]);
-        for (let r = 12; r <= 71; r++) {
-          m.set(`${r},3`, "");
-          m.set(`${r},4`, "");
-        }
-        next[si] = recalculate(sheet.cells, m, 12, 4, sheet.maxRow);
-      });
-      return next;
-    });
-  }, [sheets]);
+  }, []);
 
   const resetForNewBatch = async () => {
     const currentBatch = batchNumCacheRef.current;
@@ -3278,8 +3015,7 @@ export default function App() {
 
       // ── Shed sheets ─────────────────────────────────────────────────────────
       if (name.includes("SHED")) {
-        // Total birds (formula cell r1,c2) + placement date (r2,c2)
-        m.set("1,2", "");
+        // Placement date: row 3 (r2,c2)
         m.set("2,2", "");
         // Birds per shed: row 4 (r3,c2) and row 5 (r4,c2)
         m.set("3,2", "");
@@ -3287,9 +3023,7 @@ export default function App() {
 
         // Data rows 13–72 (0-based 12–71):
         for (let r = 12; r <= 71; r++) {
-          m.set(`${r},3`,  ""); // col D – Feed Delivered
           m.set(`${r},4`,  ""); // col E – Feed Ordered
-          m.set(`${r},6`,  ""); // col G – Feed Alloc (clear stale Excel formula values)
           m.set(`${r},10`, ""); // col K – Silo A
           m.set(`${r},11`, ""); // col L – Silo B
           m.set(`${r},12`, ""); // col M – Silo C
@@ -3589,7 +3323,7 @@ export default function App() {
           const activeEdits = edits[active] ?? new Map();
           return (
             <>
-              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} onClearFeedDel={handleClearAllDeliveries} />}
+              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} onClearFeedDel={() => { const entries: [string, string][] = []; for (let r = 12; r <= 71; r++) entries.push([`${r},3`, "0"]); handleBatchEdit(active, entries); }} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <div className="flex-1 overflow-auto">
                 <SheetView
