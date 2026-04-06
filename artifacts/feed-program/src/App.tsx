@@ -409,6 +409,22 @@ function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: M
     ? (totalFeedOrdered / totalBirdsNum).toFixed(3)
     : null;
 
+  // Live-compute Total Morts (sum of col 13 = CATCH MORTS, rows 12–71)
+  let totalMorts = 0;
+  for (let r = 12; r <= 71; r++) {
+    const raw = safeEdits.has(`${r},13`) ? safeEdits.get(`${r},13`)! : (cells.get(`${r},13`)?.value ?? "");
+    const n = parseFloat(String(raw).replace(/,/g, ""));
+    if (!isNaN(n)) totalMorts += n;
+  }
+
+  // Live-compute Birds Left (last non-empty value of col 14 = BIRDS LEFT, rows 12–71)
+  let birdsLeft = 0;
+  for (let r = 71; r >= 12; r--) {
+    const raw = safeEdits.has(`${r},14`) ? safeEdits.get(`${r},14`)! : (cells.get(`${r},14`)?.value ?? "");
+    const n = parseFloat(String(raw).replace(/,/g, ""));
+    if (!isNaN(n) && n > 0) { birdsLeft = n; break; }
+  }
+
   return (
     <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "14px 20px 12px", borderBottom: "3px solid #C9A227", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
       {/* Top row: shed badge + date + bird count */}
@@ -482,7 +498,7 @@ function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: M
           </div>
         ))}
       </div>
-      {/* Bottom row: feed totals */}
+      {/* Bottom row: feed + bird totals */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 11, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary:</div>
         <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
@@ -493,6 +509,18 @@ function ShedInfoPanel({ sheet, edits, onEdit }: { sheet: SheetParsed; edits?: M
           <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
             <span style={{ opacity: 0.75 }}>kg/Bird: </span>
             <strong>{kgPerBird}</strong>
+          </div>
+        )}
+        {totalMorts > 0 && (
+          <div style={{ background: "rgba(220,38,38,0.25)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
+            <span style={{ opacity: 0.75 }}>Total Morts: </span>
+            <strong>{fmt(String(totalMorts))}</strong>
+          </div>
+        )}
+        {birdsLeft > 0 && (
+          <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 5, padding: "3px 10px", fontSize: 12 }}>
+            <span style={{ opacity: 0.75 }}>Birds Left: </span>
+            <strong>{fmt(String(birdsLeft))}</strong>
           </div>
         )}
       </div>
