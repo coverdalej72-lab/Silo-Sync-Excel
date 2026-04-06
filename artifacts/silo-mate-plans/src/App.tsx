@@ -620,6 +620,64 @@ export default function App() {
         </div>
       </section>
 
+      {/* BATCH HISTORY FEATURE */}
+      <section style={{ background: "linear-gradient(135deg, #0f3d24 0%, #1a5c36 60%, #217346 100%)", padding: "72px 24px", color: "#fff" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(201,162,39,0.2)", border: "1px solid rgba(201,162,39,0.5)", borderRadius: 999, padding: "6px 20px", marginBottom: 18 }}>
+              <span style={{ fontSize: 18 }}>📈</span>
+              <span style={{ color: "#C9A227", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Batch History</span>
+            </div>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+              Every batch tracked.<br />
+              <span style={{ color: "#C9A227" }}>Every result compared.</span>
+            </h2>
+            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.75)", maxWidth: 560, margin: "0 auto", lineHeight: 1.7 }}>
+              Each time you start a new batch, your outgoing data is automatically saved and added to your history. See how this batch stacks up against the last six — at a glance.
+            </p>
+          </div>
+
+          {/* Metric Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16, marginBottom: 52 }}>
+            {[
+              { icon: "🐣", label: "Birds Placed",    desc: "Total birds in for each batch" },
+              { icon: "🌾", label: "Feed Ordered",     desc: "Total kg ordered per batch" },
+              { icon: "📉", label: "FCR",              desc: "Feed conversion ratio tracked over time" },
+              { icon: "✅", label: "CFCR",             desc: "Corrected FCR comparison batch to batch" },
+              { icon: "⚖️", label: "Cage Weight",      desc: "Average cage weight per batch" },
+              { icon: "💀", label: "Mortality %",      desc: "Mortality rate trends over batches" },
+            ].map(({ icon, label, desc }) => (
+              <div key={label} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 14, padding: "20px 16px", textAlign: "center", backdropFilter: "blur(6px)" }}>
+                <div style={{ fontSize: 34, marginBottom: 10 }}>{icon}</div>
+                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 6, color: "#fff" }}>{label}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.5 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Mini bar chart illustration */}
+          <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", padding: "28px 32px", maxWidth: 680, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <div style={{ background: "#C9A227", borderRadius: 6, padding: "3px 12px", fontWeight: 800, fontSize: 12, color: "#000", letterSpacing: "0.05em" }}>BATCH HISTORY</div>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Last 6 batches — Birds Placed</span>
+            </div>
+            {/* Fake bar chart */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 80 }}>
+              {[55, 72, 68, 85, 78, 100].map((pct, i) => (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: "100%", background: i === 5 ? "#C9A227" : "rgba(255,255,255,0.25)", borderRadius: "4px 4px 0 0", height: `${pct}%`, transition: "height 0.3s" }} />
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>#{115 + i}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)", fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+              📊 Bar charts for every metric — updated automatically at each new batch
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* PRICING */}
       <section id="pricing" style={{ padding: "72px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
