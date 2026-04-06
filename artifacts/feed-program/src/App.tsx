@@ -497,7 +497,7 @@ function ShedInfoPanel({ sheet, edits, onEdit, onClearFeedDel }: { sheet: SheetP
         )}
         {onClearFeedDel && (
           <button
-            onClick={() => { if (window.confirm("Zero out FEED DEL and FEED ORDERED for all rows on this shed?")) onClearFeedDel(); }}
+            onClick={() => { if (window.confirm("Zero out FEED DEL and FEED ORDERED for ALL sheds?")) onClearFeedDel(); }}
             title="Set all FEED DEL and FEED ORDERED values to 0"
             style={{ marginLeft: "auto", background: "rgba(220,38,38,0.18)", border: "1px solid rgba(220,38,38,0.5)", color: "#fca5a5", borderRadius: 5, padding: "3px 10px", fontSize: 11, cursor: "pointer", whiteSpace: "nowrap" }}
           >
@@ -2990,6 +2990,22 @@ export default function App() {
     });
   }, [sheets]);
 
+  const handleClearAllDeliveries = useCallback(() => {
+    setEdits((prev) => {
+      const next = [...prev];
+      sheets.forEach((sheet, si) => {
+        if (!sheet.name.trim().toUpperCase().includes("SHED")) return;
+        const m = new Map(next[si]);
+        for (let r = 12; r <= 71; r++) {
+          m.set(`${r},3`, "");
+          m.set(`${r},4`, "");
+        }
+        next[si] = recalculate(sheet.cells, m, 12, 4, sheet.maxRow);
+      });
+      return next;
+    });
+  }, [sheets]);
+
   const resetForNewBatch = async () => {
     const currentBatch = batchNumCacheRef.current;
     const suggestedNext = currentBatch > 0 ? String(currentBatch + 1) : "";
@@ -3329,7 +3345,7 @@ export default function App() {
           const activeEdits = edits[active] ?? new Map();
           return (
             <>
-              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} onClearFeedDel={() => { const entries: [string, string][] = []; for (let r = 12; r <= 71; r++) { entries.push([`${r},3`, "0"]); entries.push([`${r},4`, "0"]); } handleBatchEdit(active, entries, { r: 12, c: 4 }); }} />}
+              {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} onEdit={(key, val) => handleEdit(active, key, val)} onClearFeedDel={handleClearAllDeliveries} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <div className="flex-1 overflow-auto">
                 <SheetView
