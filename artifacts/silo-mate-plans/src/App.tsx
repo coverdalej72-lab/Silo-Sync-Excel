@@ -539,6 +539,127 @@ export default function App() {
         </div>
       </section>
 
+      {/* GIVING BACK */}
+      <section style={{
+        background: "#fff",
+        borderTop: "1px solid #e5e7eb",
+        padding: "72px 24px",
+      }}>
+        <div style={{ maxWidth: 860, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>❤️</div>
+            <h2 style={{
+              fontSize: "clamp(24px, 4vw, 36px)",
+              fontWeight: 900,
+              color: "#111827",
+              marginBottom: 14,
+              letterSpacing: "-0.03em",
+            }}>
+              Giving back to the farming community
+            </h2>
+            <p style={{ color: "#6b7280", fontSize: 16, lineHeight: 1.65, maxWidth: 580, margin: "0 auto" }}>
+              For every active Silo Mate subscription, <strong style={{ color: GREEN }}>$1 per month</strong> goes directly to{" "}
+              <strong>Rural Aid Australia</strong> — an organisation that supports Aussie farmers
+              battling drought, floods, and financial hardship.
+            </p>
+          </div>
+
+          <div style={{
+            display: "flex",
+            gap: 24,
+            flexWrap: "wrap",
+            justifyContent: "center",
+            alignItems: "stretch",
+          }}>
+            {/* Charity card */}
+            <div style={{
+              flex: "1 1 320px",
+              maxWidth: 420,
+              border: "2px solid #e5e7eb",
+              borderRadius: 16,
+              padding: "28px 28px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 36 }}>🌾</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 18, color: "#111827" }}>Rural Aid Australia</div>
+                  <div style={{ fontSize: 13, color: "#6b7280" }}>ruralaid.org.au</div>
+                </div>
+              </div>
+              <p style={{ fontSize: 14, color: "#374151", lineHeight: 1.7 }}>
+                Rural Aid provides practical and emotional support to Australian farmers in need.
+                From drought relief fodder to financial counselling and mental health support —
+                they are there when farming families need it most.
+              </p>
+              <div style={{
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                borderRadius: 10,
+                padding: "12px 16px",
+                fontSize: 14,
+                color: GREEN,
+                fontWeight: 600,
+              }}>
+                🤝 Silo Mate donates every quarter — we hand over a cheque in person and share the moment publicly so you can see exactly where your support goes.
+              </div>
+              <a
+                href="https://www.ruralaid.org.au/donate/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "block",
+                  textAlign: "center",
+                  background: GREEN,
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  padding: "13px 0",
+                  borderRadius: 10,
+                  textDecoration: "none",
+                  marginTop: 4,
+                }}
+              >
+                💚 Donate Directly to Rural Aid
+              </a>
+            </div>
+
+            {/* How it works card */}
+            <div style={{
+              flex: "1 1 300px",
+              maxWidth: 380,
+              background: `linear-gradient(135deg, ${GREEN}08 0%, ${GOLD}08 100%)`,
+              border: `2px solid ${GREEN}22`,
+              borderRadius: 16,
+              padding: "28px 28px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
+            }}>
+              <div style={{ fontWeight: 800, fontSize: 17, color: "#111827" }}>How it works</div>
+              {[
+                { icon: "📱", text: "You subscribe to any Silo Mate plan" },
+                { icon: "💰", text: "$1 from your monthly fee is set aside for charity" },
+                { icon: "📅", text: "Every 3 months we total it up and donate the full amount" },
+                { icon: "🎥", text: "We film the cheque handover and post it publicly — full transparency" },
+                { icon: "🔁", text: "The more growers join, the bigger the donation grows" },
+              ].map(({ icon, text }) => (
+                <div key={text} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+                  <span style={{ fontSize: 14, color: "#374151", lineHeight: 1.6 }}>{text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p style={{ textAlign: "center", color: "#9ca3af", fontSize: 13, marginTop: 32 }}>
+            You can also donate directly to Rural Aid at any time using the button above — no Silo Mate subscription required.
+          </p>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section style={{ padding: "72px 24px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
