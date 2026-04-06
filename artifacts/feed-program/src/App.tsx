@@ -2689,6 +2689,7 @@ export default function App() {
 
         // Data rows 13–72 (0-based 12–71):
         for (let r = 12; r <= 71; r++) {
+          m.set(`${r},3`,  ""); // col D – Feed Del (hidden but must be cleared)
           m.set(`${r},4`,  ""); // col E – Feed Ordered
           m.set(`${r},5`,  ""); // col F – Silo (letter)
           m.set(`${r},8`,  ""); // col I – Feed On Hand
