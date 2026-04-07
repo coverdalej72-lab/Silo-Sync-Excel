@@ -615,6 +615,27 @@ function SheetView({
     return Math.min(last, maxCol);
   }, [cells, edits, effectiveStart, minCol, maxCol]);
 
+  // Compute cumulative birds remaining per shed data row (col 14 = BIRDS LEFT)
+  const birdsLeftByRow = useMemo(() => {
+    if (!isShedSheet) return new Map<number, number>();
+    const getNum = (r: number, c: number): number => {
+      const key = `${r},${c}`;
+      const raw = edits.has(key) ? edits.get(key)! : (cells.get(key)?.value ?? "");
+      return parseFloat(String(raw).replace(/,/g, "")) || 0;
+    };
+    // Total birds: try r=1,c=2 first; fall back to shed1 + shed2
+    let total = getNum(1, 2);
+    if (!total) total = getNum(3, 2) + getNum(4, 2);
+    if (!total) return new Map<number, number>();
+    const map = new Map<number, number>();
+    let cumCatch = 0;
+    for (let r = 12; r <= 71; r++) {
+      cumCatch += getNum(r, 13);
+      map.set(r, total - cumCatch);
+    }
+    return map;
+  }, [isShedSheet, cells, edits]);
+
   useEffect(() => {
     if (editingCell && inputRef.current) inputRef.current.focus();
   }, [editingCell]);
@@ -678,10 +699,15 @@ function SheetView({
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
                 const rawVal = edits.has(key) ? edits.get(key)! : info.value;
                 // Hide template date values sitting in header rows (e.g. "Monday 16 July 2018")
-                // Show "—" placeholder for empty CATCH/MORTS (col 13) and BIRDS LEFT (col 14) data cells
+                // Show "—" placeholder for empty CATCH/MORTS (col 13); compute BIRDS LEFT (col 14)
                 const isCatchOrBirds = isShedData && (c === 13 || c === 14);
+                const birdsLeft = (isShedData && c === 14 && birdsLeftByRow.has(r))
+                  ? birdsLeftByRow.get(r)!
+                  : null;
                 const displayVal = (isAnyHeader && info.isDateCell) ? ""
-                  : (isCatchOrBirds && (rawVal === "" || rawVal === "0")) ? "—"
+                  : (isShedData && c === 14 && birdsLeft !== null)
+                    ? birdsLeft.toLocaleString()
+                  : (isShedData && c === 13 && (rawVal === "" || rawVal === "0")) ? "—"
                   : rawVal;
                 const fs = isShedHeader ? (info.fontSize ?? 11) : (info.fontSize ?? 11);
 
