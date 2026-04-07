@@ -3018,6 +3018,11 @@ export default function App() {
       localStorage.removeItem(MORTS_LOG_KEY);
       localStorage.removeItem(CULLS_LOG_KEY);
 
+      // Clear Batch Results
+      setBatchResultsSummary(null);
+      localStorage.removeItem("silo-batch-num");
+      localStorage.removeItem("silo-batch-farm-name");
+
       setShowSettings(false);
     } catch (err) {
       alert(`Failed to import spreadsheet: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -3129,6 +3134,11 @@ export default function App() {
     setCullsLog(emptyLog);
     localStorage.removeItem(MORTS_LOG_KEY);
     localStorage.removeItem(CULLS_LOG_KEY);
+
+    // Clear Batch Results summary and batch identifiers
+    setBatchResultsSummary(null);
+    localStorage.removeItem("silo-batch-num");
+    localStorage.removeItem("silo-batch-farm-name");
 
     setHasChanges(false);
   };
