@@ -685,11 +685,14 @@ function SheetView({
 
                 // Columns E & F (FEED ORDERED / SILO) — strip XLSX yellow highlight
                 // Header rows override everything; otherwise strip E/F yellow
+                // Col 13 (CATCH/MORTS) & col 14 (BIRDS LEFT) — apply light blue bg on shed data rows
                 let cellBg: string | null;
                 if (isAnyHeader) {
                   cellBg = "#1a5c36";
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
+                } else if (isShedSheet && isShedData && (c === 13 || c === 14)) {
+                  cellBg = info.bgColor ?? "#DBEEF4";
                 } else {
                   cellBg = info.bgColor;
                 }
