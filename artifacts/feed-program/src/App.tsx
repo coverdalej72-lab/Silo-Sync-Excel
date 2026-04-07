@@ -2713,6 +2713,7 @@ export default function App() {
   const [active, setActive] = useState(0);
   const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history">(null);
   const [batchResultsSummary, setBatchResultsSummary] = useState<BatchSummary | null>(null);
+  const [batchKey, setBatchKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -3242,10 +3243,12 @@ export default function App() {
     localStorage.removeItem(MORTS_LOG_KEY);
     localStorage.removeItem(CULLS_LOG_KEY);
 
-    // Clear Batch Results summary and batch identifiers
+    // Clear Batch Results summary, catch data, and batch identifiers
     setBatchResultsSummary(null);
+    localStorage.removeItem("silo-batch-catches");
     localStorage.removeItem("silo-batch-num");
     localStorage.removeItem("silo-batch-farm-name");
+    setBatchKey(k => k + 1);
 
     setHasChanges(false);
   };
@@ -3540,6 +3543,7 @@ export default function App() {
         ) : activeView === "batchResults" ? (
           <div className="flex-1 overflow-auto">
             <BatchResultsView
+              key={batchKey}
               sheets={sheets}
               edits={edits}
               farmConfig={farmConfig}
