@@ -266,27 +266,35 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
 
         {/* Feed Summary card */}
         <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
-          overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", minWidth: 220 }}>
-          <div style={{ background: "#C9A227", padding: "8px 14px" }}>
+          overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", minWidth: 230 }}>
+          <div style={{ background: "#C9A227", padding: "8px 14px", display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ color: "#1a1a00", fontWeight: 700, fontSize: 13 }}>Feed Summary</span>
+            <span style={{ color: "rgba(0,0,0,0.45)", fontSize: 10 }}>click to edit</span>
           </div>
-          <div style={{ padding: "4px 0" }}>
-            {[
-              { label: "Last Batch Left",   val: lastBatchLeft,  accent: false },
-              { label: "Total Purchased",   val: totalPurchased, accent: false },
-              { label: "Total Used",        val: feedUsed,       accent: false },
-              { label: "Feed Left",         val: feedLeft,       accent: true  },
-            ].map(({ label, val, accent }) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between",
-                alignItems: "baseline", padding: "7px 14px", borderBottom: "1px solid #f1f5f9" }}>
-                <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500, whiteSpace: "nowrap" }}>{label}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: accent ? "#16a34a" : "#1e293b",
-                  marginLeft: 16 }}>
-                  {val ? `${fmtNum(val)} kg` : "—"}
-                </span>
-              </div>
-            ))}
-          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <tbody>
+              {([
+                { label: "Last Batch Left",  r: 7,  c: 18, accent: false },
+                { label: "Total Purchased",  r: 11, c: 18, accent: false },
+                { label: "Total Used",       r: 18, c: 18, accent: false },
+                { label: "Feed Left",        r: 15, c: 18, accent: true  },
+              ] as { label: string; r: number; c: number; accent: boolean }[]).map(({ label, r, c, accent }) => (
+                <tr key={label} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <td style={{ padding: "7px 14px", fontSize: 11, color: "#64748b", fontWeight: 500, whiteSpace: "nowrap" }}>
+                    {label}
+                  </td>
+                  <td style={{ padding: "2px 0", width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                      <span style={{ fontWeight: 700, color: accent ? "#16a34a" : "#1e293b", fontSize: 13, flex: 1 }}>
+                        <Cell r={r} c={c} align="right" muted />
+                      </span>
+                      <span style={{ padding: "0 10px 0 4px", fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>kg</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
       </div>
