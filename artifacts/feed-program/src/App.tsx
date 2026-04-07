@@ -3075,12 +3075,6 @@ export default function App() {
   };
 
   const importSpreadsheet = async (file: File) => {
-    if (!confirm(
-      `Import "${file.name}"?\n\nThis will replace the current feed program spreadsheet and reset all your edits.\n\nYour batch history will be preserved.\n\nThis cannot be undone.`
-    )) {
-      if (importFileRef.current) importFileRef.current.value = "";
-      return;
-    }
     try {
       // Load file + app style theme in parallel
       const [buf, styleData] = await Promise.all([
