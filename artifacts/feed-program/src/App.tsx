@@ -188,15 +188,25 @@ function recalculate(
 
   // Cascade J (SILO TOTAL) and I (FEED ON HAND) from triggeredRow down
   for (let r = triggeredRow; r <= maxRow; r++) {
-    const k = getNum(r, COL_K);
-    const l = getNum(r, COL_L);
-    const m = getNum(r, COL_M);
+    // Silo columns: only use app-entered edits, not template values from the spreadsheet.
+    // Template silo cells may contain leftover readings from a previous batch and would
+    // incorrectly reset FOH on those dates.
+    const getEditOnly = (row: number, col: number): number => {
+      const ev = newEdits.get(`${row},${col}`);
+      return ev !== undefined ? (parseFloat(ev) || 0) : 0;
+    };
+    const k = getEditOnly(r, COL_K);
+    const l = getEditOnly(r, COL_L);
+    const m = getEditOnly(r, COL_M);
     const j = k + l + m;
     // Only set J if at least one silo column exists on this row
     if (cells.has(`${r},${COL_K}`) || cells.has(`${r},${COL_L}`) || cells.has(`${r},${COL_M}`) || cells.has(`${r},${COL_J}`)) {
       setNum(r, COL_J, j);
       const h = getNum(r, COL_H);
-      const e = getNum(r, COL_E);
+      // Feed Ordered (col E): only use app-entered edits, not template spreadsheet values.
+      // Template values in this column can contain delivery data from a previous batch
+      // and would artificially inflate FOH even when no delivery has been recorded.
+      const e = getEditOnly(r, COL_E);
       const iPrev = getNum(r - 1, COL_I);
       const iNew = j > 0 ? j - h + e : iPrev - h + e;
       setNum(r, COL_I, iNew);
