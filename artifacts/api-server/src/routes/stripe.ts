@@ -129,6 +129,57 @@ router.post('/stripe/checkout', async (req, res) => {
   }
 });
 
+// One-time supporter / backer checkout
+// Body: { tier, email, name, successUrl, cancelUrl }
+router.post('/stripe/supporter-checkout', async (req, res) => {
+  try {
+    const { tier, email, name, successUrl, cancelUrl } = req.body;
+    if (!tier || !email) {
+      return res.status(400).json({ error: 'tier and email are required' });
+    }
+
+    const TIERS: Record<string, { name: string; description: string; amount: number }> = {
+      seed:    { name: 'Seed Supporter',     description: 'Help get the ideas off the ground — early backer of Poultry Mate.',          amount: 10000  },
+      backer:  { name: 'Project Backer',     description: 'A meaningful contribution to building the future of farm management tech.',  amount: 50000  },
+      founder: { name: 'Founding Supporter', description: 'Founding supporter of Poultry Mate — your name in our founding story.',      amount: 100000 },
+    };
+
+    const selected = TIERS[tier];
+    if (!selected) return res.status(400).json({ error: 'Invalid tier' });
+
+    const stripe = await getUncachableStripeClient();
+
+    const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      customer_email: email,
+      line_items: [{
+        price_data: {
+          currency: 'aud',
+          product_data: {
+            name: selected.name,
+            description: selected.description,
+          },
+          unit_amount: selected.amount,
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      metadata: {
+        supporter_tier: tier,
+        supporter_name: name || '',
+      },
+      success_url: successUrl || `${baseUrl}/plans/?supporter=success`,
+      cancel_url:  cancelUrl  || `${baseUrl}/plans/?supporter=cancel`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Manage subscription (customer portal)
 router.post('/stripe/portal', async (req, res) => {
   try {

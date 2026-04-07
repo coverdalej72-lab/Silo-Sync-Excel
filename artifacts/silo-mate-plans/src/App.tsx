@@ -1054,6 +1054,144 @@ function CheckoutModal({ plan, yearly, onClose }: {
   );
 }
 
+const SUPPORTER_TIERS = [
+  {
+    id: "seed",
+    name: "Seed Supporter",
+    icon: "🌱",
+    amount: 100,
+    colour: "#16a34a",
+    tagline: "Help plant the seed",
+    perks: [
+      "Name listed as a Seed Supporter",
+      "Lifetime access to Poultry Mate (once live)",
+      "Founding backer recognition",
+    ],
+  },
+  {
+    id: "backer",
+    name: "Project Backer",
+    icon: "🚜",
+    amount: 500,
+    colour: GOLD,
+    tagline: "Back the build",
+    featured: true,
+    perks: [
+      "Name listed as a Project Backer",
+      "Lifetime access to Poultry Mate (once live)",
+      "Founding backer recognition",
+      "Early access to new features",
+      "Direct input on feature roadmap",
+    ],
+  },
+  {
+    id: "founder",
+    name: "Founding Supporter",
+    icon: "🏆",
+    amount: 1000,
+    colour: "#dc2626",
+    tagline: "Be part of the founding story",
+    perks: [
+      "Name listed as a Founding Supporter",
+      "Lifetime access to Poultry Mate (once live)",
+      "Founding backer recognition",
+      "Early access to all new features",
+      "Direct input on feature roadmap",
+      "Personal thank-you call from the founder",
+    ],
+  },
+];
+
+function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIERS[0]; onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [name, setName]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  const handleCheckout = async () => {
+    if (!email.includes("@")) { setError("Please enter a valid email address."); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const domain = window.location.origin;
+      const resp = await fetch(`${domain}/api/stripe/supporter-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tier: tier.id,
+          email,
+          name,
+          successUrl: `${domain}/plans/?supporter=success`,
+          cancelUrl:  `${domain}/plans/?supporter=cancel`,
+        }),
+      });
+      const data = await resp.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error || "Something went wrong. Please try again.");
+      }
+    } catch {
+      setError("Network error — please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+    >
+      <div style={{ background: "#fff", borderRadius: 18, padding: "32px 28px", maxWidth: 420, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.18)" }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 40 }}>{tier.icon}</div>
+          <div style={{ fontWeight: 900, fontSize: 20, color: "#111", marginTop: 8 }}>{tier.name}</div>
+          <div style={{ fontWeight: 900, fontSize: 32, color: tier.colour, marginTop: 4 }}>${tier.amount.toLocaleString()} <span style={{ fontSize: 14, fontWeight: 600, color: "#6b7280" }}>AUD one-off</span></div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: 0.5 }}>Your Name (shown in credits)</label>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. John Smith"
+              style={{ width: "100%", marginTop: 4, padding: "10px 12px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 14, boxSizing: "border-box" }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: 0.5 }}>Email Address *</label>
+            <input
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              type="email"
+              style={{ width: "100%", marginTop: 4, padding: "10px 12px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 14, boxSizing: "border-box" }}
+            />
+          </div>
+        </div>
+
+        {error && <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#dc2626", fontSize: 13, marginBottom: 14 }}>{error}</div>}
+
+        <button
+          onClick={handleCheckout}
+          disabled={loading}
+          style={{ width: "100%", background: tier.colour, color: "#fff", fontWeight: 800, fontSize: 15, padding: "14px 0", borderRadius: 10, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1, marginBottom: 10 }}
+        >
+          {loading ? "Redirecting to payment…" : `Support with $${tier.amount.toLocaleString()}`}
+        </button>
+        <button onClick={onClose} style={{ width: "100%", background: "#f3f4f6", color: "#374151", fontWeight: 600, fontSize: 14, padding: "11px 0", borderRadius: 10, border: "none", cursor: "pointer" }}>
+          Cancel
+        </button>
+        <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 12, marginBottom: 0 }}>
+          Secure one-time payment via Stripe · No subscription created
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [yearly, setYearly] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
@@ -1062,6 +1200,7 @@ export default function App() {
   const [sponsors, setSponsors] = useState<Sponsor[]>(loadSponsors);
   const [checkoutPlan, setCheckoutPlan] = useState<typeof PLANS[0] | null>(null);
   const [showManagePortal, setShowManagePortal] = useState(false);
+  const [supporterTier, setSupporterTier] = useState<typeof SUPPORTER_TIERS[0] | null>(null);
 
   const updateSponsors = (list: Sponsor[]) => {
     saveSponsors(list);
@@ -1094,6 +1233,7 @@ export default function App() {
       {showAdminPanel && <SponsorAdminModal sponsors={sponsors} onChange={updateSponsors} onClose={() => setShowAdminPanel(false)} />}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} yearly={yearly} onClose={() => setCheckoutPlan(null)} />}
       {showManagePortal && <ManageSubscriptionModal onClose={() => setShowManagePortal(false)} />}
+      {supporterTier && <SupporterCheckoutModal tier={supporterTier} onClose={() => setSupporterTier(null)} />}
 
       {/* NAVBAR */}
       <nav style={{
@@ -1826,6 +1966,86 @@ export default function App() {
             </div>
           </div>
 
+        </div>
+      </section>
+
+      {/* SUPPORT THE PROJECT */}
+      <section style={{ background: "#fff", padding: "80px 24px", borderTop: "1px solid #e5e7eb" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <div style={{ display: "inline-block", background: "#fef9ec", border: `1.5px solid ${GOLD}`, borderRadius: 20, padding: "4px 16px", fontSize: 12, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>
+              Back the Build
+            </div>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 38px)", fontWeight: 900, color: "#111827", letterSpacing: "-0.03em", marginBottom: 14 }}>
+              Help bring these ideas to life
+            </h2>
+            <p style={{ fontSize: 16, color: "#6b7280", lineHeight: 1.7, maxWidth: 540, margin: "0 auto" }}>
+              A small group of people believed in this project early. A one-off contribution helps fund development and keeps the tools free for small growers who need them most.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center", marginBottom: 48 }}>
+            {SUPPORTER_TIERS.map(tier => (
+              <div
+                key={tier.id}
+                style={{
+                  flex: "1 1 260px",
+                  maxWidth: 300,
+                  background: "#fff",
+                  border: `2px solid ${tier.featured ? tier.colour : "#e5e7eb"}`,
+                  borderRadius: 18,
+                  padding: "28px 24px",
+                  boxShadow: tier.featured ? `0 8px 32px ${tier.colour}22` : "0 2px 8px rgba(0,0,0,0.06)",
+                  position: "relative",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                }}
+              >
+                {tier.featured && (
+                  <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: tier.colour, color: "#fff", fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", padding: "4px 14px", borderRadius: 20 }}>Most Popular</div>
+                )}
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 38 }}>{tier.icon}</div>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginTop: 8 }}>{tier.name}</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{tier.tagline}</div>
+                  <div style={{ fontWeight: 900, fontSize: 30, color: tier.colour, marginTop: 10 }}>
+                    ${tier.amount.toLocaleString()} <span style={{ fontSize: 13, fontWeight: 600, color: "#9ca3af" }}>AUD</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>one-off · no subscription</div>
+                </div>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                  {tier.perks.map(p => (
+                    <li key={p} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+                      <span style={{ color: tier.colour, fontWeight: 700, flexShrink: 0 }}>✓</span>{p}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => setSupporterTier(tier)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    background: tier.featured ? tier.colour : "transparent",
+                    color: tier.featured ? "#fff" : tier.colour,
+                    border: `2px solid ${tier.colour}`,
+                    borderRadius: 10,
+                    padding: "13px 0",
+                    fontWeight: 700,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    marginTop: "auto",
+                  }}
+                >
+                  Support with ${tier.amount.toLocaleString()}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
+            Payments are processed securely by Stripe · One-off contribution · No recurring charges
+          </p>
         </div>
       </section>
 
