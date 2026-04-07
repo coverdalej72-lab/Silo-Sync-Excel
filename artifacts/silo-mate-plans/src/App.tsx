@@ -1090,6 +1090,7 @@ export default function App() {
                 price: "$10/mo",
                 colour: "#16a34a",
                 perks: [
+                  "10% off your Poultry Mate subscription",
                   "Name or logo in app footer",
                   "Mentioned in our social media posts",
                   "Our genuine thanks 🙏",
@@ -1102,6 +1103,7 @@ export default function App() {
                 colour: GOLD,
                 featured: true,
                 perks: [
+                  "20% off your Poultry Mate subscription",
                   "Logo on Plans & Pricing page",
                   "Dedicated thank-you social post",
                   "Priority support response",
@@ -1114,6 +1116,7 @@ export default function App() {
                 price: "$50/mo",
                 colour: "#dc2626",
                 perks: [
+                  "30% off your Poultry Mate subscription",
                   "Featured banner across all pages",
                   "Company bio & backlink on site",
                   "Co-branding in app header",
