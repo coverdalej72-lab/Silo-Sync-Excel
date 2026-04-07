@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
+import { EndOfBatchContent } from "./components/EndOfBatchContent";
 
 function escapeXml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -3570,20 +3571,28 @@ export default function App() {
               {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
               <div className="flex-1 overflow-auto">
-                <SheetView
-                  sheet={current}
-                  sheetIdx={active}
-                  edits={activeEdits}
-                  onEdit={(key, val) => handleEdit(active, key, val)}
-                  editingCell={editingCell}
-                  setEditingCell={setEditingCell}
-                  startRow={isEob ? 3 : isShed ? 7 : undefined}
-                  isShedSheet={isShed}
-                  isEobSheet={isEob}
-                  mortsLog={mortsLog}
-                  cullsLog={cullsLog}
-                  showExtraShedCols={farmConfig.showExtraShedCols ?? false}
-                />
+                {isEob ? (
+                  <EndOfBatchContent
+                    sheet={current}
+                    edits={activeEdits}
+                    onEdit={(key, val) => handleEdit(active, key, val)}
+                  />
+                ) : (
+                  <SheetView
+                    sheet={current}
+                    sheetIdx={active}
+                    edits={activeEdits}
+                    onEdit={(key, val) => handleEdit(active, key, val)}
+                    editingCell={editingCell}
+                    setEditingCell={setEditingCell}
+                    startRow={isShed ? 7 : undefined}
+                    isShedSheet={isShed}
+                    isEobSheet={false}
+                    mortsLog={mortsLog}
+                    cullsLog={cullsLog}
+                    showExtraShedCols={farmConfig.showExtraShedCols ?? false}
+                  />
+                )}
               </div>
             </>
           );
