@@ -1855,62 +1855,6 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         </button>
       </div>
 
-      {/* Top stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(165px, 1fr))", gap: 12, marginBottom: 20 }}>
-        <div style={cardStyle("var(--pm-primary)")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--pm-primary)" }}>{totalPlaced > 0 ? totalPlaced.toLocaleString() : "—"}</div>
-          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Placed</div>
-        </div>
-        <div style={cardStyle("var(--pm-primary-mid)")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--pm-primary-mid)" }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</div>
-          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Caught</div>
-        </div>
-        <div style={cardStyle("#c0392b")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#c0392b" }}>{totalMorts > 0 ? totalMorts.toLocaleString() : "—"}</div>
-          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Total Morts</div>
-        </div>
-        <div style={cardStyle("#e67e22")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#e67e22" }}>{overallMortPct}</div>
-          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Mortality %</div>
-        </div>
-        {globalAveWgt > 0 && (
-          <div style={cardStyle("#8e44ad")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#8e44ad" }}>{globalAveWgt.toFixed(3)} kg</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
-          </div>
-        )}
-        {summary && summary.fcr > 0 && (
-          <div style={cardStyle("#2980b9")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr.toFixed(3)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
-          </div>
-        )}
-        {summary && summary.cfcr > 0 && (
-          <div style={cardStyle("#16a085")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr.toFixed(3)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
-          </div>
-        )}
-        {summary && summary.actualAge > 0 && (
-          <div style={cardStyle("#5b6fa6")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#5b6fa6" }}>{summary.actualAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Actual Age</div>
-          </div>
-        )}
-        {summary && summary.correctedAge > 0 && (
-          <div style={cardStyle("#7d6aa0")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#7d6aa0" }}>{summary.correctedAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
-          </div>
-        )}
-        {summary && summary.cage > 0 && (
-          <div style={cardStyle("#7f8c8d")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE Eff.</div>
-          </div>
-        )}
-      </div>
-
       {/* ── Shed Comparison Chart ────────────────────────────────── */}
       {(() => {
         // Mirror exactly the same shed list as the per-shed cards (activeShedNums / shedStats)
@@ -2009,6 +1953,62 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           </div>
         );
       })()}
+
+      {/* Top stat cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(165px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div style={cardStyle("var(--pm-primary)")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--pm-primary)" }}>{totalPlaced > 0 ? totalPlaced.toLocaleString() : "—"}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Placed</div>
+        </div>
+        <div style={cardStyle("var(--pm-primary-mid)")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--pm-primary-mid)" }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Caught</div>
+        </div>
+        <div style={cardStyle("#c0392b")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#c0392b" }}>{totalMorts > 0 ? totalMorts.toLocaleString() : "—"}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Total Morts</div>
+        </div>
+        <div style={cardStyle("#e67e22")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#e67e22" }}>{overallMortPct}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Mortality %</div>
+        </div>
+        {globalAveWgt > 0 && (
+          <div style={cardStyle("#8e44ad")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#8e44ad" }}>{globalAveWgt.toFixed(3)} kg</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
+          </div>
+        )}
+        {summary && summary.fcr > 0 && (
+          <div style={cardStyle("#2980b9")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
+          </div>
+        )}
+        {summary && summary.cfcr > 0 && (
+          <div style={cardStyle("#16a085")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
+          </div>
+        )}
+        {summary && summary.actualAge > 0 && (
+          <div style={cardStyle("#5b6fa6")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#5b6fa6" }}>{summary.actualAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Actual Age</div>
+          </div>
+        )}
+        {summary && summary.correctedAge > 0 && (
+          <div style={cardStyle("#7d6aa0")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#7d6aa0" }}>{summary.correctedAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
+          </div>
+        )}
+        {summary && summary.cage > 0 && (
+          <div style={cardStyle("#7f8c8d")}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE Eff.</div>
+          </div>
+        )}
+      </div>
 
       {/* Feed summary — live values from End of Batch sheet, fall back to xlsx */}
       {summary && (() => {
