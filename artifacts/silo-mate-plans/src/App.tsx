@@ -1087,7 +1087,7 @@ export default function App() {
               {
                 name: "Seedling Sponsor",
                 icon: "🌱",
-                price: "$25/mo",
+                price: "$10/mo",
                 colour: "#16a34a",
                 perks: [
                   "Name or logo in app footer",
@@ -1098,7 +1098,7 @@ export default function App() {
               {
                 name: "Flock Sponsor",
                 icon: "🐔",
-                price: "$75/mo",
+                price: "$25/mo",
                 colour: GOLD,
                 featured: true,
                 perks: [
@@ -1111,7 +1111,7 @@ export default function App() {
               {
                 name: "Gold Flock Sponsor",
                 icon: "🏆",
-                price: "$200/mo",
+                price: "$50/mo",
                 colour: "#dc2626",
                 perks: [
                   "Featured banner across all pages",
