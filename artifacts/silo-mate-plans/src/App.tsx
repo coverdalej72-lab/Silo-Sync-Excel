@@ -865,7 +865,81 @@ function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: b
   );
 }
 
-// ── Checkout modal ────────────────────────────────────────────────────────────
+// ── Manage subscription modal ─────────────────────────────────────────────────
+function ManageSubscriptionModal({ onClose }: { onClose: () => void }) {
+  const [email, setEmail]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  const handlePortal = async () => {
+    if (!email.includes("@")) { setError("Please enter a valid email address."); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const resp = await fetch(`${window.location.origin}/api/stripe/portal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, returnUrl: window.location.href }),
+      });
+      const data = await resp.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error || "No active subscription found for that email.");
+      }
+    } catch {
+      setError("Connection error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px 28px", width: "100%", maxWidth: 400, boxShadow: "0 24px 64px rgba(0,0,0,0.22)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <h2 style={{ margin: 0, fontWeight: 900, fontSize: 20, color: "#111" }}>⚙️ Manage Subscription</h2>
+            <p style={{ margin: "4px 0 0", color: "#6b7280", fontSize: 13 }}>Change plan, update billing, or cancel</p>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9ca3af" }}>×</button>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontWeight: 700, fontSize: 13, color: "#374151", display: "block", marginBottom: 6 }}>
+            Email address used when subscribing
+          </label>
+          <input
+            type="email"
+            value={email}
+            placeholder="you@example.com"
+            onChange={e => { setEmail(e.target.value); setError(""); }}
+            onKeyDown={e => e.key === "Enter" && handlePortal()}
+            autoFocus
+            style={{ width: "100%", border: `1.5px solid ${error ? "#dc2626" : "#e5e7eb"}`, borderRadius: 10, padding: "10px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+          />
+          {error && <p style={{ color: "#dc2626", fontSize: 12, margin: "4px 0 0" }}>{error}</p>}
+        </div>
+
+        <div style={{ background: "#f9fafb", borderRadius: 10, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
+          You'll be taken to Stripe's secure billing portal where you can upgrade, downgrade, update payment details, or cancel.
+        </div>
+
+        <button
+          onClick={handlePortal}
+          disabled={loading}
+          style={{ width: "100%", background: loading ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 800, fontSize: 15, padding: "13px 0", borderRadius: 12, border: "none", cursor: loading ? "not-allowed" : "pointer" }}
+        >
+          {loading ? "Opening portal…" : "Go to Billing Portal →"}
+        </button>
+        <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
+          Secure · Powered by Stripe
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function CheckoutModal({ plan, yearly, onClose }: {
   plan: typeof PLANS[0];
   yearly: boolean;
@@ -987,6 +1061,7 @@ export default function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [sponsors, setSponsors] = useState<Sponsor[]>(loadSponsors);
   const [checkoutPlan, setCheckoutPlan] = useState<typeof PLANS[0] | null>(null);
+  const [showManagePortal, setShowManagePortal] = useState(false);
 
   const updateSponsors = (list: Sponsor[]) => {
     saveSponsors(list);
@@ -1018,6 +1093,7 @@ export default function App() {
       {showSponsorReceipt && <SponsorReceiptModal onClose={() => setShowSponsorReceipt(false)} />}
       {showAdminPanel && <SponsorAdminModal sponsors={sponsors} onChange={updateSponsors} onClose={() => setShowAdminPanel(false)} />}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} yearly={yearly} onClose={() => setCheckoutPlan(null)} />}
+      {showManagePortal && <ManageSubscriptionModal onClose={() => setShowManagePortal(false)} />}
 
       {/* NAVBAR */}
       <nav style={{
@@ -1331,6 +1407,17 @@ export default function App() {
           <p style={{ textAlign: "center", color: "#9ca3af", fontSize: 13, marginTop: 32 }}>
             All prices in AUD. GST may apply. Yearly plans are billed as one annual payment.
           </p>
+
+          {/* Existing subscriber link */}
+          <div style={{ textAlign: "center", marginTop: 20 }}>
+            <span style={{ fontSize: 13, color: "#6b7280" }}>Already a subscriber? </span>
+            <button
+              onClick={() => setShowManagePortal(true)}
+              style={{ background: "none", border: "none", color: GREEN, fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+            >
+              Manage my subscription →
+            </button>
+          </div>
         </div>
       </section>
 
