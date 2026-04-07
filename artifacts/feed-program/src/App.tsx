@@ -2792,15 +2792,17 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
   const [weighIns, setWeighIns] = useState<WeighInData>(() => {
     try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) || "{}"); } catch { return {}; }
   });
-  const [shedBreeds, setShedBreeds] = useState<Record<number, string>>(() => {
+  const [shedBreeds, setShedBreeds] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem(FLOCK_BREEDS_KEY) || "{}"); } catch { return {}; }
   });
   const [targetAge, setTargetAge]   = useState(42);
   const [editingWI, setEditingWI]   = useState<{ sgId: number; age: number; val: string } | null>(null);
 
-  const getShedBreed = (sgId: number) => BREED_STANDARDS[shedBreeds[sgId] ?? "ross308"] ?? BREED_STANDARDS.ross308;
-  const setShedBreed = (sgId: number, key: string) => {
-    const next = { ...shedBreeds, [sgId]: key };
+  // Keys are "${sgId}-1" and "${sgId}-2" for individual sheds within a group
+  const getShedBreedKey = (sgId: number, slot: 1 | 2) => shedBreeds[`${sgId}-${slot}`] ?? "ross308";
+  const getShedBreedStd = (sgId: number, slot: 1 | 2) => BREED_STANDARDS[getShedBreedKey(sgId, slot)] ?? BREED_STANDARDS.ross308;
+  const setIndivBreed   = (sgId: number, slot: 1 | 2, key: string) => {
+    const next = { ...shedBreeds, [`${sgId}-${slot}`]: key };
     setShedBreeds(next);
     localStorage.setItem(FLOCK_BREEDS_KEY, JSON.stringify(next));
   };
