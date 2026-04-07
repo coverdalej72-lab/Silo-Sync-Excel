@@ -31,6 +31,14 @@
   --muted-foreground: 138 15% 45%;
   --app-font-sans: 'Calibri', 'Segoe UI', sans-serif;
   --radius: 0.375rem;
+
+  /* App theme defaults (Forest) — overridden by JS applyTheme() */
+  --pm-primary: #1a5c36;
+  --pm-primary-mid: #217346;
+  --pm-primary-pale: #e8f5ee;
+  --pm-primary-border: #c8e6d4;
+  --pm-primary-soft: #f0f7f3;
+  --pm-primary-dim: #1a5c3688;
 }
 
 .dark {

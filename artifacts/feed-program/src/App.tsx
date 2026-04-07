@@ -77,7 +77,28 @@ const COL_M = 12;  // Silo C
 const FARM_CONFIG_KEY = "silo-farm-config";
 
 interface FarmShedConfig { shedGroupId: number; active: boolean; silos: { letter: string }[] }
-interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean }
+interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean; theme?: string }
+
+interface AppTheme { id: string; name: string; primary: string; mid: string; pale: string; border: string; soft: string; dim: string }
+const APP_THEMES: AppTheme[] = [
+  { id: "forest",  name: "Forest",  primary: "#1a5c36", mid: "#217346", pale: "#e8f5ee", border: "#c8e6d4", soft: "#f0f7f3", dim: "#1a5c3688" },
+  { id: "ocean",   name: "Ocean",   primary: "#1a3d7a", mid: "#1e5fa6", pale: "#e8f0fa", border: "#b0cef0", soft: "#f0f4fa", dim: "#1a3d7a88" },
+  { id: "sunset",  name: "Sunset",  primary: "#7a3010", mid: "#a84520", pale: "#fdf0e8", border: "#f0c8a8", soft: "#fdf5f0", dim: "#7a301088" },
+  { id: "plum",    name: "Plum",    primary: "#4e1a6e", mid: "#6b2d9e", pale: "#f2e8fa", border: "#d0a8f0", soft: "#f6f0fa", dim: "#4e1a6e88" },
+  { id: "night",   name: "Night",   primary: "#1c2340", mid: "#2e3d6e", pale: "#e8eaf5", border: "#b0b8d8", soft: "#f0f1f8", dim: "#1c234088" },
+];
+function getTheme(id?: string): AppTheme { return APP_THEMES.find(t => t.id === id) ?? APP_THEMES[0]; }
+function applyTheme(t: AppTheme) {
+  const r = document.documentElement;
+  r.style.setProperty("--pm-primary", t.primary);
+  r.style.setProperty("--pm-primary-mid", t.mid);
+  r.style.setProperty("--pm-primary-pale", t.pale);
+  r.style.setProperty("--pm-primary-border", t.border);
+  r.style.setProperty("--pm-primary-soft", t.soft);
+  r.style.setProperty("--pm-primary-dim", t.dim);
+}
+// Apply theme immediately (before first render) so CSS vars are ready
+applyTheme(getTheme(readFarmConfig().theme));
 
 function readFarmConfig(): FarmConfigData {
   try {
@@ -518,7 +539,7 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
     : null;
 
   return (
-    <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "14px 20px 12px", borderBottom: "3px solid #C9A227", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
+    <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "14px 20px 12px", borderBottom: "3px solid #C9A227", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
       {/* Top row: shed badge + date + bird count */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 18, letterSpacing: 0.5, whiteSpace: "nowrap" }}>
@@ -616,7 +637,7 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
   ];
 
   return (
-    <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "14px 20px 12px", borderBottom: "3px solid #C9A227", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
+    <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "14px 20px 12px", borderBottom: "3px solid #C9A227", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
       {/* Row 1: Badge + batch number + bird totals + email button */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 16, letterSpacing: 0.5, whiteSpace: "nowrap" }}>
@@ -850,7 +871,7 @@ function SheetView({
           const isEobHeader   = isEobSheet  && r === 3;
           const isAnyHeader   = isShedHeader || isEobHeader;
           const rowBg = isAnyHeader
-            ? "#1a5c36"
+            ? "var(--pm-primary)"
             : isShedSpacer
             ? "#ffffff"
             : isShedSummary
@@ -869,7 +890,7 @@ function SheetView({
                 const c = minCol + ci;
                 if (isShedSheet && c === 3) return null;
                 const info = cells.get(`${r},${c}`);
-                if (!info) return <td key={c} style={{ height: rowH, background: isAnyHeader ? "#1a5c36" : isShedSpacer ? "#ffffff" : (rowBg ?? "#fff"), border: isAnyHeader ? "1px solid rgba(255,255,255,0.15)" : isShedSpacer ? "1px solid #fff" : "1px solid #000", position: isAnyHeader ? "sticky" : undefined, top: isAnyHeader ? (isShedHeader ? (r === 7 ? 0 : row7Height) : eobStickyTop) : undefined, zIndex: isAnyHeader ? 3 : undefined }} />;
+                if (!info) return <td key={c} style={{ height: rowH, background: isAnyHeader ? "var(--pm-primary)" : isShedSpacer ? "#ffffff" : (rowBg ?? "#fff"), border: isAnyHeader ? "1px solid rgba(255,255,255,0.15)" : isShedSpacer ? "1px solid #fff" : "1px solid #000", position: isAnyHeader ? "sticky" : undefined, top: isAnyHeader ? (isShedHeader ? (r === 7 ? 0 : row7Height) : eobStickyTop) : undefined, zIndex: isAnyHeader ? 3 : undefined }} />;
                 if (info.hidden) return null;
                 const key = `${r},${c}`;
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
@@ -909,7 +930,7 @@ function SheetView({
                 // Col 13 (CATCH/MORTS) & col 14 (BIRDS LEFT) — apply light blue bg on shed data rows
                 let cellBg: string | null;
                 if (isAnyHeader) {
-                  cellBg = "#1a5c36";
+                  cellBg = "var(--pm-primary)";
                 } else if (fohStatus === 'critical') {
                   cellBg = "#fecaca";
                 } else if (fohStatus === 'warning') {
@@ -981,7 +1002,7 @@ function SheetView({
                       height: rowH,
                       maxWidth: 400,
                       cursor: isAnyHeader ? "default" : "pointer",
-                      outline: isEditing ? "2px solid #1a5c36" : "none",
+                      outline: isEditing ? "2px solid var(--pm-primary)" : "none",
                       letterSpacing: isAnyHeader ? 0.3 : 0,
                       position: isAnyHeader ? "sticky" : undefined,
                       top: stickyTop,
@@ -1039,7 +1060,7 @@ function SummaryInputField({ label, value, onSave, wide }: { label: string; valu
             if (e.key === "Enter") { onSave(draft); setEditing(false); }
             if (e.key === "Escape") { setDraft(value); setEditing(false); }
           }}
-          style={{ flex: 1, border: "2px solid #1a5c36", borderRadius: 4, padding: "3px 7px", fontSize: 13, outline: "none", minWidth: 0 }}
+          style={{ flex: 1, border: "2px solid var(--pm-primary)", borderRadius: 4, padding: "3px 7px", fontSize: 13, outline: "none", minWidth: 0 }}
         />
       ) : (
         <div
@@ -1247,7 +1268,7 @@ function ShedSummaryCard({
 
   return (
     <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #dde8e0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-      <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>SHED {shedNum}</div>
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
           <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.1 }}>{totalBirds > 0 ? totalBirds.toLocaleString() : "—"}</div>
@@ -1278,8 +1299,8 @@ function ShedSummaryCard({
             <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
             <div style={{ display: "flex", gap: 8 }}>
               {totalFeed > 0 && (
-                <div style={{ flex: 1, background: "#f0f7f3", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1a5c36" }}>{totalFeed.toLocaleString()}</div>
+                <div style={{ flex: 1, background: "var(--pm-primary-soft)", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--pm-primary)" }}>{totalFeed.toLocaleString()}</div>
                   <div style={{ fontSize: 9, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>Feed Ordered (kg)</div>
                 </div>
               )}
@@ -1341,7 +1362,7 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
 
   return (
     <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
-      <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
+      <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH SUMMARY</div>
         {batchNum && (
           <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 7, padding: "3px 14px", fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>
@@ -1752,7 +1773,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
     <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%", boxSizing: "border-box" }}>
 
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
+      <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH RESULTS</div>
 
         {/* Editable farm name */}
@@ -1825,12 +1846,12 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
 
       {/* Top stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(165px, 1fr))", gap: 12, marginBottom: 20 }}>
-        <div style={cardStyle("#1a5c36")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#1a5c36" }}>{totalPlaced > 0 ? totalPlaced.toLocaleString() : "—"}</div>
+        <div style={cardStyle("var(--pm-primary)")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--pm-primary)" }}>{totalPlaced > 0 ? totalPlaced.toLocaleString() : "—"}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Placed</div>
         </div>
-        <div style={cardStyle("#217346")}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#217346" }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</div>
+        <div style={cardStyle("var(--pm-primary-mid)")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "var(--pm-primary-mid)" }}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</div>
           <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Birds Caught</div>
         </div>
         <div style={cardStyle("#c0392b")}>
@@ -1900,10 +1921,10 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         const feedConsumed  = eobConsumed  > 0 ? eobConsumed  : summary.feedConsumed;
         const fromEob = eobDelivered > 0;
         return (
-          <div style={{ background: "#f4f9f6", border: "1px solid #c8e6d4", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+          <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary</div>
-              {fromEob && <div style={{ fontSize: 10, color: "#888", background: "#e8f5ee", borderRadius: 4, padding: "2px 7px" }}>live from End of Batch</div>}
+              <div style={{ fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary</div>
+              {fromEob && <div style={{ fontSize: 10, color: "#888", background: "var(--pm-primary-pale)", borderRadius: 4, padding: "2px 7px" }}>live from End of Batch</div>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
               {[
@@ -1913,7 +1934,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#217346" }}>{value}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "var(--pm-primary-mid)" }}>{value}</div>
                 </div>
               ))}
             </div>
@@ -1924,7 +1945,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
       {/* Per-shed cards */}
       {activeShedNums.length > 0 && (
         <div>
-          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 10, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 10, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
             Per-Shed Breakdown ({activeShedNums.length} active shed{activeShedNums.length !== 1 ? "s" : ""}) — tap a cell to edit
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
@@ -1932,7 +1953,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               <div key={shedNum} style={{ background: "#fff", borderRadius: 10, border: "1px solid #dde8e0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
 
                 {/* Card header */}
-                <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
                   <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14 }}>SHED {shedNum}</div>
                   <div style={{ marginLeft: "auto", display: "flex", gap: 14, flexWrap: "wrap" }}>
                     <div style={{ textAlign: "right" }}>
@@ -1953,12 +1974,12 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                 {/* Catch rows table */}
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                   <thead>
-                    <tr style={{ background: "#f0f7f3" }}>
-                      <th style={{ padding: "6px 8px", textAlign: "left",  color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "22%" }}>Date</th>
-                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "10%" }}>Age</th>
-                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "16%" }}>Birds</th>
-                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Ave Wgt</th>
-                      <th style={{ padding: "6px 8px", textAlign: "right", color: "#1a5c36", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Total Wgt</th>
+                    <tr style={{ background: "var(--pm-primary-soft)" }}>
+                      <th style={{ padding: "6px 8px", textAlign: "left",  color: "var(--pm-primary)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "22%" }}>Date</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "var(--pm-primary)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "10%" }}>Age</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "var(--pm-primary)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "16%" }}>Birds</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "var(--pm-primary)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Ave Wgt</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right", color: "var(--pm-primary)", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.4, width: "18%" }}>Total Wgt</th>
                       <th style={{ width: "8%" }} />
                     </tr>
                   </thead>
@@ -2032,8 +2053,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                     })}
                   </tbody>
                   <tfoot>
-                    <tr style={{ borderTop: "2px solid #1a5c36", background: "#d4eddf" }}>
-                      <td colSpan={2} style={{ padding: "6px 8px", color: "#1a5c36", fontWeight: 800, fontSize: 11 }}>TOTAL</td>
+                    <tr style={{ borderTop: "2px solid var(--pm-primary)", background: "#d4eddf" }}>
+                      <td colSpan={2} style={{ padding: "6px 8px", color: "var(--pm-primary)", fontWeight: 800, fontSize: 11 }}>TOTAL</td>
                       <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{sc > 0 ? sc.toLocaleString() : "—"}</td>
                       <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{aveWgt > 0 ? `${aveWgt.toFixed(3)} kg` : "—"}</td>
                       <td style={{ padding: "6px 8px", textAlign: "right", color: "#1a1a1a", fontWeight: 800 }}>{totalWgtKg > 0 ? `${(totalWgtKg / 1000).toFixed(2)} t` : "—"}</td>
@@ -2042,7 +2063,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                     <tr>
                       <td colSpan={6} style={{ padding: "6px 8px" }}>
                         <button onClick={() => addRow(shedNum)}
-                          style={{ width: "100%", background: "#f0f7f3", border: "1px dashed #1a5c36", borderRadius: 6, color: "#1a5c36", fontWeight: 700, cursor: "pointer", padding: "5px 0", fontSize: 12 }}>
+                          style={{ width: "100%", background: "var(--pm-primary-soft)", border: "1px dashed var(--pm-primary)", borderRadius: 6, color: "var(--pm-primary)", fontWeight: 700, cursor: "pointer", padding: "5px 0", fontSize: 12 }}>
                           + Add Catch
                         </button>
                       </td>
@@ -2109,8 +2130,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                   The xlsx summary (FCR, feed data) will remain. Only the per-shed catch rows entered here will be cleared.
                 </div>
                 {/* New batch number */}
-                <div style={{ background: "#f0f7f3", border: "1px solid #c8e6d4", borderRadius: 8, padding: "14px 16px", marginBottom: 20 }}>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+                <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 8, padding: "14px 16px", marginBottom: 20 }}>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
                     New Batch Number
                   </label>
                   <input
@@ -2118,7 +2139,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                     value={newBatchNum}
                     onChange={e => setNewBatchNum(e.target.value)}
                     placeholder="Enter new batch #"
-                    style={{ width: "100%", border: "1px solid #a8d5b9", borderRadius: 7, padding: "10px 12px", fontSize: 16, fontWeight: 700, color: "#1a5c36", background: "#fff", boxSizing: "border-box", outline: "none" }}
+                    style={{ width: "100%", border: "1px solid var(--pm-primary-border)", borderRadius: 7, padding: "10px 12px", fontSize: 16, fontWeight: 700, color: "var(--pm-primary)", background: "#fff", boxSizing: "border-box", outline: "none" }}
                     autoFocus
                     onKeyDown={e => { if (e.key === "Enter") handleClearBatch(); if (e.key === "Escape") setShowClearConfirm(false); }}
                   />
@@ -2152,7 +2173,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             onClick={e => e.stopPropagation()}>
 
             {/* Modal header */}
-            <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", padding: "16px 20px", borderRadius: "14px 14px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "16px 20px", borderRadius: "14px 14px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontSize: 22 }}>📧</div>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 16 }}>Import Catches from Email</div>
@@ -2167,7 +2188,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ padding: "20px 24px" }}>
 
               {/* Instructions */}
-              <div style={{ background: "#f0f7f3", border: "1px solid #c8e6d4", borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontSize: 13, color: "#333", lineHeight: 1.6 }}>
+              <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontSize: 13, color: "#333", lineHeight: 1.6 }}>
                 <strong>How to paste:</strong> Open the Adelaide Weighbridge email → select all the table text → copy → paste below.<br/>
                 <span style={{ color: "#666", fontSize: 12 }}>Works with the Baiada format: GROWER · SHED # · AGE · BIRD # · ESTIMATE · ACTUAL · TOTAL KG</span>
               </div>
@@ -2178,7 +2199,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                 onChange={e => { setEmailText(e.target.value); setEmailParsed(null); setEmailParseError(""); }}
                 placeholder={"GROWER\tSHED #\tAGE\tBIRD #\tESTIMATE\tACTUAL\tTOTAL KG\nDouble B\t10\t45\t26208\t3.44\t3.66\t96013\n..."}
                 rows={7}
-                style={{ width: "100%", border: "1.5px solid #c8e6d4", borderRadius: 8, padding: "10px 12px", fontSize: 12, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box", outline: "none", color: "#222" }}
+                style={{ width: "100%", border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "10px 12px", fontSize: 12, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box", outline: "none", color: "#222" }}
               />
 
               {/* Parse button */}
@@ -2193,7 +2214,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                     setEmailParseError("");
                   }
                 }}
-                style={{ width: "100%", background: "#1a5c36", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", marginTop: 10 }}
+                style={{ width: "100%", background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", marginTop: 10 }}
               >
                 🔍 Parse Email Table
               </button>
@@ -2209,13 +2230,13 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               {emailParsed && emailParsed.length > 0 && (
                 <>
                   <div style={{ marginTop: 18, marginBottom: 10 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 4 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 4 }}>
                       ✅ Found {emailParsed.length} catch row{emailParsed.length !== 1 ? "s" : ""}
                     </div>
                     <div style={{ overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "Inter,'Segoe UI',sans-serif" }}>
                         <thead>
-                          <tr style={{ background: "#1a5c36", color: "#fff" }}>
+                          <tr style={{ background: "var(--pm-primary)", color: "#fff" }}>
                             {["Shed", "Age (days)", "Birds", "Ave Wgt (kg)", "Total Wgt (t)"].map(h => (
                               <th key={h} style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
                             ))}
@@ -2223,8 +2244,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                         </thead>
                         <tbody>
                           {emailParsed.map((r, i) => (
-                            <tr key={i} style={{ background: i % 2 === 0 ? "#f4f9f6" : "#fff" }}>
-                              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1a5c36" }}>SHED {r.shedNum}</td>
+                            <tr key={i} style={{ background: i % 2 === 0 ? "var(--pm-primary-soft)" : "#fff" }}>
+                              <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "var(--pm-primary)" }}>SHED {r.shedNum}</td>
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.age || "—"}</td>
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{parseInt(r.birds).toLocaleString()}</td>
                               <td style={{ padding: "5px 10px", textAlign: "right" }}>{r.aveWgt || "—"}</td>
@@ -2280,7 +2301,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                         saveCatchMap(next);
                         setShowEmailImport(false);
                       }}
-                      style={{ flex: 2, background: "#1a5c36", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
+                      style={{ flex: 2, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
                     >
                       ✅ Import {emailParsed.length} Catch Row{emailParsed.length !== 1 ? "s" : ""}
                     </button>
@@ -2480,7 +2501,7 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
   const TH: React.CSSProperties = { background: "#8b1a1a", color: "#fff", padding: "7px 5px", textAlign: "center", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, fontSize: 11, borderRight: "1px solid rgba(255,255,255,0.2)" };
   const TH_STICKY: React.CSSProperties = { ...TH, left: 0, zIndex: 3, minWidth: 54 };
   const TD: React.CSSProperties = { borderRight: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: "0", textAlign: "center" };
-  const TD_STICKY: React.CSSProperties = { ...TD, position: "sticky", left: 0, zIndex: 1, background: "#f0f7f3", minWidth: 54, padding: "6px 4px", fontSize: 11, fontWeight: 700 };
+  const TD_STICKY: React.CSSProperties = { ...TD, position: "sticky", left: 0, zIndex: 1, background: "var(--pm-primary-soft)", minWidth: 54, padding: "6px 4px", fontSize: 11, fontWeight: 700 };
 
   const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -2628,7 +2649,7 @@ function BarChart({ entries, getValue, label, format, color }: {
   const totalW = entries.length * (W + gap) - gap;
   return (
     <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", padding: "14px 16px 10px", minWidth: 200, flex: "1 1 180px" }}>
-      <div style={{ fontWeight: 700, fontSize: 12, color: "#1a5c36", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>{label}</div>
+      <div style={{ fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>{label}</div>
       <svg width={totalW} height={H + 30} style={{ display: "block", overflow: "visible" }}>
         {vals.map((v, i) => {
           const x = i * (W + gap);
@@ -2674,7 +2695,7 @@ function HistoryView() {
     return (
       <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter,'Segoe UI',sans-serif", color: "#888" }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
-        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8, color: "#1a5c36" }}>No Batch History Yet</div>
+        <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8, color: "var(--pm-primary)" }}>No Batch History Yet</div>
         <div style={{ fontSize: 14 }}>Each time you start a New Batch, the outgoing batch's stats are automatically saved here. Check back after your first new batch.</div>
       </div>
     );
@@ -2683,7 +2704,7 @@ function HistoryView() {
   return (
     <div style={{ padding: "20px 20px 40px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #1a5c36 0%, #217346 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, borderBottom: "3px solid #C9A227" }}>
+      <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, borderBottom: "3px solid #C9A227" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH HISTORY</div>
           <span style={{ fontSize: 13, opacity: 0.8 }}>Last {recent.length} batch{recent.length !== 1 ? "es" : ""}</span>
@@ -2697,7 +2718,7 @@ function HistoryView() {
       <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", overflow: "auto", marginBottom: 24 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 600 }}>
           <thead>
-            <tr style={{ background: "#1a5c36", color: "#fff" }}>
+            <tr style={{ background: "var(--pm-primary)", color: "#fff" }}>
               {["Batch", "Date", "Birds Placed", "Feed (kg)", "FCR", "CFCR", "Cage (kg)", "Mortality"].map(h => (
                 <th key={h} style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
               ))}
@@ -2708,7 +2729,7 @@ function HistoryView() {
               const date = e.date ? new Date(e.date).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }) : "—";
               return (
                 <tr key={i} style={{ background: i % 2 === 0 ? "#f9f9f9" : "#fff", borderBottom: "1px solid #eee" }}>
-                  <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: 800, color: "#1a5c36" }}>#{e.batchNum || "?"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: 800, color: "var(--pm-primary)" }}>#{e.batchNum || "?"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "center", color: "#555" }}>{date}</td>
                   <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700 }}>{e.totalBirds > 0 ? e.totalBirds.toLocaleString() : "—"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.totalFeedKg > 0 ? e.totalFeedKg.toLocaleString() : "—"}</td>
@@ -2725,8 +2746,8 @@ function HistoryView() {
 
       {/* Charts */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-        <BarChart entries={recent} getValue={e => e.totalBirds || null} label="Birds Placed" format={fmtNum} color="#1a5c36" />
-        <BarChart entries={recent} getValue={e => e.totalFeedKg || null} label="Feed Ordered (kg)" format={fmtFeed} color="#217346" />
+        <BarChart entries={recent} getValue={e => e.totalBirds || null} label="Birds Placed" format={fmtNum} color="var(--pm-primary)" />
+        <BarChart entries={recent} getValue={e => e.totalFeedKg || null} label="Feed Ordered (kg)" format={fmtFeed} color="var(--pm-primary-mid)" />
         <BarChart entries={recent} getValue={e => e.fcr} label="FCR" format={fmtDec} color="#2980b9" />
         <BarChart entries={recent} getValue={e => e.cfcr} label="CFCR" format={fmtDec} color="#8e44ad" />
         <BarChart entries={recent} getValue={e => e.cage} label="Cage Weight (kg)" format={fmtKg} color="#C9A227" />
@@ -2788,18 +2809,21 @@ export default function App() {
   // Feed alert computation (recalculates whenever sheets/edits/farmConfig change)
   const feedAlerts = useMemo(() => computeFeedAlerts(sheets, edits, farmConfig), [sheets, edits, farmConfig]);
 
-  // Initialize and sync theme with Silo Tracker
+  // Initialize and sync dark-mode class with Silo Tracker
   useEffect(() => {
-    const applyTheme = (t: string | null) => {
+    const applyDark = (t: string | null) => {
       document.documentElement.classList.toggle("dark", t === "dark");
     };
-    applyTheme(localStorage.getItem("silo-theme"));
+    applyDark(localStorage.getItem("silo-theme"));
     const onThemeStorage = (e: StorageEvent) => {
-      if (e.key === "silo-theme") applyTheme(e.newValue);
+      if (e.key === "silo-theme") applyDark(e.newValue);
     };
     window.addEventListener("storage", onThemeStorage);
     return () => window.removeEventListener("storage", onThemeStorage);
   }, []);
+
+  // Apply colour theme CSS variables whenever farmConfig.theme changes
+  useEffect(() => { applyTheme(getTheme(farmConfig.theme)); }, [farmConfig.theme]);
 
   // Sync farm config whenever Silo Tracker updates localStorage
   useEffect(() => {
@@ -3370,8 +3394,16 @@ export default function App() {
 
   const current = sheets[active];
 
+  const appTheme = getTheme(farmConfig.theme);
   return (
-    <div className="flex flex-col h-screen bg-gray-100 dark:bg-zinc-900">
+    <div className="flex flex-col h-screen bg-gray-100 dark:bg-zinc-900" style={{
+      "--pm-primary": appTheme.primary,
+      "--pm-primary-mid": appTheme.mid,
+      "--pm-primary-pale": appTheme.pale,
+      "--pm-primary-border": appTheme.border,
+      "--pm-primary-soft": appTheme.soft,
+      "--pm-primary-dim": appTheme.dim,
+    } as React.CSSProperties}>
       {/* Bell-ring keyframe */}
       <style>{`
         @keyframes bell-wiggle {
@@ -3384,9 +3416,17 @@ export default function App() {
         }
         .bell-icon-wiggle { animation: bell-wiggle 2.5s ease infinite; display: inline-block; transform-origin: top center; }
         .bell-icon-still  { display: inline-block; }
+        :root {
+          --pm-primary: ${appTheme.primary};
+          --pm-primary-mid: ${appTheme.mid};
+          --pm-primary-pale: ${appTheme.pale};
+          --pm-primary-border: ${appTheme.border};
+          --pm-primary-soft: ${appTheme.soft};
+          --pm-primary-dim: ${appTheme.dim};
+        }
       `}</style>
       {/* Header */}
-      <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
+      <div className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)" }}>
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
         <div className="ml-auto flex items-center gap-2">
           {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
@@ -3441,7 +3481,7 @@ export default function App() {
       </div>
 
       {/* Hint bar */}
-      <div className="bg-[#e8f5ee] dark:bg-zinc-800 border-b border-green-200 dark:border-zinc-700 px-4 py-1 text-xs text-green-800 dark:text-green-300 shrink-0">
+      <div className="dark:bg-zinc-800 border-b border-green-200 dark:border-zinc-700 px-4 py-1 text-xs text-green-800 dark:text-green-300 shrink-0" style={{ background: "var(--pm-primary-pale)" }}>
         Double-click any cell to edit. Press <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd> or click away to confirm.
       </div>
 
@@ -3452,9 +3492,9 @@ export default function App() {
           onClick={() => setActiveView("summary")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
           style={{
-            backgroundColor: activeView === "summary" ? "#1a5c36" : "#1a5c3688",
+            backgroundColor: activeView === "summary" ? "var(--pm-primary)" : "var(--pm-primary-dim)",
             color: "#fff",
-            borderColor: "#1a5c36",
+            borderColor: "var(--pm-primary)",
             opacity: activeView === "summary" ? 1 : 0.72,
             transform: activeView === "summary" ? "translateY(1px)" : "translateY(3px)",
             marginRight: 4,
@@ -3509,9 +3549,9 @@ export default function App() {
           onClick={() => setActiveView("batchResults")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
           style={{
-            backgroundColor: activeView === "batchResults" ? "#1a5c36" : "#1a5c3688",
+            backgroundColor: activeView === "batchResults" ? "var(--pm-primary)" : "var(--pm-primary-dim)",
             color: "#fff",
-            borderColor: "#1a5c36",
+            borderColor: "var(--pm-primary)",
             opacity: activeView === "batchResults" ? 1 : 0.72,
             transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)",
             marginLeft: 4,
@@ -3539,9 +3579,9 @@ export default function App() {
           onClick={() => setActiveView("history")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
           style={{
-            backgroundColor: activeView === "history" ? "#1a5c36" : "#1a5c3688",
+            backgroundColor: activeView === "history" ? "var(--pm-primary)" : "var(--pm-primary-dim)",
             color: "#fff",
-            borderColor: "#1a5c36",
+            borderColor: "var(--pm-primary)",
             opacity: activeView === "history" ? 1 : 0.72,
             transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)",
             marginLeft: 4,
@@ -3558,7 +3598,7 @@ export default function App() {
       />
 
       {/* Spreadsheet / Summary */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2 border-[#217346]">
+      <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2" style={{ borderColor: "var(--pm-primary-mid)" }}>
         {activeView === "history" ? (
           <div className="flex-1 overflow-auto">
             <HistoryView />
@@ -3677,7 +3717,7 @@ export default function App() {
         >
           <div style={{ width: 340, maxWidth: "100vw", height: "100%", background: "#fff", boxShadow: "-4px 0 24px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", overflowY: "auto" }}>
             {/* Header */}
-            <div style={{ background: "#1a5c36", color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ background: "var(--pm-primary)", color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontWeight: 800, fontSize: 17 }}>⚙ Settings</span>
               <button onClick={() => setShowSettings(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
             </div>
@@ -3685,7 +3725,7 @@ export default function App() {
             <div style={{ padding: "20px 20px 32px", flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
               {/* Farm Name */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Farm Name</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Farm Name</label>
                 <input
                   value={settingsFarmName}
                   onChange={e => setSettingsFarmName(e.target.value)}
@@ -3696,14 +3736,14 @@ export default function App() {
 
               {/* Active Sheds */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Active Sheds</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Active Sheds</label>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {SHED_SHEET_ORDER.map(shedGroupId => {
                     const shedNums = `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
                     const existing = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
                     const isActive = existing ? existing.active !== false : true;
                     return (
-                      <label key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "8px 12px", borderRadius: 7, background: isActive ? "#eef6f1" : "#f5f5f5", border: `1.5px solid ${isActive ? "#1a5c36" : "#ddd"}` }}>
+                      <label key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "8px 12px", borderRadius: 7, background: isActive ? "var(--pm-primary-soft)" : "#f5f5f5", border: `1.5px solid ${isActive ? "var(--pm-primary)" : "#ddd"}` }}>
                         <input
                           type="checkbox"
                           checked={isActive}
@@ -3717,9 +3757,9 @@ export default function App() {
                             saveFarmConfig(updated);
                             setFarmConfig(updated);
                           }}
-                          style={{ width: 17, height: 17, accentColor: "#1a5c36", cursor: "pointer" }}
+                          style={{ width: 17, height: 17, accentColor: "var(--pm-primary)", cursor: "pointer" }}
                         />
-                        <span style={{ fontWeight: 600, fontSize: 14, color: isActive ? "#1a5c36" : "#888" }}>{shedNums}</span>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: isActive ? "var(--pm-primary)" : "#888" }}>{shedNums}</span>
                         {isActive && <span style={{ marginLeft: "auto", fontSize: 11, color: "#2d8653", fontWeight: 700 }}>ACTIVE</span>}
                       </label>
                     );
@@ -3729,7 +3769,7 @@ export default function App() {
 
               {/* Extra Shed Columns Toggle */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Shed Extra Columns</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Shed Extra Columns</label>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Show or hide the extra columns after BIRDS LEFT (Shed #, Diff, Discrepancy) on shed tabs.</p>
                 <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
                   <span style={{ fontSize: 14, color: "#333", flex: 1 }}>Show extra columns</span>
@@ -3741,7 +3781,7 @@ export default function App() {
                     }}
                     style={{
                       width: 46, height: 26, borderRadius: 13, cursor: "pointer",
-                      background: (farmConfig.showExtraShedCols ?? false) ? "#1a5c36" : "#ccc",
+                      background: (farmConfig.showExtraShedCols ?? false) ? "var(--pm-primary)" : "#ccc",
                       position: "relative", transition: "background 0.2s", flexShrink: 0,
                     }}
                   >
@@ -3754,18 +3794,50 @@ export default function App() {
                 </label>
               </div>
 
+              {/* Theme Picker */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Theme</label>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {APP_THEMES.map(t => {
+                    const active = (farmConfig.theme ?? "forest") === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        title={t.name}
+                        onClick={() => {
+                          const updated = { ...farmConfig, theme: t.id };
+                          setFarmConfig(updated);
+                          localStorage.setItem(FARM_CONFIG_KEY, JSON.stringify(updated));
+                        }}
+                        style={{
+                          display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+                          border: active ? `2px solid ${t.primary}` : "2px solid #ddd",
+                          borderRadius: 10, padding: "8px 10px", cursor: "pointer",
+                          background: active ? t.pale : "#fff",
+                          boxShadow: active ? `0 0 0 2px ${t.primary}44` : "none",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: `linear-gradient(135deg, ${t.primary} 0%, ${t.mid} 100%)`, border: "2px solid rgba(0,0,0,0.08)" }} />
+                        <span style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? t.primary : "#666" }}>{t.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Import Spreadsheet */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Import Feed Program</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Import Feed Program</label>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>Load your own spreadsheet to replace the current program. Your batch history is kept.</p>
-                <div style={{ fontSize: 11, color: "#555", background: "#f0f7f3", border: "1px solid #c8ddc8", borderRadius: 6, padding: "8px 10px", marginBottom: 10, lineHeight: 1.6 }}>
+                <div style={{ fontSize: 11, color: "#555", background: "var(--pm-primary-soft)", border: "1px solid #c8ddc8", borderRadius: 6, padding: "8px 10px", marginBottom: 10, lineHeight: 1.6 }}>
                   <strong>Excel / Windows:</strong> open your file, save as .xlsx<br/>
                   <strong>Google Sheets:</strong> File → Download → Microsoft Excel (.xlsx)<br/>
                   <strong>Mac Numbers:</strong> File → Export To → Excel (.xlsx)
                 </div>
                 <button
                   onClick={() => importFileRef.current?.click()}
-                  style={{ width: "100%", background: "#1a5c36", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                  style={{ width: "100%", background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                 >
                   <span style={{ fontSize: 16 }}>⬆</span> Import .xlsx File
                 </button>
@@ -3773,7 +3845,7 @@ export default function App() {
 
               {/* New Batch */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Start New Batch</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Start New Batch</label>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Clears all delivery and silo records and resets the spreadsheet to its base state. This cannot be undone.</p>
                 <button
                   onClick={() => { setShowSettings(false); resetForNewBatch(); }}
@@ -3793,7 +3865,7 @@ export default function App() {
                   setFarmConfig(updated);
                   setShowSettings(false);
                 }}
-                style={{ flex: 1, background: "#1a5c36", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                style={{ flex: 1, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
               >
                 Save & Close
               </button>
