@@ -1048,6 +1048,160 @@ export default function App() {
         </div>
       </section>
 
+      {/* ── SPONSORS & SUPPORT ── */}
+      <section style={{ background: "#f8fafc", padding: "80px 24px", borderTop: "1px solid #e5e7eb" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+
+          {/* Heading */}
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <span style={{ background: `${GOLD}22`, color: GOLD, fontWeight: 800, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 14px", borderRadius: 20, display: "inline-block", marginBottom: 16 }}>Sponsor Poultry Mate</span>
+            <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 900, color: "#111827", margin: "0 0 16px", letterSpacing: "-0.02em" }}>
+              Help us keep building for Australian growers
+            </h2>
+            <p style={{ fontSize: 16, color: "#6b7280", maxWidth: 600, margin: "0 auto", lineHeight: 1.7 }}>
+              Poultry Mate is independently built by a broiler grower, for broiler growers. Sponsorship keeps the app free to develop, supports rural charities, and helps cover the AI tools that power it.
+            </p>
+          </div>
+
+          {/* How funds are split */}
+          <div style={{ background: "#fff", border: `2px solid ${GREEN}22`, borderRadius: 16, padding: "28px 32px", marginBottom: 48, maxWidth: 680, margin: "0 auto 48px" }}>
+            <div style={{ fontWeight: 800, fontSize: 15, color: "#111827", marginBottom: 20, textAlign: "center" }}>💰 How every sponsorship dollar is used</div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+              {[
+                { pct: "50%", label: "App development & AI tools", colour: GREEN, icon: "🛠" },
+                { pct: "30%", label: "Developer income", colour: GOLD, icon: "👨‍💻" },
+                { pct: "20%", label: "Rural Aid Australia (charity)", colour: "#2563eb", icon: "🌾" },
+              ].map(({ pct, label, colour, icon }) => (
+                <div key={label} style={{ flex: "1 1 160px", background: `${colour}0d`, border: `2px solid ${colour}33`, borderRadius: 12, padding: "16px 18px", textAlign: "center" }}>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: colour, lineHeight: 1 }}>{pct}</div>
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 6, lineHeight: 1.4 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sponsor tiers */}
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center", marginBottom: 56 }}>
+            {[
+              {
+                name: "Seedling Sponsor",
+                icon: "🌱",
+                price: "$25/mo",
+                colour: "#16a34a",
+                perks: [
+                  "Name or logo in app footer",
+                  "Mentioned in our social media posts",
+                  "Our genuine thanks 🙏",
+                ],
+              },
+              {
+                name: "Flock Sponsor",
+                icon: "🐔",
+                price: "$75/mo",
+                colour: GOLD,
+                featured: true,
+                perks: [
+                  "Logo on Plans & Pricing page",
+                  "Dedicated thank-you social post",
+                  "Priority support response",
+                  "Quarterly sponsor update email",
+                ],
+              },
+              {
+                name: "Gold Flock Sponsor",
+                icon: "🏆",
+                price: "$200/mo",
+                colour: "#dc2626",
+                perks: [
+                  "Featured banner across all pages",
+                  "Company bio & backlink on site",
+                  "Co-branding in app header",
+                  "Quarterly video shoutout",
+                  "Charity cheque appearance option",
+                ],
+              },
+            ].map(({ name, icon, price, colour, featured, perks }) => (
+              <div key={name} style={{
+                flex: "1 1 260px",
+                maxWidth: 300,
+                background: "#fff",
+                border: `2px solid ${featured ? colour : "#e5e7eb"}`,
+                borderRadius: 16,
+                padding: "28px 24px",
+                boxShadow: featured ? `0 8px 32px ${colour}22` : "0 2px 8px rgba(0,0,0,0.06)",
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}>
+                {featured && (
+                  <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: colour, color: "#fff", fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", padding: "4px 14px", borderRadius: 20 }}>Most Popular</div>
+                )}
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 36 }}>{icon}</div>
+                  <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginTop: 8 }}>{name}</div>
+                  <div style={{ fontWeight: 900, fontSize: 28, color: colour, marginTop: 4 }}>{price}</div>
+                </div>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+                  {perks.map(p => (
+                    <li key={p} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13, color: "#374151", lineHeight: 1.5 }}>
+                      <span style={{ color: colour, fontWeight: 700, flexShrink: 0 }}>✓</span>{p}
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href={`mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry — ${name}&body=Hi, I'm interested in becoming a ${name} of Poultry Mate.`}
+                  style={{
+                    display: "block",
+                    textAlign: "center",
+                    background: featured ? colour : "transparent",
+                    color: featured ? "#fff" : colour,
+                    border: `2px solid ${colour}`,
+                    borderRadius: 10,
+                    padding: "12px 0",
+                    fontWeight: 700,
+                    fontSize: 14,
+                    textDecoration: "none",
+                    marginTop: "auto",
+                  }}
+                >
+                  Become a Sponsor
+                </a>
+              </div>
+            ))}
+          </div>
+
+          {/* Current sponsors placeholder */}
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: "#111827", marginBottom: 20 }}>🤝 Current Sponsors</div>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+              {["Gold Flock Sponsor", "Flock Sponsor", "Flock Sponsor", "Seedling Sponsor"].map((tier, i) => (
+                <div key={i} style={{
+                  width: i === 0 ? 200 : 150,
+                  height: i === 0 ? 90 : 70,
+                  border: "2px dashed #d1d5db",
+                  borderRadius: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#fff",
+                  gap: 4,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.5 }}>{tier}</div>
+                  <div style={{ fontSize: 13, color: "#d1d5db", fontWeight: 600 }}>Your logo here</div>
+                </div>
+              ))}
+            </div>
+            <p style={{ marginTop: 20, fontSize: 13, color: "#9ca3af" }}>
+              Be one of the first to support Poultry Mate — <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>get in touch</a>
+            </p>
+          </div>
+
+        </div>
+      </section>
+
       {/* CTA FOOTER */}
       <section style={{
         background: GREEN,
