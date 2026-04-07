@@ -3205,15 +3205,18 @@ export default function App() {
 
       if (i !== eobIdx) return m;
 
-      // ── "end of batch" sheet — full clear ───────────────────────────────────
-      // Scan every cell in the EOB sheet and blank anything in the data area
-      // (rows 3+). This handles imported files with different layouts too.
+      // ── "end of batch" sheet — clear batch data only ────────────────────────
+      // Preserve structural rows 0-5 (farm info, batch header, feed-type labels
+      // STARTER/GROWER/FINISHER/WITHDRAWL, column-header row Date/Docket/Tonnes)
+      // and column V (col 21) which holds the permanent shed-number list.
       const eobSheet = sheets[eobIdx];
       if (eobSheet) {
         for (const [key, info] of eobSheet.cells) {
           const parts = key.split(",");
           const r = parseInt(parts[0]);
-          if (r < 3) continue; // preserve top header rows
+          const c = parseInt(parts[1]);
+          if (r < 6) continue;   // preserve all structural header rows
+          if (c === 21) continue; // preserve shed numbers in column V
           if (info.value !== "" && info.value !== undefined) {
             m.set(key, "");
           }
