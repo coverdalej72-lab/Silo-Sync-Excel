@@ -3478,7 +3478,12 @@ export default function App() {
               {/* Import Spreadsheet */}
               <div>
                 <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Import Feed Program</label>
-                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Load your own Excel feed program file (.xlsx). This replaces the current spreadsheet and resets your edits. Your batch history is kept.</p>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>Load your own spreadsheet to replace the current program. Your batch history is kept.</p>
+                <div style={{ fontSize: 11, color: "#555", background: "#f0f7f3", border: "1px solid #c8ddc8", borderRadius: 6, padding: "8px 10px", marginBottom: 10, lineHeight: 1.6 }}>
+                  <strong>Excel / Windows:</strong> open your file, save as .xlsx<br/>
+                  <strong>Google Sheets:</strong> File → Download → Microsoft Excel (.xlsx)<br/>
+                  <strong>Mac Numbers:</strong> File → Export To → Excel (.xlsx)
+                </div>
                 <button
                   onClick={() => importFileRef.current?.click()}
                   style={{ width: "100%", background: "#1a5c36", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
