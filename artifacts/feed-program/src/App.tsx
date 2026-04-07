@@ -678,7 +678,11 @@ function SheetView({
                 const isEditing = editingCell?.r === r && editingCell?.c === c && editingCell?.sheetIdx === sheetIdx;
                 const rawVal = edits.has(key) ? edits.get(key)! : info.value;
                 // Hide template date values sitting in header rows (e.g. "Monday 16 July 2018")
-                const displayVal = (isAnyHeader && info.isDateCell) ? "" : rawVal;
+                // Show "—" placeholder for empty CATCH/MORTS (col 13) and BIRDS LEFT (col 14) data cells
+                const isCatchOrBirds = isShedData && (c === 13 || c === 14);
+                const displayVal = (isAnyHeader && info.isDateCell) ? ""
+                  : (isCatchOrBirds && (rawVal === "" || rawVal === "0")) ? "—"
+                  : rawVal;
                 const fs = isShedHeader ? (info.fontSize ?? 11) : (info.fontSize ?? 11);
 
                 // Column I (index 8) = FEED ON HAND — highlight red when negative (feed run out)
@@ -758,7 +762,7 @@ function SheetView({
                     {isEditing ? (
                       <input
                         ref={inputRef}
-                        defaultValue={displayVal}
+                        defaultValue={isCatchOrBirds && displayVal === "—" ? "" : displayVal}
                         onBlur={(e) => commitEdit(r, c, e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === "Tab") {
