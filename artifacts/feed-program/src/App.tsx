@@ -580,6 +580,8 @@ function SheetView({
   startRow,
   isShedSheet,
   isEobSheet,
+  mortsLog,
+  cullsLog,
 }: {
   sheet: SheetParsed;
   sheetIdx: number;
@@ -590,6 +592,8 @@ function SheetView({
   startRow?: number;
   isShedSheet?: boolean;
   isEobSheet?: boolean;
+  mortsLog?: MortsLog;
+  cullsLog?: MortsLog;
 }) {
   const { cells, minRow, maxRow, minCol, maxCol, colWidths, rowHeights } = sheet;
   const effectiveStart = startRow ?? minRow;
@@ -616,6 +620,7 @@ function SheetView({
   }, [cells, edits, effectiveStart, minCol, maxCol]);
 
   // Compute cumulative birds remaining per shed data row (col 14 = BIRDS LEFT)
+  // Accounts for: col 13 (CATCH/MORTS manual entries) + Morts tab log + Culls tab log
   const birdsLeftByRow = useMemo(() => {
     if (!isShedSheet) return new Map<number, number>();
     const getNum = (r: number, c: number): number => {
@@ -627,14 +632,42 @@ function SheetView({
     let total = getNum(1, 2);
     if (!total) total = getNum(3, 2) + getNum(4, 2);
     if (!total) return new Map<number, number>();
+
+    // Parse shed numbers from the sheet name e.g. "SHED 1 & 2" → [1, 2]
+    const shedNums: number[] = [];
+    const shedMatch = sheet.rawName.match(/(\d+)\s*&\s*(\d+)/);
+    if (shedMatch) { shedNums.push(parseInt(shedMatch[1]), parseInt(shedMatch[2])); }
+
+    // Placement date from cell r=2,c=2 (C2)
+    let placementDate: Date | null = null;
+    const pdRaw = edits.has("2,2") ? edits.get("2,2")! : (cells.get("2,2")?.value ?? "");
+    if (pdRaw) {
+      const parsed = new Date(pdRaw);
+      if (!isNaN(parsed.getTime())) placementDate = parsed;
+    }
+
     const map = new Map<number, number>();
-    let cumCatch = 0;
+    let cumDeductions = 0;
     for (let r = 12; r <= 71; r++) {
-      cumCatch += getNum(r, 13);
-      map.set(r, total - cumCatch);
+      // Manual catch/morts entered directly on the shed tab
+      cumDeductions += getNum(r, 13);
+
+      // Morts tab log: sum morts + culls for this day's date across the shed's numbers
+      if (placementDate && shedNums.length > 0 && (mortsLog || cullsLog)) {
+        const dayNum = r - 11; // row 12 = day 1
+        const rowDate = new Date(placementDate);
+        rowDate.setDate(placementDate.getDate() + dayNum - 1);
+        const iso = rowDate.toISOString().slice(0, 10);
+        for (const sn of shedNums) {
+          cumDeductions += (mortsLog?.[iso]?.[sn] ?? 0);
+          cumDeductions += (cullsLog?.[iso]?.[sn] ?? 0);
+        }
+      }
+
+      map.set(r, total - cumDeductions);
     }
     return map;
-  }, [isShedSheet, cells, edits]);
+  }, [isShedSheet, cells, edits, sheet.rawName, mortsLog, cullsLog]);
 
   useEffect(() => {
     if (editingCell && inputRef.current) inputRef.current.focus();
@@ -2112,18 +2145,16 @@ function getWeekDays(offset: number): Date[] {
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 
 // ── MortsView ─────────────────────────────────────────────────────────────────
-function MortsView({ sheets, edits, handleEdit, farmConfig }: {
+function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLog, cullsLog, setCullsLog }: {
   sheets: SheetParsed[];
   edits: Map<string, string>[];
   handleEdit: (si: number, key: string, val: string) => void;
   farmConfig: FarmConfigData;
+  mortsLog: MortsLog;
+  setMortsLog: (v: MortsLog) => void;
+  cullsLog: MortsLog;
+  setCullsLog: (v: MortsLog) => void;
 }) {
-  const [mortsLog, setMortsLog] = useState<MortsLog>(() => {
-    try { return JSON.parse(localStorage.getItem(MORTS_LOG_KEY) || "{}"); } catch { return {}; }
-  });
-  const [cullsLog, setCullsLog] = useState<MortsLog>(() => {
-    try { return JSON.parse(localStorage.getItem(CULLS_LOG_KEY) || "{}"); } catch { return {}; }
-  });
   const [weekOffset, setWeekOffset] = useState(0);
   const [editCell, setEditCell] = useState<{ date: string; shed: number; type: "m" | "c" } | null>(null);
   const [editVal, setEditVal] = useState("");
@@ -2546,6 +2577,12 @@ export default function App() {
   const [edits, setEdits] = useState<Map<string, string>[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [farmConfig, setFarmConfig] = useState<FarmConfigData>(readFarmConfig);
+  const [mortsLog, setMortsLog] = useState<MortsLog>(() => {
+    try { return JSON.parse(localStorage.getItem(MORTS_LOG_KEY) || "{}"); } catch { return {}; }
+  });
+  const [cullsLog, setCullsLog] = useState<MortsLog>(() => {
+    try { return JSON.parse(localStorage.getItem(CULLS_LOG_KEY) || "{}"); } catch { return {}; }
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
@@ -3234,7 +3271,7 @@ export default function App() {
           </div>
         ) : activeView === "morts" ? (
           <div className="flex-1 overflow-auto">
-            <MortsView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
+            <MortsView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} mortsLog={mortsLog} setMortsLog={setMortsLog} cullsLog={cullsLog} setCullsLog={setCullsLog} />
           </div>
         ) : activeView === "batchResults" ? (
           <div className="flex-1 overflow-auto">
@@ -3272,6 +3309,8 @@ export default function App() {
                   startRow={isEob ? 3 : isShed ? 7 : undefined}
                   isShedSheet={isShed}
                   isEobSheet={isEob}
+                  mortsLog={mortsLog}
+                  cullsLog={cullsLog}
                 />
               </div>
             </>
