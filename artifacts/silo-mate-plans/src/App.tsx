@@ -194,6 +194,245 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+const SPONSOR_TIERS = [
+  { label: "Seedling Sponsor — $10/mo", value: 10 },
+  { label: "Flock Sponsor — $25/mo",    value: 25 },
+  { label: "Gold Flock Sponsor — $50/mo", value: 50 },
+];
+
+function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
+  const invoiceNum = useRef("SMSPON-" + Date.now().toString().slice(-6));
+  const [form, setForm] = useState({
+    businessName: "", abn: "", contactName: "", email: "", address: "",
+    tier: SPONSOR_TIERS[1].value,
+    months: 1,
+    date: new Date().toISOString().split("T")[0],
+  });
+  const [generated, setGenerated] = useState(false);
+
+  const exGst   = form.tier * form.months;
+  const gst     = parseFloat((exGst * 0.1).toFixed(2));
+  const total   = parseFloat((exGst + gst).toFixed(2));
+  const tierLabel = SPONSOR_TIERS.find(t => t.value === form.tier)?.label ?? "";
+
+  const handlePrint = () => {
+    const win = window.open("", "_blank", "width=720,height=960");
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>Sponsor Tax Invoice — Poultry Mate</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 40px; color: #111; font-size: 14px; }
+        .page { max-width: 640px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 24px; border-bottom: 3px solid ${GREEN}; margin-bottom: 28px; }
+        .brand { font-size: 22px; font-weight: 900; color: ${GREEN}; }
+        .brand-sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+        .invoice-label { text-align: right; }
+        .invoice-label h1 { margin: 0; font-size: 28px; font-weight: 900; color: ${GREEN}; letter-spacing: -1px; }
+        .invoice-label p { margin: 4px 0 0; color: #6b7280; font-size: 12px; }
+        .parties { display: flex; gap: 40px; margin-bottom: 28px; }
+        .party { flex: 1; }
+        .party-label { font-size: 10px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; color: #9ca3af; margin-bottom: 8px; }
+        .party-name { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 4px; }
+        .party-detail { font-size: 12px; color: #6b7280; line-height: 1.6; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        thead th { background: ${GREEN}; color: #fff; padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }
+        tbody td { padding: 12px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+        tbody tr:last-child td { border-bottom: none; }
+        .totals { margin-left: auto; width: 260px; }
+        .total-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
+        .total-row.grand { background: ${GREEN}0d; border-radius: 8px; padding: 12px 16px; border: 2px solid ${GREEN}33; font-weight: 900; font-size: 16px; margin-top: 8px; }
+        .notice { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 16px; font-size: 11px; color: #166534; line-height: 1.7; margin-top: 24px; }
+        .footer-note { margin-top: 32px; text-align: center; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; padding-top: 16px; }
+        .gold { color: ${GOLD}; font-weight: 800; }
+        @media print { body { padding: 20px; } }
+      </style></head><body><div class="page">
+        <div class="header">
+          <div>
+            <div class="brand">🌾 Poultry Mate Australia</div>
+            <div class="brand-sub">ABN: (pending registration) · coverdalej72@gmail.com</div>
+          </div>
+          <div class="invoice-label">
+            <h1>TAX INVOICE</h1>
+            <p>${invoiceNum.current}</p>
+            <p>Date: ${new Date(form.date).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}</p>
+          </div>
+        </div>
+        <div class="parties">
+          <div class="party">
+            <div class="party-label">Supplier</div>
+            <div class="party-name">Poultry Mate Australia</div>
+            <div class="party-detail">ABN: (pending registration)<br/>coverdalej72@gmail.com<br/>Australia</div>
+          </div>
+          <div class="party">
+            <div class="party-label">Bill To</div>
+            <div class="party-name">${form.businessName || "—"}</div>
+            <div class="party-detail">
+              ${form.abn ? `ABN: ${form.abn}<br/>` : ""}
+              ${form.contactName ? `Attn: ${form.contactName}<br/>` : ""}
+              ${form.email ? `${form.email}<br/>` : ""}
+              ${form.address ? form.address.replace(/\n/g, "<br/>") : ""}
+            </div>
+          </div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Description</th><th>Months</th><th>Unit Price</th><th>Amount (ex GST)</th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>${tierLabel}</strong><br/><span style="font-size:11px;color:#6b7280;">Sponsorship services — advertising &amp; brand exposure across Poultry Mate platform</span></td>
+              <td>${form.months}</td>
+              <td>$${form.tier.toFixed(2)}</td>
+              <td>$${exGst.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="totals">
+          <div class="total-row"><span>Subtotal (ex GST)</span><span>$${exGst.toFixed(2)}</span></div>
+          <div class="total-row"><span>GST (10%)</span><span>$${gst.toFixed(2)}</span></div>
+          <div class="total-row grand"><span>TOTAL AUD</span><span class="gold">$${total.toFixed(2)}</span></div>
+        </div>
+        <div class="notice">
+          ✅ <strong>Tax Deductibility:</strong> Sponsorship payments are generally deductible as a business marketing or advertising expense under Australian tax law (ITAA 1997 s 8-1). Please retain this tax invoice for your records. We recommend confirming deductibility with your accountant based on your specific circumstances. This invoice includes GST — please claim your GST credit accordingly if registered for GST.
+        </div>
+        <div class="footer-note">
+          Thank you for supporting Poultry Mate and Australian farmers. <span class="gold">Your sponsorship makes a real difference.</span><br/>
+          Poultry Mate Australia · coverdalej72@gmail.com · Invoice generated ${new Date().toLocaleDateString("en-AU")}
+        </div>
+      </div></body></html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  };
+
+  const field = (label: string, key: keyof typeof form, type = "text", placeholder = "") => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <label style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{label}</label>
+      <input
+        type={type}
+        value={String(form[key])}
+        placeholder={placeholder}
+        onChange={e => setForm(f => ({ ...f, [key]: type === "number" ? Number(e.target.value) : e.target.value }))}
+        style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none", width: "100%" }}
+      />
+    </div>
+  );
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: "28px 28px", width: "100%", maxWidth: 500, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", maxHeight: "92vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <h2 style={{ margin: 0, fontWeight: 900, fontSize: 19, color: "#111" }}>🧾 Sponsor Tax Invoice</h2>
+            <p style={{ margin: "3px 0 0", color: "#6b7280", fontSize: 12 }}>For your business records — includes GST breakdown</p>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9ca3af", lineHeight: 1 }}>×</button>
+        </div>
+
+        {!generated ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {field("Business / Sponsor Name *", "businessName", "text", "e.g. Smith Ag Supplies Pty Ltd")}
+            {field("ABN (optional)", "abn", "text", "e.g. 12 345 678 901")}
+            {field("Contact Name", "contactName", "text", "e.g. Jane Smith")}
+            {field("Email", "email", "email", "e.g. accounts@yourco.com.au")}
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>Address (optional)</label>
+              <textarea
+                value={form.address}
+                placeholder="Street, Suburb, State, Postcode"
+                rows={2}
+                onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none", resize: "vertical", width: "100%" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ flex: 2, display: "flex", flexDirection: "column", gap: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>Sponsor Tier</label>
+                <select
+                  value={form.tier}
+                  onChange={e => setForm(f => ({ ...f, tier: Number(e.target.value) }))}
+                  style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none", width: "100%" }}
+                >
+                  {SPONSOR_TIERS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>Months</label>
+                <input type="number" min={1} max={24} value={form.months} onChange={e => setForm(f => ({ ...f, months: Math.max(1, Number(e.target.value)) }))}
+                  style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "9px 12px", fontSize: 13, outline: "none", width: "100%" }} />
+              </div>
+            </div>
+            {field("Invoice Date", "date", "date")}
+
+            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                ["Subtotal (ex GST)", `$${exGst.toFixed(2)}`],
+                ["GST (10%)", `$${gst.toFixed(2)}`],
+              ].map(([l, v]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#6b7280" }}>
+                  <span>{l}</span><span>{v}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: 17, color: GREEN, borderTop: "1px solid #e5e7eb", paddingTop: 8, marginTop: 4 }}>
+                <span>Total AUD</span><span>${total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => { if (!form.businessName) { alert("Please enter a business name"); return; } setGenerated(true); }}
+              style={{ background: GREEN, color: "#fff", fontWeight: 700, fontSize: 14, padding: "13px 0", borderRadius: 10, border: "none", cursor: "pointer", width: "100%" }}
+            >
+              Generate Tax Invoice
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ border: `2px solid ${GREEN}`, borderRadius: 12, overflow: "hidden" }}>
+              <div style={{ background: GREEN, color: "#fff", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 15 }}>TAX INVOICE</div>
+                  <div style={{ fontSize: 11, opacity: 0.8 }}>{invoiceNum.current}</div>
+                </div>
+                <div style={{ textAlign: "right", fontSize: 12, opacity: 0.85 }}>
+                  <div>Poultry Mate Australia</div>
+                  <div>{new Date(form.date).toLocaleDateString("en-AU")}</div>
+                </div>
+              </div>
+              <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
+                {[
+                  ["Bill To", form.businessName],
+                  ...(form.abn ? [["ABN", form.abn]] : []),
+                  ["Tier", tierLabel],
+                  ["Months", String(form.months)],
+                  ["Subtotal (ex GST)", `$${exGst.toFixed(2)}`],
+                  ["GST (10%)", `$${gst.toFixed(2)}`],
+                ].map(([l, v]) => (
+                  <div key={l} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderBottom: "1px solid #f3f4f6", paddingBottom: 6 }}>
+                    <span style={{ color: "#6b7280" }}>{l}</span>
+                    <span style={{ fontWeight: 600 }}>{v}</span>
+                  </div>
+                ))}
+                <div style={{ background: "#f0fdf4", borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: 18, color: GREEN, marginTop: 4 }}>
+                  <span>TOTAL AUD</span><span>${total.toFixed(2)}</span>
+                </div>
+                <div style={{ background: "#fefce8", borderRadius: 8, padding: "10px 14px", fontSize: 11, color: "#92400e", lineHeight: 1.6 }}>
+                  Sponsorship is generally deductible as a marketing/advertising expense (ITAA 1997 s 8-1). GST credit claimable if registered. Confirm with your accountant.
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={handlePrint} style={{ flex: 1, background: GREEN, color: "#fff", fontWeight: 700, fontSize: 14, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer" }}>🖨️ Print / Save PDF</button>
+              <button onClick={() => setGenerated(false)} style={{ flex: 1, background: "#f3f4f6", color: "#374151", fontWeight: 600, fontSize: 14, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer" }}>Edit Details</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const PLANS = [
   {
     id: "bronze",
@@ -480,6 +719,7 @@ function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) 
 export default function App() {
   const [yearly, setYearly] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showSponsorReceipt, setShowSponsorReceipt] = useState(false);
   const [shareLabel, setShareLabel] = useState<"share" | "copied">("share");
 
   const handleShare = async () => {
@@ -503,6 +743,7 @@ export default function App() {
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#f9fafb", minHeight: "100vh" }}>
       {showReceipt && <ReceiptModal onClose={() => setShowReceipt(false)} />}
+      {showSponsorReceipt && <SponsorReceiptModal onClose={() => setShowSponsorReceipt(false)} />}
 
       {/* NAVBAR */}
       <nav style={{
@@ -1200,6 +1441,12 @@ export default function App() {
             <p style={{ marginTop: 20, fontSize: 13, color: "#9ca3af" }}>
               Be one of the first to support Poultry Mate — <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>get in touch</a>
             </p>
+            <button
+              onClick={() => setShowSponsorReceipt(true)}
+              style={{ marginTop: 4, background: "transparent", color: GREEN, border: `2px solid ${GREEN}`, borderRadius: 10, padding: "10px 24px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+            >
+              🧾 Generate Sponsor Tax Invoice
+            </button>
           </div>
 
         </div>
