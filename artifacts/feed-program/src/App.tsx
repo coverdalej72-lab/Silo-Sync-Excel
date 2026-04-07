@@ -824,12 +824,14 @@ function SheetView({
   // EOB header row 3 is sticky at top=0
 
   return (
-    <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "auto", minWidth: (isShedSheet && !showExtraShedCols) ? undefined : "100%" }}>
+    <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "100%", minWidth: "max-content" }}>
       <colgroup>
         {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
           const c = minCol + i;
           if (isShedSheet && c === 3) return null;
-          return <col key={c} style={{ width: colWidths[c] ?? 80, minWidth: 24 }} />;
+          // DATE column (c=2) on shed sheets: no fixed width so it absorbs leftover space
+          const colW = (isShedSheet && c === 2) ? undefined : (colWidths[c] ?? 80);
+          return <col key={c} style={{ width: colW, minWidth: c === 2 ? 80 : 24 }} />;
         })}
       </colgroup>
       <tbody>
