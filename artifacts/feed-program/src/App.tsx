@@ -3810,14 +3810,26 @@ export default function App() {
       // STARTER/GROWER/FINISHER/WITHDRAWL, column-header row Date/Docket/Tonnes)
       // and column V (col 21) which holds the permanent shed-number list.
       const eobSheet = sheets[eobIdx];
+      const shouldSkip = (key: string) => {
+        const parts = key.split(",");
+        const r = parseInt(parts[0]);
+        const c = parseInt(parts[1]);
+        return r < 6 || c === 21;
+      };
       if (eobSheet) {
+        // Clear base xlsx cell values
         for (const [key, info] of eobSheet.cells) {
-          const parts = key.split(",");
-          const r = parseInt(parts[0]);
-          const c = parseInt(parts[1]);
-          if (r < 6) continue;   // preserve all structural header rows
-          if (c === 21) continue; // preserve shed numbers in column V
+          if (shouldSkip(key)) continue;
           if (info.value !== "" && info.value !== undefined) {
+            m.set(key, "");
+          }
+        }
+        // Also clear any user-typed edits (these only exist in the edits layer,
+        // not in eobSheet.cells, so the loop above would miss them)
+        const existingEobEdits = edits[eobIdx];
+        if (existingEobEdits) {
+          for (const [key] of existingEobEdits) {
+            if (shouldSkip(key)) continue;
             m.set(key, "");
           }
         }
@@ -3848,6 +3860,7 @@ export default function App() {
 
     // Clear Batch Results summary, catch data, and batch identifiers
     setBatchResultsSummary(null);
+    setCatchMap({});
     localStorage.removeItem("silo-batch-catches");
     localStorage.removeItem("silo-batch-num");
     localStorage.removeItem("silo-batch-farm-name");
