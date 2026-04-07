@@ -641,11 +641,11 @@ function SheetView({
         {Array.from({ length: maxRow - effectiveStart + 1 }, (_, ri) => {
           const r = effectiveStart + ri;
 
-          const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : (rowHeights[r] ?? 20);
-
           // Determine row-level background
           const isShedHeader  = isShedSheet && (r === 7 || r === 8);
           const isShedSpacer  = isShedSheet && (r === 9 || r === 10 || r === 11); // blank spacer rows
+
+          const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : isShedSpacer ? 0 : (rowHeights[r] ?? 20);
           const isShedTotals  = isShedSheet && r === 11;
           const isShedData    = isShedSheet && r >= 12 && r <= 71;
           const isShedSummary = isShedSheet && r >= 72;
