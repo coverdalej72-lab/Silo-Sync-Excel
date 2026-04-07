@@ -1594,7 +1594,7 @@ function parseEmailCatchText(text: string): ParsedEmailRow[] {
   return results;
 }
 
-function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch, onSummaryLoaded }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void; onSummaryLoaded?: (s: BatchSummary) => void }) {
+function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch, onSummaryLoaded, onCatchMapChange }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void; onSummaryLoaded?: (s: BatchSummary) => void; onCatchMapChange?: (m: CatchMap) => void }) {
   const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
@@ -1653,6 +1653,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const saveCatchMap = (next: CatchMap) => {
     setCatchMap(next);
     localStorage.setItem(BATCH_CATCHES_KEY, JSON.stringify(next));
+    onCatchMapChange?.(next);
     // Push total caught per shed back to EOB "birds catched" column (0-based col 23)
     if (onEobCatch) {
       const allShedNums = new Set([
@@ -2784,10 +2785,11 @@ const BREED_STANDARDS: Record<string, { name: string; data: BreedPoint[] }> = {
   ]},
 };
 
-function FlockForecastView({ sheets, edits, farmConfig }: {
+function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
   sheets: SheetParsed[];
   edits: Map<string, string>[];
   farmConfig: FarmConfigData;
+  catchMap: CatchMap;
 }) {
   const [weighIns, setWeighIns] = useState<WeighInData>(() => {
     try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) || "{}"); } catch { return {}; }
@@ -2827,7 +2829,9 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
 
   type ShedFI = {
     si: number; sgId: number; label: string;
-    shed1: string; shed2: string; birds: number;
+    shed1: string; shed2: string;
+    birds1: number; birds2: number; birds: number;
+    morts1: number; morts2: number;
     placementDate: Date | null; age: number;
     feedUsed: number; feedOnHand: number;
   };
@@ -2843,9 +2847,14 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
     const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
     if (grpCfg && grpCfg.active === false) continue;
 
-    const shed1 = gcv(i, 3, 1) || `Shed ${sgId * 2 - 1}`;
-    const shed2 = gcv(i, 4, 1) || `Shed ${sgId * 2}`;
-    const birds  = gcn(i, 3, 2) + gcn(i, 4, 2);
+    const shed1  = gcv(i, 3, 1) || `Shed ${sgId * 2 - 1}`;
+    const shed2  = gcv(i, 4, 1) || `Shed ${sgId * 2}`;
+    const birds1 = gcn(i, 3, 2);
+    const birds2 = gcn(i, 4, 2);
+    const birds  = birds1 + birds2;
+    // Morts: row 3/4 col 4 (column D) holds cumulative morts per shed if available
+    const morts1 = gcn(i, 3, 4);
+    const morts2 = gcn(i, 4, 4);
     const pd     = parseDateInput(gcv(i, 2, 2));
     const age    = pd ? Math.floor((today.getTime() - pd.getTime()) / 86400000) + 1 : 0;
 
@@ -2857,11 +2866,11 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
     const curRow   = Math.min(Math.max(12, 11 + age), 71);
     const feedOnHand = parseFloat(gcv(i, curRow, COL_I).replace(/,/g, "")) || 0;
 
-    shedInfos.push({ si: i, sgId, label: `Shed ${sgId * 2 - 1} & ${sgId * 2}`, shed1, shed2, birds, placementDate: pd, age, feedUsed, feedOnHand });
+    shedInfos.push({ si: i, sgId, label: `Shed ${sgId * 2 - 1} & ${sgId * 2}`, shed1, shed2, birds1, birds2, birds, morts1, morts2, placementDate: pd, age, feedUsed, feedOnHand });
   }
 
-  const getProj = (info: ShedFI) => {
-    const breed  = getShedBreed(info.sgId);
+  const getProj = (info: ShedFI, slot: 1 | 2 = 1) => {
+    const breed  = getShedBreedStd(info.sgId, slot);
     const wi     = weighIns[info.sgId] ?? {};
     const latest = [...breed.data].reverse().find(p => wi[p.age] > 0);
     const ratio  = latest ? wi[latest.age] / latest.weight : 1.0;
@@ -2922,23 +2931,48 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
         return (
           <div key={info.sgId} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e0e8e4", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", marginBottom: 20, overflow: "hidden" }}>
             {/* Shed header bar */}
-            <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "11px 18px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ background: "#C9A227", color: "#000", borderRadius: 6, padding: "2px 12px", fontWeight: 800, fontSize: 14 }}>{info.label}</div>
-              <span style={{ fontSize: 13, opacity: 0.85 }}>{info.shed1} · {info.shed2}</span>
-              {info.age > 0 && <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 6, padding: "2px 9px", fontSize: 13, fontWeight: 700 }}>Day {info.age}</div>}
-              {info.placementDate && <span style={{ fontSize: 12, opacity: 0.75 }}>📅 {info.placementDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</span>}
-              {/* Per-shed breed selector */}
-              <select
-                value={shedBreeds[info.sgId] ?? "ross308"}
-                onChange={e => setShedBreed(info.sgId, e.target.value)}
-                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 6, padding: "3px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-              >
-                <option value="ross308" style={{ color: "#000" }}>Ross 308</option>
-                <option value="cobb500" style={{ color: "#000" }}>Cobb 500</option>
-              </select>
-              <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>{info.birds > 0 ? info.birds.toLocaleString() : "—"}</div>
-                <div style={{ fontSize: 9, opacity: 0.65, textTransform: "uppercase" as const, letterSpacing: 0.8 }}>Birds</div>
+            <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "10px 18px" }}>
+              {/* Top row: label, age chip, date, total birds */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <div style={{ background: "#C9A227", color: "#000", borderRadius: 6, padding: "2px 12px", fontWeight: 800, fontSize: 14 }}>{info.label}</div>
+                {info.age > 0 && <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 6, padding: "2px 9px", fontSize: 13, fontWeight: 700 }}>Day {info.age}</div>}
+                {info.placementDate && <span style={{ fontSize: 12, opacity: 0.75 }}>📅 Placed {info.placementDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</span>}
+                <div style={{ marginLeft: "auto", textAlign: "right" }}>
+                  <div style={{ fontSize: 18, fontWeight: 800 }}>{info.birds > 0 ? info.birds.toLocaleString() : "—"}</div>
+                  <div style={{ fontSize: 9, opacity: 0.65, textTransform: "uppercase" as const, letterSpacing: 0.8 }}>Total Birds</div>
+                </div>
+              </div>
+              {/* Bottom row: per-shed breed selectors + individual bird counts */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {([1, 2] as (1 | 2)[]).map(slot => {
+                  const shedName  = slot === 1 ? info.shed1 : info.shed2;
+                  const birdCount = slot === 1 ? info.birds1 : info.birds2;
+                  const mortCount = slot === 1 ? info.morts1 : info.morts2;
+                  const mortPct   = birdCount > 0 && mortCount > 0 ? ((mortCount / birdCount) * 100).toFixed(2) : null;
+                  const shedNum   = info.sgId * 2 - (slot === 1 ? 1 : 0);
+                  const catches   = catchMap[shedNum] ?? [];
+                  const totalCaught = catches.reduce((a, r) => a + (parseFloat(r.birds) || 0), 0);
+                  return (
+                    <div key={slot} style={{ background: "rgba(255,255,255,0.12)", borderRadius: 8, padding: "7px 12px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flex: 1, minWidth: 200 }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 13 }}>{shedName}</div>
+                        <div style={{ fontSize: 11, opacity: 0.75 }}>
+                          {birdCount > 0 ? birdCount.toLocaleString() : "—"} birds
+                          {mortPct ? <span style={{ marginLeft: 6, color: "#ffc3c3" }}>{mortPct}% mort</span> : null}
+                          {totalCaught > 0 ? <span style={{ marginLeft: 6, color: "#c3ffd1" }}>✓ {totalCaught.toLocaleString()} caught</span> : null}
+                        </div>
+                      </div>
+                      <select
+                        value={getShedBreedKey(info.sgId, slot)}
+                        onChange={e => setIndivBreed(info.sgId, slot, e.target.value)}
+                        style={{ background: "rgba(255,255,255,0.18)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 6, padding: "3px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}
+                      >
+                        <option value="ross308" style={{ color: "#000" }}>Ross 308</option>
+                        <option value="cobb500" style={{ color: "#000" }}>Cobb 500</option>
+                      </select>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -2955,22 +2989,43 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
                     </tr>
                   </thead>
                   <tbody>
-                    {getShedBreed(info.sgId).data.map((pt, idx) => {
+                    {(() => {
+                      // Build catch-derived weight map for this shed group (avg across both sheds)
+                      const catchWts: Record<number, { grams: number; label: string }> = {};
+                      ([1, 2] as const).forEach(slot => {
+                        const sNum = info.sgId * 2 - (slot === 1 ? 1 : 0);
+                        (catchMap[sNum] ?? []).forEach(c => {
+                          const age = parseInt(c.age, 10);
+                          const kg  = parseFloat(c.aveWgt);
+                          if (!isNaN(age) && age > 0 && !isNaN(kg) && kg > 0) {
+                            const grams = Math.round(kg * 1000);
+                            catchWts[age] = catchWts[age]
+                              ? { grams: Math.round((catchWts[age].grams + grams) / 2), label: "Avg catch" }
+                              : { grams, label: slot === 1 ? info.shed1 : info.shed2 };
+                          }
+                        });
+                      });
+                      return getShedBreedStd(info.sgId, 1).data.map((pt, idx) => {
                       const actual   = wi[pt.age];
+                      const catchWt  = catchWts[pt.age];
+                      const display  = actual ?? (catchWt?.grams ?? null);
+                      const isCatch  = !actual && !!catchWt;
                       const isEdit   = editingWI?.sgId === info.sgId && editingWI?.age === pt.age;
                       const isPast   = info.age >= pt.age;
                       const isTgt    = pt.age === targetAge;
-                      const delta    = actual ? ((actual - pt.weight) / pt.weight) * 100 : null;
-                      const statusDot = actual == null ? null : delta! >= 3 ? "🟢" : delta! >= -3 ? "🟡" : "🔴";
+                      const delta    = display ? ((display - pt.weight) / pt.weight) * 100 : null;
+                      const statusDot = display == null ? null : delta! >= 3 ? "🟢" : delta! >= -3 ? "🟡" : "🔴";
                       return (
                         <tr key={pt.age} style={{ background: idx % 2 === 0 ? "#fafcfb" : "#fff", borderBottom: "1px solid #f4f4f4", opacity: !isPast && !isTgt ? 0.55 : 1 }}>
                           <td style={{ padding: "5px 8px", fontWeight: isTgt ? 800 : 600, color: isTgt ? "#C9A227" : "#333" }}>
                             Day {pt.age}{isTgt ? " 🎯" : ""}
                           </td>
                           <td style={{ padding: "5px 8px", textAlign: "right", color: "#666" }}>{pt.weight.toLocaleString()}g</td>
-                          <td style={{ padding: "5px 8px", textAlign: "right", cursor: isPast ? "pointer" : "default",
-                              color: actual ? (delta! >= 0 ? "#1a7a40" : "#c0392b") : "#ccc" }}
-                            onClick={() => isPast && setEditingWI({ sgId: info.sgId, age: pt.age, val: actual ? String(actual) : "" })}>
+                          <td style={{ padding: "5px 8px", textAlign: "right",
+                              cursor: isCatch ? "default" : isPast ? "pointer" : "default",
+                              color: display ? (delta! >= 0 ? "#1a7a40" : "#c0392b") : "#ccc",
+                              background: isCatch ? "#fffbea" : "transparent" }}
+                            onClick={() => !isCatch && isPast && setEditingWI({ sgId: info.sgId, age: pt.age, val: actual ? String(actual) : "" })}>
                             {isEdit ? (
                               <input autoFocus type="number" value={editingWI!.val}
                                 onChange={e => setEditingWI(prev => prev ? { ...prev, val: e.target.value } : prev)}
@@ -2981,12 +3036,15 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
                                 }}
                                 onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingWI(null); }}
                                 style={{ width: 72, textAlign: "right", border: "1.5px solid var(--pm-primary)", borderRadius: 4, padding: "2px 5px", fontSize: 13, outline: "none" }} />
+                            ) : display ? (
+                              <span>
+                                <strong>{display.toLocaleString()}g</strong>
+                                {isCatch && <span style={{ fontSize: 9, color: "#9a7a00", marginLeft: 4 }}>🏭catch</span>}
+                              </span>
+                            ) : isPast ? (
+                              <span style={{ color: "#bbb", fontSize: 11 }}>— tap to enter</span>
                             ) : (
-                              actual
-                                ? <strong>{actual.toLocaleString()}g</strong>
-                                : isPast
-                                  ? <span style={{ color: "#bbb", fontSize: 11 }}>— tap to enter</span>
-                                  : <span style={{ color: "#ddd" }}>—</span>
+                              <span style={{ color: "#ddd" }}>—</span>
                             )}
                           </td>
                           <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700, color: delta == null ? "#ddd" : delta >= 0 ? "#1a7a40" : "#c0392b" }}>
@@ -2995,7 +3053,7 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
                           <td style={{ padding: "5px 8px", textAlign: "right" }}>{statusDot ?? (isPast ? <span style={{ color: "#e0e0e0" }}>⬜</span> : null)}</td>
                         </tr>
                       );
-                    })}
+                    }); })()}
                   </tbody>
                 </table>
               </div>
@@ -3080,6 +3138,54 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
                 </div>
               </div>
             </div>
+
+            {/* Per-shed catch summary strip */}
+            {(() => {
+              const shedNums = [info.sgId * 2 - 1, info.sgId * 2];
+              const shedNames = [info.shed1, info.shed2];
+              const hasAnyCatch = shedNums.some(n => (catchMap[n] ?? []).length > 0);
+              if (!hasAnyCatch) return null;
+              return (
+                <div style={{ borderTop: "1px solid #e8f0ec", background: "#f8fdf9", padding: "10px 18px" }}>
+                  <div style={{ fontWeight: 700, fontSize: 11, color: "var(--pm-primary)", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 8 }}>🏭 Catch Summary</div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    {shedNums.map((shedNum, si) => {
+                      const rows = catchMap[shedNum] ?? [];
+                      if (rows.length === 0) return null;
+                      const birdCount = si === 0 ? info.birds1 : info.birds2;
+                      const totalCaught = rows.reduce((a, r) => a + (parseFloat(r.birds) || 0), 0);
+                      const totalWgtKg  = rows.reduce((a, r) => {
+                        const tw = parseFloat(r.totalWgt);
+                        const bw = (parseFloat(r.birds) || 0) * (parseFloat(r.aveWgt) || 0);
+                        return a + (tw > 0 ? tw * 1000 : bw);
+                      }, 0);
+                      const aveWgt = totalCaught > 0 ? totalWgtKg / totalCaught : 0;
+                      const mortPct = birdCount > 0 && totalCaught > 0 ? ((birdCount - totalCaught) / birdCount * 100) : null;
+                      return (
+                        <div key={shedNum} style={{ background: "#fff", border: "1px solid #d4ead8", borderRadius: 8, padding: "8px 14px", minWidth: 180, flex: 1 }}>
+                          <div style={{ fontWeight: 800, fontSize: 13, color: "var(--pm-primary)", marginBottom: 5 }}>{shedNames[si]} — Shed {shedNum}</div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                            {[
+                              { label: "Birds Caught",   val: totalCaught > 0 ? totalCaught.toLocaleString() : "—" },
+                              { label: "Avg Weight",     val: aveWgt > 0 ? `${(aveWgt).toFixed(0)}g` : "—" },
+                              { label: "Total Live kg",  val: totalWgtKg > 0 ? `${Math.round(totalWgtKg / 1000).toLocaleString()}t` : "—" },
+                              { label: "Catches",        val: String(rows.length) },
+                              { label: "Mortality %",    val: mortPct != null ? `${mortPct.toFixed(2)}%` : "—" },
+                              { label: "Placed",         val: birdCount > 0 ? birdCount.toLocaleString() : "—" },
+                            ].map(({ label, val }) => (
+                              <div key={label}>
+                                <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" as const, letterSpacing: 0.4 }}>{label}</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: "#333" }}>{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         );
       })}
@@ -3104,6 +3210,9 @@ export default function App() {
   });
   const [cullsLog, setCullsLog] = useState<MortsLog>(() => {
     try { return JSON.parse(localStorage.getItem(CULLS_LOG_KEY) || "{}"); } catch { return {}; }
+  });
+  const [catchMap, setCatchMap] = useState<CatchMap>(() => {
+    try { return JSON.parse(localStorage.getItem(BATCH_CATCHES_KEY) || "{}"); } catch { return {}; }
   });
   const [showSettings, setShowSettings] = useState(false);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
@@ -3946,7 +4055,7 @@ export default function App() {
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2" style={{ borderColor: "var(--pm-primary-mid)" }}>
         {activeView === "flockForecast" ? (
           <div className="flex-1 overflow-auto">
-            <FlockForecastView sheets={sheets} edits={edits} farmConfig={farmConfig} />
+            <FlockForecastView sheets={sheets} edits={edits} farmConfig={farmConfig} catchMap={catchMap} />
           </div>
         ) : activeView === "history" ? (
           <div className="flex-1 overflow-auto">
@@ -3969,6 +4078,7 @@ export default function App() {
               farmConfig={farmConfig}
               shedPlacement={shedPlacement}
               onSummaryLoaded={setBatchResultsSummary}
+              onCatchMapChange={setCatchMap}
               onEobCatch={(shedNum, totalCaught) => {
                 const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
                 if (eobIdx < 0) return;
