@@ -567,6 +567,19 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Stripe price IDs (sandbox) — seeded via scripts/src/seed-poultry-mate-plans.ts
+const STRIPE_PRICES = {
+  bronze: { monthly: "price_1TJQv0Gt1TYrsK4OuhGtZUfC", yearly: "price_1TJQv0Gt1TYrsK4OsV1quRSe" },
+  silver: { monthly: "price_1TJQv1Gt1TYrsK4OMeaXgIpr", yearly: "price_1TJQv1Gt1TYrsK4ORRnC8SpN" },
+  gold:   { monthly: "price_1TJQv1Gt1TYrsK4OsBkAHkai", yearly: "price_1TJQv1Gt1TYrsK4O7EwyiJtc" },
+};
+
+const CHARITIES = [
+  { id: "rural-aid",   name: "Rural Aid Australia",    icon: "🌾", desc: "Supporting farmers in crisis across Australia" },
+  { id: "beyond-blue", name: "Beyond Blue",             icon: "💙", desc: "Mental health support for rural communities" },
+  { id: "wires",       name: "WIRES Wildlife Rescue",   icon: "🦘", desc: "Rescuing and rehabilitating native wildlife" },
+];
+
 const PLANS = [
   {
     id: "bronze",
@@ -574,7 +587,8 @@ const PLANS = [
     icon: "🥉",
     color: "#cd7f32",
     tagline: "Perfect for solo growers just getting started.",
-    monthlyPrice: 20,
+    monthlyPrice: 9.9,
+    yearlyPrice: 99,
     features: [
       "Silo Mate mobile app",
       "Up to 6 sheds / silos",
@@ -597,7 +611,8 @@ const PLANS = [
     icon: "🥈",
     color: "#94a3b8",
     tagline: "Full batch management for active farms.",
-    monthlyPrice: 50,
+    monthlyPrice: 19.9,
+    yearlyPrice: 199,
     features: [
       "Everything in Bronze",
       "Feed Mate spreadsheet viewer",
@@ -620,7 +635,8 @@ const PLANS = [
     icon: "🥇",
     color: GOLD,
     tagline: "For large operations and integrators.",
-    monthlyPrice: 150,
+    monthlyPrice: 39.9,
+    yearlyPrice: 399,
     features: [
       "Everything in Silver",
       "Multiple farms / locations",
@@ -631,7 +647,7 @@ const PLANS = [
       "Per-grower integrator pricing available",
     ],
     notIncluded: [],
-    cta: "Contact Us",
+    cta: "Start Free Trial",
     highlight: false,
   },
 ];
@@ -727,11 +743,9 @@ function Faq({ q, a }: { q: string; a: string }) {
   );
 }
 
-function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) {
-  const discount = yearly ? 0.9 : 1;
-  const monthlyBilled = plan.monthlyPrice * discount;
-  const annualTotal = Math.round(plan.monthlyPrice * 12 * discount);
-  const savedPerYear = Math.round(plan.monthlyPrice * 12 - annualTotal);
+function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: boolean; onSelect: (plan: typeof PLANS[0]) => void }) {
+  const displayPrice  = yearly ? plan.yearlyPrice : plan.monthlyPrice;
+  const savedPerYear  = Math.round(plan.monthlyPrice * 12 - plan.yearlyPrice);
 
   return (
     <div
@@ -780,15 +794,15 @@ function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) 
 
       <div style={{ marginBottom: 8 }}>
         <span style={{ fontSize: 40, fontWeight: 900, color: "#111827" }}>
-          ${Math.round(monthlyBilled)}
+          ${displayPrice.toFixed(2)}
         </span>
-        <span style={{ fontSize: 14, color: "#9ca3af" }}>/mo</span>
+        <span style={{ fontSize: 14, color: "#9ca3af" }}>/{yearly ? "yr" : "mo"}</span>
       </div>
 
       {yearly ? (
         <div style={{ marginBottom: 20 }}>
           <span style={{ fontSize: 13, color: "#6b7280" }}>
-            Billed annually — ${annualTotal}/yr
+            Billed annually — ${plan.yearlyPrice.toFixed(2)}/yr
           </span>
           {savedPerYear > 0 && (
             <span
@@ -812,10 +826,11 @@ function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) 
         </div>
       )}
 
-      <a
-        href="mailto:coverdalej72@gmail.com"
+      <button
+        onClick={() => onSelect(plan)}
         style={{
           display: "block",
+          width: "100%",
           textAlign: "center",
           background: plan.highlight ? GREEN : "transparent",
           color: plan.highlight ? "#fff" : GREEN,
@@ -824,13 +839,13 @@ function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) 
           padding: "12px 0",
           fontWeight: 700,
           fontSize: 15,
-          textDecoration: "none",
+          cursor: "pointer",
           marginBottom: 24,
           transition: "opacity 0.15s",
         }}
       >
         {plan.cta}
-      </a>
+      </button>
 
       <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
         {plan.features.map((f) => (
@@ -850,12 +865,128 @@ function PlanCard({ plan, yearly }: { plan: typeof PLANS[0]; yearly: boolean }) 
   );
 }
 
+// ── Checkout modal ────────────────────────────────────────────────────────────
+function CheckoutModal({ plan, yearly, onClose }: {
+  plan: typeof PLANS[0];
+  yearly: boolean;
+  onClose: () => void;
+}) {
+  const [email, setEmail]           = useState("");
+  const [charityId, setCharityId]   = useState(CHARITIES[0].id);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+
+  const priceId = STRIPE_PRICES[plan.id as keyof typeof STRIPE_PRICES]?.[yearly ? "yearly" : "monthly"];
+  const price   = yearly ? plan.yearlyPrice : plan.monthlyPrice;
+
+  const handleCheckout = async () => {
+    if (!email.includes("@")) { setError("Please enter a valid email address."); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const apiBase = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+      const domain  = window.location.origin;
+      const resp = await fetch(`${domain}/api/stripe/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId,
+          email,
+          charityId,
+          successUrl: `${domain}/plans/?checkout=success`,
+          cancelUrl:  `${domain}/plans/?checkout=cancel`,
+        }),
+      });
+      const data = await resp.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error || "Something went wrong. Please try again.");
+      }
+    } catch {
+      setError("Connection error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px 28px", width: "100%", maxWidth: 440, boxShadow: "0 24px 64px rgba(0,0,0,0.22)", maxHeight: "96vh", overflowY: "auto" }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 24 }}>{plan.icon}</div>
+            <h2 style={{ margin: "4px 0 2px", fontWeight: 900, fontSize: 20, color: "#111" }}>{plan.name} Plan</h2>
+            <div style={{ color: plan.color, fontWeight: 700, fontSize: 15 }}>
+              ${price.toFixed(2)} AUD / {yearly ? "year" : "month"}
+              {yearly && <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 12, marginLeft: 8, background: "#dcfce7", borderRadius: 8, padding: "2px 8px" }}>Save 17%</span>}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9ca3af" }}>×</button>
+        </div>
+
+        {/* Charity choice */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: "#374151", marginBottom: 8 }}>
+            🌿 20% of your subscription goes to your chosen charity:
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {CHARITIES.map(c => (
+              <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: `2px solid ${charityId === c.id ? GREEN : "#e5e7eb"}`, borderRadius: 12, cursor: "pointer", background: charityId === c.id ? `${GREEN}0a` : "#fff", transition: "all 0.15s" }}>
+                <input type="radio" name="charity" value={c.id} checked={charityId === c.id} onChange={() => setCharityId(c.id)} style={{ accentColor: GREEN }} />
+                <span style={{ fontSize: 20 }}>{c.icon}</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#111" }}>{c.name}</div>
+                  <div style={{ fontSize: 11, color: "#6b7280" }}>{c.desc}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Email */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontWeight: 700, fontSize: 13, color: "#374151", display: "block", marginBottom: 6 }}>Your email address</label>
+          <input
+            type="email"
+            value={email}
+            placeholder="you@example.com"
+            onChange={e => { setEmail(e.target.value); setError(""); }}
+            onKeyDown={e => e.key === "Enter" && handleCheckout()}
+            style={{ width: "100%", border: `1.5px solid ${error ? "#dc2626" : "#e5e7eb"}`, borderRadius: 10, padding: "10px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+          />
+          {error && <p style={{ color: "#dc2626", fontSize: 12, margin: "4px 0 0" }}>{error}</p>}
+        </div>
+
+        {/* Fund split info */}
+        <div style={{ background: "#f9fafb", borderRadius: 10, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
+          💡 Fund split: <strong style={{ color: "#111" }}>50%</strong> infrastructure & AI · <strong style={{ color: "#111" }}>30%</strong> developer · <strong style={{ color: "#111" }}>20%</strong> charity
+        </div>
+
+        <button
+          onClick={handleCheckout}
+          disabled={loading}
+          style={{ width: "100%", background: loading ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 800, fontSize: 15, padding: "14px 0", borderRadius: 12, border: "none", cursor: loading ? "not-allowed" : "pointer", transition: "background 0.2s" }}
+        >
+          {loading ? "Redirecting to Stripe…" : `Subscribe — $${price.toFixed(2)}/${yearly ? "yr" : "mo"}`}
+        </button>
+        <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
+          Secure payment via Stripe · Cancel anytime
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [yearly, setYearly] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showSponsorReceipt, setShowSponsorReceipt] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [sponsors, setSponsors] = useState<Sponsor[]>(loadSponsors);
+  const [checkoutPlan, setCheckoutPlan] = useState<typeof PLANS[0] | null>(null);
 
   const updateSponsors = (list: Sponsor[]) => {
     saveSponsors(list);
@@ -886,6 +1017,7 @@ export default function App() {
       {showReceipt && <ReceiptModal onClose={() => setShowReceipt(false)} />}
       {showSponsorReceipt && <SponsorReceiptModal onClose={() => setShowSponsorReceipt(false)} />}
       {showAdminPanel && <SponsorAdminModal sponsors={sponsors} onChange={updateSponsors} onClose={() => setShowAdminPanel(false)} />}
+      {checkoutPlan && <CheckoutModal plan={checkoutPlan} yearly={yearly} onClose={() => setCheckoutPlan(null)} />}
 
       {/* NAVBAR */}
       <nav style={{
@@ -1191,7 +1323,7 @@ export default function App() {
             alignItems: "flex-start",
           }}>
             {PLANS.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} yearly={yearly} />
+              <PlanCard key={plan.id} plan={plan} yearly={yearly} onSelect={setCheckoutPlan} />
             ))}
           </div>
 
@@ -1453,7 +1585,7 @@ export default function App() {
               {[
                 { pct: "50%", label: "App development & AI tools", colour: GREEN, icon: "🛠" },
                 { pct: "30%", label: "Developer income", colour: GOLD, icon: "👨‍💻" },
-                { pct: "20%", label: "Rural Aid Australia (charity)", colour: "#2563eb", icon: "🌾" },
+                { pct: "20%", label: "Subscriber-chosen charity", colour: "#2563eb", icon: "🌾" },
               ].map(({ pct, label, colour, icon }) => (
                 <div key={label} style={{ flex: "1 1 160px", background: `${colour}0d`, border: `2px solid ${colour}33`, borderRadius: 12, padding: "16px 18px", textAlign: "center" }}>
                   <div style={{ fontSize: 24, marginBottom: 6 }}>{icon}</div>
