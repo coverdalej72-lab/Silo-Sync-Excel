@@ -194,6 +194,140 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── Sponsor management ────────────────────────────────────────────────────────
+const ADMIN_PASSWORD  = "PoultryMate2025";
+const SPONSORS_KEY    = "pm-current-sponsors";
+
+type Sponsor = {
+  id: string;
+  name: string;
+  tier: "gold" | "flock" | "seedling";
+  website?: string;
+  logoUrl?: string;
+};
+
+function loadSponsors(): Sponsor[] {
+  try { return JSON.parse(localStorage.getItem(SPONSORS_KEY) || "[]"); } catch { return []; }
+}
+function saveSponsors(list: Sponsor[]) {
+  localStorage.setItem(SPONSORS_KEY, JSON.stringify(list));
+}
+
+const TIER_META: Record<Sponsor["tier"], { label: string; colour: string; icon: string; w: number; h: number }> = {
+  gold:     { label: "Gold Flock Sponsor", colour: "#dc2626", icon: "🏆", w: 200, h: 90 },
+  flock:    { label: "Flock Sponsor",      colour: GOLD,      icon: "🐔", w: 160, h: 75 },
+  seedling: { label: "Seedling Sponsor",   colour: "#16a34a", icon: "🌱", w: 130, h: 65 },
+};
+
+function SponsorAdminModal({ sponsors, onChange, onClose }: {
+  sponsors: Sponsor[];
+  onChange: (list: Sponsor[]) => void;
+  onClose: () => void;
+}) {
+  const [authed, setAuthed]     = useState(false);
+  const [pw, setPw]             = useState("");
+  const [pwErr, setPwErr]       = useState(false);
+  const [form, setForm]         = useState<Omit<Sponsor, "id">>({ name: "", tier: "flock", website: "", logoUrl: "" });
+
+  const submit = () => {
+    if (pw === ADMIN_PASSWORD) { setAuthed(true); setPwErr(false); }
+    else { setPwErr(true); }
+  };
+
+  const addSponsor = () => {
+    if (!form.name.trim()) return;
+    const updated = [...sponsors, { ...form, id: Date.now().toString() }];
+    onChange(updated);
+    setForm({ name: "", tier: "flock", website: "", logoUrl: "" });
+  };
+
+  const remove = (id: string) => onChange(sponsors.filter(s => s.id !== id));
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, padding: "28px 28px", width: "100%", maxWidth: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", maxHeight: "92vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <h2 style={{ margin: 0, fontWeight: 900, fontSize: 19, color: "#111" }}>🔧 Manage Sponsors</h2>
+            <p style={{ margin: "3px 0 0", color: "#6b7280", fontSize: 12 }}>Admin access required</p>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9ca3af" }}>×</button>
+        </div>
+
+        {!authed ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>Admin Password</label>
+            <input
+              type="password"
+              value={pw}
+              placeholder="Enter password"
+              onChange={e => { setPw(e.target.value); setPwErr(false); }}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              style={{ border: `1.5px solid ${pwErr ? "#dc2626" : "#e5e7eb"}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, outline: "none" }}
+            />
+            {pwErr && <p style={{ color: "#dc2626", fontSize: 12, margin: 0 }}>Incorrect password</p>}
+            <button onClick={submit} style={{ background: GREEN, color: "#fff", fontWeight: 700, fontSize: 14, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer" }}>
+              Unlock Admin Panel
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* Current sponsor list */}
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: "#111", marginBottom: 10 }}>Current Sponsors ({sponsors.length})</div>
+              {sponsors.length === 0 && <p style={{ color: "#9ca3af", fontSize: 13 }}>No sponsors added yet.</p>}
+              {sponsors.map(s => {
+                const meta = TIER_META[s.tier];
+                return (
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", border: `1.5px solid ${meta.colour}33`, borderRadius: 10, marginBottom: 8, background: `${meta.colour}08` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {s.logoUrl ? <img src={s.logoUrl} alt={s.name} style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 6 }} /> : <span style={{ fontSize: 22 }}>{meta.icon}</span>}
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "#111" }}>{s.name}</div>
+                        <div style={{ fontSize: 11, color: "#6b7280" }}>{meta.label}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => remove(s.id)} style={{ background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Remove</button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add new sponsor */}
+            <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 16 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: "#111", marginBottom: 12 }}>Add New Sponsor</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[["Sponsor / Business Name *", "name", "text", "e.g. Smith Ag Supplies"], ["Website (optional)", "website", "url", "https://"], ["Logo Image URL (optional)", "logoUrl", "url", "https://..."]].map(([label, key, type, placeholder]) => (
+                  <div key={key as string} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>{label}</label>
+                    <input type={type as string} value={(form as any)[key as string]} placeholder={placeholder as string}
+                      onChange={e => setForm(f => ({ ...f, [key as string]: e.target.value }))}
+                      style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 11px", fontSize: 13, outline: "none" }} />
+                  </div>
+                ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: "#374151" }}>Tier</label>
+                  <select value={form.tier} onChange={e => setForm(f => ({ ...f, tier: e.target.value as Sponsor["tier"] }))}
+                    style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "8px 11px", fontSize: 13, outline: "none" }}>
+                    {(Object.entries(TIER_META) as [Sponsor["tier"], typeof TIER_META["gold"]][]).map(([k, v]) => (
+                      <option key={k} value={k}>{v.icon} {v.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <button onClick={addSponsor} style={{ background: GREEN, color: "#fff", fontWeight: 700, fontSize: 14, padding: "11px 0", borderRadius: 10, border: "none", cursor: "pointer", marginTop: 4 }}>
+                  ＋ Add Sponsor
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const SPONSOR_TIERS = [
   { label: "Seedling Sponsor — $10/mo", value: 10 },
   { label: "Flock Sponsor — $25/mo",    value: 25 },
@@ -720,6 +854,13 @@ export default function App() {
   const [yearly, setYearly] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showSponsorReceipt, setShowSponsorReceipt] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [sponsors, setSponsors] = useState<Sponsor[]>(loadSponsors);
+
+  const updateSponsors = (list: Sponsor[]) => {
+    saveSponsors(list);
+    setSponsors(list);
+  };
   const [shareLabel, setShareLabel] = useState<"share" | "copied">("share");
 
   const handleShare = async () => {
@@ -744,6 +885,7 @@ export default function App() {
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#f9fafb", minHeight: "100vh" }}>
       {showReceipt && <ReceiptModal onClose={() => setShowReceipt(false)} />}
       {showSponsorReceipt && <SponsorReceiptModal onClose={() => setShowSponsorReceipt(false)} />}
+      {showAdminPanel && <SponsorAdminModal sponsors={sponsors} onChange={updateSponsors} onClose={() => setShowAdminPanel(false)} />}
 
       {/* NAVBAR */}
       <nav style={{
@@ -1416,37 +1558,53 @@ export default function App() {
             ))}
           </div>
 
-          {/* Current sponsors placeholder */}
+          {/* Current Sponsors — live managed */}
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ fontWeight: 800, fontSize: 16, color: "#111827", marginBottom: 20 }}>🤝 Current Sponsors</div>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
-              {["Gold Flock Sponsor", "Flock Sponsor", "Flock Sponsor", "Seedling Sponsor"].map((tier, i) => (
-                <div key={i} style={{
-                  width: i === 0 ? 200 : 150,
-                  height: i === 0 ? 90 : 70,
-                  border: "2px dashed #d1d5db",
-                  borderRadius: 12,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "#fff",
-                  gap: 4,
-                }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.5 }}>{tier}</div>
-                  <div style={{ fontSize: 13, color: "#d1d5db", fontWeight: 600 }}>Your logo here</div>
-                </div>
-              ))}
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", minHeight: 80, alignItems: "center" }}>
+              {sponsors.length === 0 ? (
+                /* Empty placeholders */
+                ["gold", "flock", "flock", "seedling"].map((tier, i) => {
+                  const meta = TIER_META[tier as Sponsor["tier"]];
+                  return (
+                    <div key={i} style={{ width: meta.w, height: meta.h, border: "2px dashed #d1d5db", borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#fff", gap: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: 0.5 }}>{meta.label}</div>
+                      <div style={{ fontSize: 13, color: "#d1d5db", fontWeight: 600 }}>Your logo here</div>
+                    </div>
+                  );
+                })
+              ) : (
+                sponsors.map(s => {
+                  const meta = TIER_META[s.tier];
+                  const card = (
+                    <div key={s.id} style={{ width: meta.w, height: meta.h, border: `2px solid ${meta.colour}44`, borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#fff", padding: "8px 12px", gap: 4, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+                      {s.logoUrl
+                        ? <img src={s.logoUrl} alt={s.name} style={{ maxHeight: meta.h * 0.55, maxWidth: meta.w - 24, objectFit: "contain" }} />
+                        : <span style={{ fontSize: meta.h > 80 ? 28 : 22 }}>{meta.icon}</span>
+                      }
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", textAlign: "center", lineHeight: 1.2 }}>{s.name}</div>
+                      <div style={{ fontSize: 10, color: meta.colour, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{meta.label}</div>
+                    </div>
+                  );
+                  return s.website
+                    ? <a key={s.id} href={s.website} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>{card}</a>
+                    : card;
+                })
+              )}
             </div>
-            <p style={{ marginTop: 20, fontSize: 13, color: "#9ca3af" }}>
-              Be one of the first to support Poultry Mate — <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>get in touch</a>
-            </p>
-            <button
-              onClick={() => setShowSponsorReceipt(true)}
-              style={{ marginTop: 4, background: "transparent", color: GREEN, border: `2px solid ${GREEN}`, borderRadius: 10, padding: "10px 24px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-            >
-              🧾 Generate Sponsor Tax Invoice
-            </button>
+            <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <p style={{ fontSize: 13, color: "#9ca3af", margin: 0, alignSelf: "center" }}>
+                {sponsors.length === 0 ? <>Be one of the first to support Poultry Mate — <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>get in touch</a></> : <>Want your business here? <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>Become a sponsor</a></>}
+              </p>
+            </div>
+            <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+              <button onClick={() => setShowSponsorReceipt(true)} style={{ background: "transparent", color: GREEN, border: `2px solid ${GREEN}`, borderRadius: 10, padding: "10px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                🧾 Generate Sponsor Tax Invoice
+              </button>
+              <button onClick={() => setShowAdminPanel(true)} style={{ background: "transparent", color: "#9ca3af", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 20px", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                🔧 Manage Sponsors
+              </button>
+            </div>
           </div>
 
         </div>
