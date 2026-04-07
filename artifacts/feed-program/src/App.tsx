@@ -69,7 +69,7 @@ const COL_M = 12;  // Silo C
 const FARM_CONFIG_KEY = "silo-farm-config";
 
 interface FarmShedConfig { shedGroupId: number; active: boolean; silos: { letter: string }[] }
-interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[] }
+interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean }
 
 function readFarmConfig(): FarmConfigData {
   try {
@@ -582,6 +582,7 @@ function SheetView({
   isEobSheet,
   mortsLog,
   cullsLog,
+  showExtraShedCols,
 }: {
   sheet: SheetParsed;
   sheetIdx: number;
@@ -594,6 +595,7 @@ function SheetView({
   isEobSheet?: boolean;
   mortsLog?: MortsLog;
   cullsLog?: MortsLog;
+  showExtraShedCols?: boolean;
 }) {
   const { cells, minRow, maxRow, minCol, maxCol, colWidths, rowHeights } = sheet;
   const effectiveStart = startRow ?? minRow;
@@ -601,6 +603,8 @@ function SheetView({
 
   // Trim empty trailing columns — only consider visible rows (r >= effectiveStart)
   const displayMaxCol = useMemo(() => {
+    // When extra shed columns are hidden, stop rendering after BIRDS LEFT (col 14)
+    if (isShedSheet && !showExtraShedCols) return 14;
     let last = minCol;
     for (const [key, info] of cells) {
       if (info.hidden) continue;
@@ -617,7 +621,7 @@ function SheetView({
       if (r >= effectiveStart && c > last) last = c;
     }
     return Math.min(last, maxCol);
-  }, [cells, edits, effectiveStart, minCol, maxCol]);
+  }, [cells, edits, effectiveStart, minCol, maxCol, isShedSheet, showExtraShedCols]);
 
   // Compute cumulative birds remaining per shed data row (col 14 = BIRDS LEFT)
   // Accounts for: col 13 (CATCH/MORTS manual entries) + Morts tab log + Culls tab log
@@ -3311,6 +3315,7 @@ export default function App() {
                   isEobSheet={isEob}
                   mortsLog={mortsLog}
                   cullsLog={cullsLog}
+                  showExtraShedCols={farmConfig.showExtraShedCols ?? false}
                 />
               </div>
             </>
@@ -3374,6 +3379,33 @@ export default function App() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Extra Shed Columns Toggle */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Shed Extra Columns</label>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Show or hide the extra columns after BIRDS LEFT (Shed #, Diff, Discrepancy) on shed tabs.</p>
+                <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
+                  <span style={{ fontSize: 14, color: "#333", flex: 1 }}>Show extra columns</span>
+                  <div
+                    onClick={() => {
+                      const updated = { ...farmConfig, showExtraShedCols: !(farmConfig.showExtraShedCols ?? false) };
+                      saveFarmConfig(updated);
+                      setFarmConfig(updated);
+                    }}
+                    style={{
+                      width: 46, height: 26, borderRadius: 13, cursor: "pointer",
+                      background: (farmConfig.showExtraShedCols ?? false) ? "#1a5c36" : "#ccc",
+                      position: "relative", transition: "background 0.2s", flexShrink: 0,
+                    }}
+                  >
+                    <div style={{
+                      position: "absolute", top: 3, left: (farmConfig.showExtraShedCols ?? false) ? 23 : 3,
+                      width: 20, height: 20, borderRadius: "50%", background: "#fff",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.25)", transition: "left 0.2s",
+                    }} />
+                  </div>
+                </label>
               </div>
 
               {/* New Batch */}
