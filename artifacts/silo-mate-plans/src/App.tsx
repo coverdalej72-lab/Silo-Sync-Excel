@@ -1413,8 +1413,8 @@ export default function App() {
             marginBottom: 20,
             letterSpacing: "-0.03em",
           }}>
-            Track every silo.<br />
-            <span style={{ color: GOLD }}>Never run low</span> on feed.
+            Every shed. Every batch.<br />
+            <span style={{ color: GOLD }}>Always in control.</span>
           </h1>
           <p style={{
             fontSize: "clamp(16px, 2.5vw, 20px)",
@@ -1422,7 +1422,7 @@ export default function App() {
             lineHeight: 1.6,
             marginBottom: 36,
           }}>
-            Poultry Mate replaces paper & Excel with a mobile-first app and smart Feed Mate spreadsheet that update automatically — across every device on your farm.
+            Poultry Mate is a complete farm management platform for <strong style={{ color: GOLD }}>broiler</strong> and <strong style={{ color: GOLD }}>breeder</strong> farms — replacing paper & Excel with live silo tracking, batch results, egg production logs, body weight curves, and real-time feed alerts across every device on your farm.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <a
@@ -1475,15 +1475,17 @@ export default function App() {
           {[
             { icon: "📱", title: "No App Install" },
             { icon: "🔔", title: "Feed Alerts" },
-            { icon: "📊", title: "Feed Mate" },
+            { icon: "🌾", title: "Silo Tracker" },
+            { icon: "📊", title: "Batch Results & FCR" },
+            { icon: "💀", title: "Morts Tracking" },
+            { icon: "📈", title: "Batch History" },
+            { icon: "🔮", title: "Flock Forecast" },
+            { icon: "🥚", title: "Egg Production" },
+            { icon: "⚖️", title: "Body Weight Curves" },
+            { icon: "🏗️", title: "Up to 20 Sheds" },
             { icon: "📷", title: "QR Scanning" },
             { icon: "🔄", title: "Cross-device Sync" },
-            { icon: "🐥", title: "Batch Tracking" },
-            { icon: "🏗️", title: "Multi-shed Support" },
-            { icon: "📈", title: "Batch History" },
-            { icon: "💧", title: "Water Tracking" },
-            { icon: "⚖️", title: "Live Weights" },
-            { icon: "📋", title: "Daily Reports" },
+            { icon: "📤", title: "CSV / Excel Export" },
             { icon: "🔐", title: "Secure Data" },
           ].map(({ icon, title }, i, arr) => (
             <div key={title} style={{ display: "flex", alignItems: "center" }}>
@@ -1523,9 +1525,11 @@ export default function App() {
               { icon: "🐣", label: "Birds Placed",    desc: "Total birds in for each batch" },
               { icon: "🌾", label: "Feed Ordered",     desc: "Total kg ordered per batch" },
               { icon: "📉", label: "FCR",              desc: "Feed conversion ratio tracked over time" },
-              { icon: "✅", label: "CFCR",             desc: "Corrected FCR comparison batch to batch" },
+              { icon: "✅", label: "cFCR",             desc: "Corrected FCR — Baiada & Ingham processor comparison" },
               { icon: "⚖️", label: "Cage Weight",      desc: "Average cage weight per batch" },
               { icon: "💀", label: "Mortality %",      desc: "Mortality rate trends over batches" },
+              { icon: "🔮", label: "Flock Forecast",   desc: "Predictive catch-weight & feed usage based on current growth" },
+              { icon: "📊", label: "Per-shed Charts",  desc: "FCR, cFCR & cage count breakdown per individual shed" },
             ].map(({ icon, label, desc }) => (
               <div key={label} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 14, padding: "20px 16px", textAlign: "center", backdropFilter: "blur(6px)" }}>
                 <div style={{ fontSize: 34, marginBottom: 10 }}>{icon}</div>
@@ -1553,6 +1557,187 @@ export default function App() {
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.1)", fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
               📊 Bar charts for every metric — updated automatically at each new batch
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FEED MATE & DAILY OPERATIONS */}
+      <section style={{ background: "#fff", padding: "72px 24px", borderTop: "1px solid #e5e7eb" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: `${GREEN}14`, border: `1px solid ${GREEN}40`, borderRadius: 999, padding: "6px 20px", marginBottom: 18 }}>
+              <span style={{ fontSize: 18 }}>🌾</span>
+              <span style={{ color: GREEN, fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Daily Feed Management</span>
+            </div>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15, color: "#111827" }}>
+              Every shed. Every day.<br />
+              <span style={{ color: GREEN }}>Feed data that works for you.</span>
+            </h2>
+            <p style={{ fontSize: 17, color: "#6b7280", maxWidth: 560, margin: "0 auto", lineHeight: 1.7 }}>
+              The Feed Mate spreadsheet gives you a live, editable daily feed log for every shed — feed ordered, silo allocation, feed on hand, bird counts, and live weights — all calculated automatically.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20 }}>
+            {[
+              { icon: "🌾", color: GREEN, title: "Silo Tracker", desc: "Monitor every silo in real time. See feed remaining, days left, and get alerts before you run short." },
+              { icon: "📋", color: GREEN, title: "Per-shed Feed Allocation", desc: "Allocate feed from silos to each shed daily. The app tracks silo levels automatically as you enter your reads." },
+              { icon: "📉", color: GREEN, title: "Feed On Hand Alerts", desc: "Colour-coded warnings when feed on hand drops below your threshold — red, amber, and green at a glance." },
+              { icon: "⚖️", color: GREEN, title: "Live Weights & WDW", desc: "Log average live weight per shed each day. See daily weight gain and compare against your target curve." },
+              { icon: "💧", color: "#2563eb", title: "Water Tracking", desc: "Record daily water consumption per shed alongside feed — helps identify health issues early." },
+              { icon: "📷", color: "#2563eb", title: "QR Docket Scanning", desc: "Scan your feed docket QR code to auto-fill delivery details directly into the spreadsheet." },
+              { icon: "📤", color: "#374151", title: "Export to Excel / CSV", desc: "Download a full copy of your feed data at any time. Share with your integrator or vet in one tap." },
+              { icon: "🔄", color: "#374151", title: "Cross-device Sync", desc: "Start on your phone in the shed, finish on the desktop in the office. Always in sync." },
+            ].map(({ icon, color, title, desc }) => (
+              <div key={title} style={{ border: "1.5px solid #e5e7eb", borderRadius: 14, padding: "22px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 28 }}>{icon}</span>
+                  <span style={{ fontWeight: 800, fontSize: 15, color }}>{title}</span>
+                </div>
+                <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.65, margin: 0 }}>{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* MORTS & FLOCK FORECAST */}
+      <section style={{ background: "#f9fafb", padding: "72px 24px", borderTop: "1px solid #e5e7eb" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(139,26,26,0.1)", border: "1px solid rgba(139,26,26,0.3)", borderRadius: 999, padding: "6px 20px", marginBottom: 18 }}>
+              <span style={{ fontSize: 18 }}>💀</span>
+              <span style={{ color: "#8b1a1a", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Morts & Flock Forecast</span>
+            </div>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15, color: "#111827" }}>
+              Know your flock.<br />
+              <span style={{ color: "#8b1a1a" }}>Catch problems early.</span>
+            </h2>
+            <p style={{ fontSize: 17, color: "#6b7280", maxWidth: 560, margin: "0 auto", lineHeight: 1.7 }}>
+              Log mortality and culls daily per shed, track running totals, and let the Flock Forecast tell you where your batch is heading before catch day arrives.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
+            <div style={{ background: "#fff", border: "2px solid #8b1a1a33", borderRadius: 16, padding: "28px 24px" }}>
+              <div style={{ fontSize: 36, marginBottom: 14 }}>💀</div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: "#8b1a1a", marginBottom: 10 }}>Morts Tracking</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                {["Daily mortality & culls per shed", "Running total birds left for each shed", "Morts % calculation (automatically updated)", "Separate tracking for catches (partial batches)", "Full mort log history across all sheds"].map(t => (
+                  <li key={t} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#374151" }}>
+                    <span style={{ color: "#8b1a1a", fontWeight: 900, flexShrink: 0 }}>✓</span>{t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div style={{ background: "#fff", border: "2px solid #4e1a6e33", borderRadius: 16, padding: "28px 24px" }}>
+              <div style={{ fontSize: 36, marginBottom: 14 }}>🔮</div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: "#4e1a6e", marginBottom: 10 }}>Flock Forecast</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                {["Predictive catch-weight based on current daily gain", "Projected total feed usage to end of batch", "Forecast FCR vs your target", "Adjustable catch-day slider to model scenarios", "Per-shed and whole-farm forecast views"].map(t => (
+                  <li key={t} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#374151" }}>
+                    <span style={{ color: "#4e1a6e", fontWeight: 900, flexShrink: 0 }}>✓</span>{t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div style={{ background: "#fff", border: `2px solid ${GREEN}33`, borderRadius: 16, padding: "28px 24px" }}>
+              <div style={{ fontSize: 36, marginBottom: 14 }}>📊</div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: GREEN, marginBottom: 10 }}>Batch Results & FCR</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                {["Auto-calculated FCR and cFCR at end of batch", "Per-shed FCR breakdown in bar chart", "Processor-aware cFCR (Baiada or Ingham)", "Cage count and average weight per shed", "Full batch summary card with all KPIs"].map(t => (
+                  <li key={t} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 13, color: "#374151" }}>
+                    <span style={{ color: GREEN, fontWeight: 900, flexShrink: 0 }}>✓</span>{t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* BREEDER FARM TOOLS */}
+      <section style={{ background: "linear-gradient(135deg, #2d1558 0%, #4c1d95 60%, #6d28d9 100%)", padding: "72px 24px", color: "#fff" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(201,162,39,0.2)", border: "1px solid rgba(201,162,39,0.5)", borderRadius: 999, padding: "6px 20px", marginBottom: 18 }}>
+              <span style={{ fontSize: 18 }}>💎</span>
+              <span style={{ color: "#C9A227", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Platinum — Breeder Farm Tools</span>
+            </div>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+              Built for parent stock.<br />
+              <span style={{ color: "#C9A227" }}>Every egg. Every gram.</span>
+            </h2>
+            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.75)", maxWidth: 580, margin: "0 auto", lineHeight: 1.7 }}>
+              Switch your farm to Breeder mode and unlock purpose-built tools for parent stock operations — egg production logs with HDP% analytics, and weekly body weight tracking against your breed's target curve.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 28 }}>
+            {/* Egg Production */}
+            <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 18, padding: "28px 24px", backdropFilter: "blur(8px)" }}>
+              <div style={{ fontSize: 40, marginBottom: 14 }}>🥚</div>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12, color: "#fef08a" }}>Egg Production Tracking</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 9 }}>
+                {[
+                  "Daily egg entry per shed — total, floor, broken & settable",
+                  "Auto-calculated HDP% (Hen Day Production) per shed",
+                  "Floor egg % and settable egg % breakdowns",
+                  "Multi-shed trend chart across the whole farm",
+                  "Data persisted locally — always available offline",
+                ].map(t => (
+                  <li key={t} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
+                    <span style={{ color: "#fde68a", fontWeight: 900, flexShrink: 0, marginTop: 1 }}>✓</span>{t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Body Weight */}
+            <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 18, padding: "28px 24px", backdropFilter: "blur(8px)" }}>
+              <div style={{ fontSize: 40, marginBottom: 14 }}>⚖️</div>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12, color: "#fef08a" }}>Body Weight & Uniformity</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 9 }}>
+                {[
+                  "Weekly body weight entry per shed with age-in-weeks",
+                  "Breed target curves: Ross 308 Breeder & Cobb 500 Breeder",
+                  "Auto-filled gold guide targets based on flock age",
+                  "Uniformity % tracking per shed each week",
+                  "Actual vs target line chart — see variance at a glance",
+                ].map(t => (
+                  <li key={t} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
+                    <span style={{ color: "#fde68a", fontWeight: 900, flexShrink: 0, marginTop: 1 }}>✓</span>{t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Breeder Mode */}
+            <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 18, padding: "28px 24px", backdropFilter: "blur(8px)" }}>
+              <div style={{ fontSize: 40, marginBottom: 14 }}>🐓</div>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12, color: "#fef08a" }}>Breeder Program Mode</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 9 }}>
+                {[
+                  "Switch between Broiler and Breeder mode per farm",
+                  "Dedicated Breeder Program header & tailored navigation",
+                  "Egg Production and Body Weight tabs replace Batch Results",
+                  "Morts & History tabs remain for broiler-like mortality logs",
+                  "Feed Mate daily feed sheets still active for feed management",
+                ].map(t => (
+                  <li key={t} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
+                    <span style={{ color: "#fde68a", fontWeight: 900, flexShrink: 0, marginTop: 1 }}>✓</span>{t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 48 }}>
+            <a href="#pricing" style={{ display: "inline-block", background: "#C9A227", color: "#1a1a1a", fontWeight: 800, fontSize: 16, padding: "15px 40px", borderRadius: 12, textDecoration: "none" }}>
+              See Platinum Pricing →
+            </a>
           </div>
         </div>
       </section>
@@ -1674,9 +1859,9 @@ export default function App() {
             lineHeight: 1.65,
             marginBottom: 20,
           }}>
-            "Finally an app that understands how broiler farms actually work. I can check my silos on the phone, and my Feed Mate on the desktop, and they're always in sync."
+            "Finally an app that understands how broiler farms actually work. Silos on the phone, Feed Mate on the desktop — always in sync. The Flock Forecast alone has saved me from being caught short twice this batch."
           </blockquote>
-          <p style={{ fontWeight: 700, color: GREEN, fontSize: 14 }}>— Early access grower, Australia</p>
+          <p style={{ fontWeight: 700, color: GREEN, fontSize: 14 }}>— Early access grower, Queensland, Australia</p>
         </div>
       </section>
 
