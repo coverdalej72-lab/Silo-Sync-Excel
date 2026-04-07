@@ -882,7 +882,7 @@ function SheetView({
                   : (isShedData && c === 14 && birdsLeft !== null)
                     ? birdsLeft.toLocaleString()
                   : (isShedData && c === 13 && (rawVal === "" || rawVal === "0")) ? "—"
-                  : (isShedData && c === COL_I && rawVal !== "") ? (() => {
+                  : (isShedData && (c === COL_G || c === COL_H || c === COL_I) && rawVal !== "") ? (() => {
                       const n = parseFloat(String(rawVal).replace(/,/g, ""));
                       return isNaN(n) ? rawVal : Math.round(n).toLocaleString();
                     })()
