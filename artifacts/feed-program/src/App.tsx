@@ -3167,8 +3167,8 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                             {[
                               { label: "Birds Caught",   val: totalCaught > 0 ? totalCaught.toLocaleString() : "—" },
-                              { label: "Avg Weight",     val: aveWgt > 0 ? `${(aveWgt).toFixed(0)}g` : "—" },
-                              { label: "Total Live kg",  val: totalWgtKg > 0 ? `${Math.round(totalWgtKg / 1000).toLocaleString()}t` : "—" },
+                              { label: "Avg Weight",     val: aveWgt > 0 ? `${aveWgt.toFixed(3)} kg` : "—" },
+                              { label: "Total Live",     val: totalWgtKg > 0 ? `${Math.round(totalWgtKg).toLocaleString()} kg` : "—" },
                               { label: "Catches",        val: String(rows.length) },
                               { label: "Mortality %",    val: mortPct != null ? `${mortPct.toFixed(2)}%` : "—" },
                               { label: "Placed",         val: birdCount > 0 ? birdCount.toLocaleString() : "—" },
