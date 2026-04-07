@@ -181,6 +181,20 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     }
   }
 
+  // Always seed Feed On Hand (COL_I) from the template into the edits map,
+  // rounded to 2 decimal places. This prevents raw Excel floating-point values
+  // (e.g. 24901.399999999998) from leaking into the display when no silo
+  // readings have been entered to trigger the cascade.
+  // If silo readings DO exist, the cascade below will overwrite these with
+  // freshly computed values.
+  for (let r = 12; r <= 71; r++) {
+    const fohStr = getCellStr(r, COL_I);
+    const foh = parseFloat(fohStr);
+    if (fohStr !== "" && !isNaN(foh)) {
+      m.set(`${r},${COL_I}`, String(Math.round(foh * 100) / 100));
+    }
+  }
+
   // Run the FOH cascade from the earliest seeded row so Feed On Hand is correct
   if (minSeedRow <= sheet.maxRow) {
     return recalculate(sheet.cells, m, minSeedRow, COL_K, sheet.maxRow);
