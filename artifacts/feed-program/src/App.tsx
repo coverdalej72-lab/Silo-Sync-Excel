@@ -643,9 +643,10 @@ function SheetView({
 
           // Determine row-level background
           const isShedHeader  = isShedSheet && (r === 7 || r === 8);
-          const isShedSpacer  = isShedSheet && (r === 9 || r === 10 || r === 11); // blank spacer rows
+          const isShedSpacer  = isShedSheet && (r === 9 || r === 10 || r === 11); // blank spacer rows — skip entirely
+          if (isShedSpacer) return null;
 
-          const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : isShedSpacer ? 0 : (rowHeights[r] ?? 20);
+          const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : (rowHeights[r] ?? 20);
           const isShedTotals  = isShedSheet && r === 11;
           const isShedData    = isShedSheet && r >= 12 && r <= 71;
           const isShedSummary = isShedSheet && r >= 72;
@@ -690,8 +691,6 @@ function SheetView({
                 let cellBg: string | null;
                 if (isAnyHeader) {
                   cellBg = "#1a5c36";
-                } else if (isShedSpacer) {
-                  cellBg = "#ffffff";
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
                 } else if (isShedSheet && isShedData && (c === 13 || c === 14)) {
@@ -709,16 +708,12 @@ function SheetView({
                 };
                 const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
-                  : isShedSpacer
-                  ? "#ffffff"
                   : isFeedRunOut
                   ? "#ffffff"
                   : safeFontColor(info.fontColor);
 
                 const borderStyle = isAnyHeader
                   ? "1px solid rgba(255,255,255,0.15)"
-                  : isShedSpacer
-                  ? "1px solid #fff"
                   : "1px solid #000";
 
                 const stickyTop = isShedHeader
