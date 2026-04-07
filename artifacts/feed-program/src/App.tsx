@@ -3274,41 +3274,40 @@ export default function App() {
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-zinc-900">
       {/* Bell-ring keyframe */}
       <style>{`
-        @keyframes bell-ring {
+        @keyframes bell-wiggle {
           0%,100% { transform: rotate(0deg); }
-          10%,30%  { transform: rotate(-12deg); }
-          20%,40%  { transform: rotate(12deg); }
-          50%      { transform: rotate(0deg); }
+          15%     { transform: rotate(-18deg); }
+          30%     { transform: rotate(18deg); }
+          45%     { transform: rotate(-12deg); }
+          60%     { transform: rotate(12deg); }
+          75%     { transform: rotate(0deg); }
         }
+        .bell-icon-wiggle { animation: bell-wiggle 2.5s ease infinite; display: inline-block; transform-origin: top center; }
+        .bell-icon-still  { display: inline-block; }
       `}</style>
       {/* Header */}
       <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
         <div className="ml-auto flex items-center gap-2">
           {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
-          {feedAlertInfo.length > 0 && (
-            <button
-              onClick={() => setShowFeedAlert(true)}
-              title={`${feedAlertInfo.length} shed${feedAlertInfo.length > 1 ? "s" : ""} with low feed — click for details`}
-              style={{
-                background: hasCritical ? "#dc2626" : "#f59e0b",
-                color: hasCritical ? "#fff" : "#7c2d12",
-                border: "none",
-                borderRadius: 6,
-                padding: "4px 10px",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                boxShadow: hasCritical ? "0 0 0 2px #fca5a5" : "0 0 0 2px #fde68a",
-              }}
-            >
-              <span style={{ display: "inline-block", fontSize: 16 }}>🔔</span>
-              {feedAlertInfo.length} Feed Alert{feedAlertInfo.length > 1 ? "s" : ""}
-            </button>
-          )}
+          {(() => {
+            const isGood = feedAlertInfo.length === 0;
+            const bg    = isGood ? "#16a34a" : hasCritical ? "#dc2626" : "#f59e0b";
+            const fg    = isGood ? "#fff"    : hasCritical ? "#fff"    : "#7c2d12";
+            const shadow = isGood ? "0 0 0 2px #86efac" : hasCritical ? "0 0 0 2px #fca5a5" : "0 0 0 2px #fde68a";
+            const label = isGood ? "Feed OK" : `${feedAlertInfo.length} Feed Alert${feedAlertInfo.length > 1 ? "s" : ""}`;
+            const title = isGood ? "All sheds have sufficient feed" : `${feedAlertInfo.length} shed${feedAlertInfo.length > 1 ? "s" : ""} with low feed — click for details`;
+            return (
+              <button
+                onClick={() => setShowFeedAlert(true)}
+                title={title}
+                style={{ background: bg, color: fg, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, boxShadow: shadow }}
+              >
+                <span className={isGood ? "bell-icon-still" : "bell-icon-wiggle"} style={{ fontSize: 16 }}>🔔</span>
+                {label}
+              </button>
+            );
+          })()}
           <button
             onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
