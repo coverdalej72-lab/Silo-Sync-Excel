@@ -2593,6 +2593,7 @@ export default function App() {
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
   const deliverySeedDoneRef = useRef(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   // Map shedNum → current placement count (live from shed sheet edits)
   const shedPlacement = useMemo<Map<number, number>>(() => {
@@ -2945,6 +2946,63 @@ export default function App() {
       const existing: BatchHistoryEntry[] = JSON.parse(localStorage.getItem(BATCH_HISTORY_KEY) ?? "[]");
       localStorage.setItem(BATCH_HISTORY_KEY, JSON.stringify([entry, ...existing].slice(0, 10)));
     } catch {}
+  };
+
+  const importSpreadsheet = async (file: File) => {
+    if (!confirm(
+      `Import "${file.name}"?\n\nThis will replace the current feed program spreadsheet and reset all your edits.\n\nYour batch history will be preserved.\n\nThis cannot be undone.`
+    )) {
+      if (importFileRef.current) importFileRef.current.value = "";
+      return;
+    }
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellDates: true, dense: false });
+      rawBufferRef.current = buf;
+      workbookRef.current = wb;
+      seedDoneRef.current = false;
+      deliverySeedDoneRef.current = false;
+
+      const result: SheetParsed[] = [];
+      wb.SheetNames.forEach((rawName, idx) => {
+        const ws = wb.Sheets[rawName];
+        if (!ws) return;
+        const trimmedName = rawName.trim();
+        const tabColor = wb.Workbook?.Sheets?.[idx]?.TabColor;
+        const tabArgb = tabColor?.rgb ? `#${tabColor.rgb}` : undefined;
+        result.push(parseSheet(ws, trimmedName, rawName, tabArgb, undefined));
+      });
+
+      // Seed initial edits — cascade Feed Alloc (col G=6) from cream row down
+      const initialEdits = result.map((sheet) => {
+        const m = new Map<string, string>();
+        const isShed = sheet.name.toUpperCase().includes("SHED") &&
+                       !sheet.name.toUpperCase().includes("WEEKLY");
+        if (!isShed) return m;
+        const getCell = (r: number, c: number): number =>
+          parseFloat(sheet.cells.get(`${r},${c}`)?.value ?? "0") || 0;
+        let gPrev = getCell(11, COL_G);
+        for (let r = 12; r <= 71; r++) {
+          const h = getCell(r, COL_H);
+          const g = gPrev - h;
+          m.set(`${r},${COL_G}`, String(Math.round(g * 100) / 100));
+          gPrev = g;
+        }
+        return m;
+      });
+
+      setSheets(result);
+      setEdits(initialEdits);
+      setActive(0);
+      setActiveView(null);
+      setEditingCell(null);
+      setHasChanges(false);
+      setShowSettings(false);
+    } catch (err) {
+      alert(`Failed to import spreadsheet: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      if (importFileRef.current) importFileRef.current.value = "";
+    }
   };
 
   const resetForNewBatch = async () => {
@@ -3323,6 +3381,15 @@ export default function App() {
         })()}
       </div>
 
+      {/* ── Hidden import file input ── */}
+      <input
+        ref={importFileRef}
+        type="file"
+        accept=".xlsx,.xls"
+        style={{ display: "none" }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) importSpreadsheet(f); }}
+      />
+
       {/* ── Settings Panel ── */}
       {showSettings && (
         <div
@@ -3406,6 +3473,18 @@ export default function App() {
                     }} />
                   </div>
                 </label>
+              </div>
+
+              {/* Import Spreadsheet */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#1a5c36", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Import Feed Program</label>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Load your own Excel feed program file (.xlsx). This replaces the current spreadsheet and resets your edits. Your batch history is kept.</p>
+                <button
+                  onClick={() => importFileRef.current?.click()}
+                  style={{ width: "100%", background: "#1a5c36", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                >
+                  <span style={{ fontSize: 16 }}>⬆</span> Import .xlsx File
+                </button>
               </div>
 
               {/* New Batch */}
