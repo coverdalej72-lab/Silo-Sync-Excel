@@ -35,6 +35,7 @@ A mobile-friendly web app for recording silo readings in the field.
 An Excel-like spreadsheet viewer/editor with full inline editing and live formula recalculation.
 - Syncs theme with Silo Tracker via `silo-theme` localStorage key
 - Syncs farm config (name, shed visibility) from `silo-farm-config` localStorage
+- **xlsx parsing**: uses a custom OOXML parser (`src/lib/xlsxParser.ts`) built on `jszip` + regex XML parsing — the vulnerable `xlsx@0.18.5` (SheetJS) package has been removed entirely
 
 ## Theme System
 - **localStorage key**: `silo-theme` (`"dark"` | `"light"`)
