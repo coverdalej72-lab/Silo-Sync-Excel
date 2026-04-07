@@ -2956,12 +2956,23 @@ export default function App() {
       return;
     }
     try {
-      const buf = await file.arrayBuffer();
+      // Load file + app style theme in parallel
+      const [buf, styleData] = await Promise.all([
+        file.arrayBuffer(),
+        fetch(`${BASE}style-data.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<Record<string, Record<string, RichStyle>>>,
+      ]);
+
       const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellDates: true, dense: false });
       rawBufferRef.current = buf;
       workbookRef.current = wb;
       seedDoneRef.current = false;
       deliverySeedDoneRef.current = false;
+
+      // Build trimmed-name → richStyles lookup from app theme
+      const styleByTrimmed = new Map<string, Record<string, RichStyle>>();
+      Object.entries(styleData).forEach(([rawName, cellMap]) => {
+        styleByTrimmed.set(rawName.trim(), cellMap);
+      });
 
       const result: SheetParsed[] = [];
       wb.SheetNames.forEach((rawName, idx) => {
@@ -2970,7 +2981,9 @@ export default function App() {
         const trimmedName = rawName.trim();
         const tabColor = wb.Workbook?.Sheets?.[idx]?.TabColor;
         const tabArgb = tabColor?.rgb ? `#${tabColor.rgb}` : undefined;
-        result.push(parseSheet(ws, trimmedName, rawName, tabArgb, undefined));
+        // Apply app's rich styles wherever sheet names match — keeps the green theme
+        const richStyles = styleByTrimmed.get(trimmedName);
+        result.push(parseSheet(ws, trimmedName, rawName, tabArgb, richStyles));
       });
 
       // Seed initial edits — cascade Feed Alloc (col G=6) from cream row down
