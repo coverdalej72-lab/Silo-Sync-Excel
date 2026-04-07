@@ -882,6 +882,10 @@ function SheetView({
                   : (isShedData && c === 14 && birdsLeft !== null)
                     ? birdsLeft.toLocaleString()
                   : (isShedData && c === 13 && (rawVal === "" || rawVal === "0")) ? "—"
+                  : (isShedData && c === COL_I && rawVal !== "") ? (() => {
+                      const n = parseFloat(String(rawVal).replace(/,/g, ""));
+                      return isNaN(n) ? rawVal : Math.round(n).toLocaleString();
+                    })()
                   : rawVal;
                 const fs = isShedHeader ? (info.fontSize ?? 11) : (info.fontSize ?? 11);
 
