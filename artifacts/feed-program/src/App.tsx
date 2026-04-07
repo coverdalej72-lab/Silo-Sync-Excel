@@ -3302,7 +3302,6 @@ export default function App() {
                 display: "flex",
                 alignItems: "center",
                 gap: 5,
-                animation: "bell-ring 2s ease infinite",
                 boxShadow: hasCritical ? "0 0 0 2px #fca5a5" : "0 0 0 2px #fde68a",
               }}
             >
