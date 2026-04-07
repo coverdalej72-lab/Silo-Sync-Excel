@@ -81,7 +81,7 @@ const COL_M = 12;  // Silo C
 const FARM_CONFIG_KEY = "silo-farm-config";
 
 interface FarmShedConfig { shedGroupId: number; active: boolean; silos: { letter: string }[] }
-interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean; theme?: string }
+interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean; theme?: string; processor?: "baiada" | "ingham" }
 
 interface AppTheme { id: string; name: string; primary: string; mid: string; pale: string; border: string; soft: string; dim: string }
 const APP_THEMES: AppTheme[] = [
@@ -1948,9 +1948,16 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
 
         if (chartData.length === 0) return null;
 
-        const hasFCR   = chartData.some(d => d.fcr  != null);
-        const hasCFCR  = chartData.some(d => d.cfcr != null);
-        const hasCages = chartData.some(d => d.cages != null);
+        // Processor-aware: Baiada uses cFCR, Ingham uses FCR
+        const processor   = farmConfig.processor ?? "baiada";
+        const isBaiada    = processor === "baiada";
+        const primaryKey  = isBaiada ? "cfcr" : "fcr";
+        const primaryName = isBaiada ? "cFCR" : "FCR";
+        const primaryClr  = isBaiada ? "#16a085" : "#2980b9";
+        const fcrYLabel   = isBaiada ? "cFCR" : "FCR";
+
+        const hasPrimary = chartData.some(d => d[primaryKey] != null);
+        const hasCages   = chartData.some(d => d.cages != null);
 
         // Custom tooltip
         const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
@@ -1972,22 +1979,23 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           <div style={{ background: "#fff", border: "1px solid #e0e8e4", borderRadius: 12, padding: "16px 20px", marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
               <div style={{ background: "var(--pm-primary)", color: "#fff", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 13 }}>📊 ALL SHEDS — PERFORMANCE</div>
+              <div style={{ background: isBaiada ? "#e0f4ef" : "#e8f3fb", color: isBaiada ? "#16a085" : "#2980b9", border: `1px solid ${isBaiada ? "#b2dfd6" : "#b8d8f0"}`, borderRadius: 5, padding: "2px 10px", fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>
+                {isBaiada ? "BAIADA" : "INGHAM"}
+              </div>
               <div style={{ display: "flex", gap: 14, marginLeft: "auto", flexWrap: "wrap" }}>
-                {hasFCR  && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2980b9" }}><span style={{ width: 12, height: 12, background: "#2980b9", borderRadius: 2, display: "inline-block" }} />FCR</span>}
-                {hasCFCR && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#16a085" }}><span style={{ width: 12, height: 12, background: "#16a085", borderRadius: 2, display: "inline-block" }} />cFCR</span>}
-                {hasCages && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#C9A227" }}><span style={{ width: 12, height: 2, background: "#C9A227", display: "inline-block" }} />Cages</span>}
+                {hasPrimary && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: primaryClr }}><span style={{ width: 12, height: 12, background: primaryClr, borderRadius: 2, display: "inline-block" }} />{primaryName}</span>}
+                {hasCages   && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#C9A227" }}><span style={{ width: 12, height: 2, background: "#C9A227", display: "inline-block" }} />Cages</span>}
               </div>
             </div>
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={chartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="shed" tick={{ fontSize: 11, fontWeight: 600 }} />
-                <YAxis yAxisId="fcr" domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: "FCR", angle: -90, position: "insideLeft", fontSize: 11, fill: "#2980b9" }} />
+                <YAxis yAxisId="fcr" domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: fcrYLabel, angle: -90, position: "insideLeft", fontSize: 11, fill: primaryClr }} />
                 {hasCages && <YAxis yAxisId="cages" orientation="right" tick={{ fontSize: 11 }} label={{ value: "Cages", angle: 90, position: "insideRight", fontSize: 11, fill: "#C9A227" }} />}
                 <Tooltip content={<ChartTooltip />} />
-                {hasFCR  && <Bar yAxisId="fcr"   dataKey="fcr"   name="FCR"  fill="#2980b9" radius={[4, 4, 0, 0]} maxBarSize={40} />}
-                {hasCFCR && <Bar yAxisId="fcr"   dataKey="cfcr"  name="cFCR" fill="#16a085" radius={[4, 4, 0, 0]} maxBarSize={40} />}
-                {hasCages && <Line yAxisId="cages" type="monotone" dataKey="cages" name="Cages" stroke="#C9A227" strokeWidth={2.5} dot={{ r: 5, fill: "#C9A227", stroke: "#fff", strokeWidth: 2 }} />}
+                {hasPrimary && <Bar yAxisId="fcr" dataKey={primaryKey} name={primaryName} fill={primaryClr} radius={[4, 4, 0, 0]} maxBarSize={40} />}
+                {hasCages   && <Line yAxisId="cages" type="monotone" dataKey="cages" name="Cages" stroke="#C9A227" strokeWidth={2.5} dot={{ r: 5, fill: "#C9A227", stroke: "#fff", strokeWidth: 2 }} />}
               </ComposedChart>
             </ResponsiveContainer>
 
@@ -4298,6 +4306,38 @@ export default function App() {
                   placeholder="e.g. Double B Farm"
                   style={{ width: "100%", border: "1.5px solid #c8d8c8", borderRadius: 6, padding: "8px 12px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
                 />
+              </div>
+
+              {/* Processor / Integrator */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Processor / Integrator</label>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Selects which performance metric is highlighted in the shed comparison chart.</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {(["baiada", "ingham"] as const).map(p => {
+                    const label   = p === "baiada" ? "Baiada" : "Ingham";
+                    const metric  = p === "baiada" ? "cFCR + Cage" : "FCR + Cage";
+                    const active  = (farmConfig.processor ?? "baiada") === p;
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          const updated = { ...farmConfig, processor: p };
+                          saveFarmConfig(updated);
+                          setFarmConfig(updated);
+                        }}
+                        style={{
+                          flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", border: `2px solid ${active ? "var(--pm-primary)" : "#ddd"}`,
+                          background: active ? "var(--pm-primary-soft)" : "#f9f9f9",
+                          color: active ? "var(--pm-primary)" : "#666", fontWeight: 700, fontSize: 13,
+                          display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                        }}
+                      >
+                        <span>{label}</span>
+                        <span style={{ fontWeight: 400, fontSize: 10, opacity: 0.8 }}>{metric}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Active Sheds */}
