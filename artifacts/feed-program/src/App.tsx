@@ -3010,6 +3010,14 @@ export default function App() {
       setActiveView(null);
       setEditingCell(null);
       setHasChanges(false);
+
+      // Clear morts/culls logs — they belong to the old batch
+      const emptyLog: MortsLog = {};
+      setMortsLog(emptyLog);
+      setCullsLog(emptyLog);
+      localStorage.removeItem(MORTS_LOG_KEY);
+      localStorage.removeItem(CULLS_LOG_KEY);
+
       setShowSettings(false);
     } catch (err) {
       alert(`Failed to import spreadsheet: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -3084,50 +3092,44 @@ export default function App() {
 
       if (i !== eobIdx) return m;
 
-      // ── "end of batch" sheet ────────────────────────────────────────────────
-
-      // Delivery rows (Excel 7–36, 0-based rows 6–35)
-      // STARTER B/C/D, GROWER G/H/I, FINISHER K/L/M, WITHDRAWL O/P/Q
-      const deliveryCols = [1, 2, 3, 6, 7, 8, 10, 11, 12, 14, 15, 16];
-      for (let r = 6; r <= 35; r++) {
-        for (const c of deliveryCols) {
-          m.set(`${r},${c}`, "");
+      // ── "end of batch" sheet — full clear ───────────────────────────────────
+      // Scan every cell in the EOB sheet and blank anything in the data area
+      // (rows 3+). This handles imported files with different layouts too.
+      const eobSheet = sheets[eobIdx];
+      if (eobSheet) {
+        for (const [key, info] of eobSheet.cells) {
+          const parts = key.split(",");
+          const r = parseInt(parts[0]);
+          if (r < 3) continue; // preserve top header rows
+          if (info.value !== "" && info.value !== undefined) {
+            m.set(key, "");
+          }
         }
       }
 
-      // Section totals row (Excel row 37, 0-based row 36)
+      // Zero formula/total cells that display sums (so they show 0, not blank)
       m.set("36,3",  "0");  // D37 – STARTER total
       m.set("36,8",  "0");  // I37 – GROWER total
-      m.set("36,12", "0");  // M37 – FINISHER total (hardcoded in xlsx, must be zeroed)
+      m.set("36,12", "0");  // M37 – FINISHER total
       m.set("36,16", "0");  // Q37 – WITHDRAWL total
-
-      // Summary panel
-      m.set("7,18",  "");   // S8  – Last Batch feed left (manual)
-      m.set("11,18", "0");  // S12 – Total Feed Purchased (formula, cached)
-      m.set("15,18", "");   // S16 – Feed Left This Batch (manual)
-      m.set("18,18", "0");  // S19 – Feed Used (formula, cached)
-
-      // Feed totals panel (col X = 23)
-      m.set("18,23", "");   // X19 – feed on hand last batch (manual)
-      m.set("19,23", "");   // X20 – feed delivered this batch (manual)
-      m.set("20,23", "");   // X21 – feed on hand this batch (manual)
-      m.set("21,23", "0");  // X22 – total feed use (formula, cached)
-
-      // Bird totals panel (cols W/X/Y = 22/23/24, Excel rows 5–16 → 0-based 4–15)
-      // Col V (21) holds shed numbers (1–12) — keep those as labels
-      for (let r = 4; r <= 15; r++) {
-        m.set(`${r},22`, ""); // W – Birds Placed
-        m.set(`${r},23`, ""); // X – Birds Catched
-        m.set(`${r},24`, ""); // Y – Actual Morts
-      }
-      // Row 17 (0-based 16) has SUM formulas for catched/morts — zero them
-      m.set("16,23", "0");  // X17 – total birds catched (formula, cached)
-      m.set("16,24", "0");  // Y17 – total actual morts (formula, cached)
+      m.set("11,18", "0");  // S12 – Total Feed Purchased
+      m.set("18,18", "0");  // S19 – Feed Used
+      m.set("21,23", "0");  // X22 – Total feed use
+      m.set("16,23", "0");  // X17 – Total birds catched
+      m.set("16,24", "0");  // Y17 – Total actual morts
 
       return m;
     });
 
     setEdits(newEdits);
+
+    // Clear the morts and culls logs — they belong to the old batch
+    const emptyLog: MortsLog = {};
+    setMortsLog(emptyLog);
+    setCullsLog(emptyLog);
+    localStorage.removeItem(MORTS_LOG_KEY);
+    localStorage.removeItem(CULLS_LOG_KEY);
+
     setHasChanges(false);
   };
 
