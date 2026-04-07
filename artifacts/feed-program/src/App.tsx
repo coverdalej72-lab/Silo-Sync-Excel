@@ -650,15 +650,23 @@ function SheetView({
       if (!isNaN(parsed.getTime())) placementDate = parsed;
     }
 
+    // Dynamically find where Day 1 (AGE=1) is — same logic as shedDataStartRow
+    let dataStart = 12;
+    for (let r = 9; r <= 16; r++) {
+      const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
+      const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
+      if (v0 === "1" || v1 === "1") { dataStart = r; break; }
+    }
+
     const map = new Map<number, number>();
     let cumDeductions = 0;
-    for (let r = 12; r <= 71; r++) {
+    for (let r = dataStart; r < dataStart + 60; r++) {
       // Manual catch/morts entered directly on the shed tab
       cumDeductions += getNum(r, 13);
 
       // Morts tab log: sum morts + culls for this day's date across the shed's numbers
       if (placementDate && shedNums.length > 0 && (mortsLog || cullsLog)) {
-        const dayNum = r - 11; // row 12 = day 1
+        const dayNum = r - (dataStart - 1); // row dataStart = day 1
         const rowDate = new Date(placementDate);
         rowDate.setDate(placementDate.getDate() + dayNum - 1);
         const iso = rowDate.toISOString().slice(0, 10);
@@ -682,6 +690,19 @@ function SheetView({
     setEditingCell(null);
   };
 
+  // Dynamically detect where Day 1 (AGE=1) starts — handles imported files with
+  // different header row counts vs the built-in template (which uses r=12)
+  const shedDataStartRow = useMemo(() => {
+    if (!isShedSheet) return 12;
+    // Scan columns 0 and 1 for the first cell with value "1" after header rows (r>8)
+    for (let r = 9; r <= 16; r++) {
+      const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
+      const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
+      if (v0 === "1" || v1 === "1") return r;
+    }
+    return 12; // fallback
+  }, [isShedSheet, cells]);
+
   // Pre-compute header row heights for sticky offsets
   const row7Height  = isShedSheet ? Math.max(rowHeights[7]  ?? 20, 26) : 0;
   // EOB header row 3 is sticky at top=0
@@ -701,13 +722,13 @@ function SheetView({
 
           // Determine row-level background
           const isShedHeader  = isShedSheet && (r === 7 || r === 8);
-          const isShedSpacer  = isShedSheet && (r === 9 || r === 10 || r === 11); // blank spacer rows — skip entirely
+          const isShedSpacer  = isShedSheet && r >= 9 && r < shedDataStartRow; // dynamic spacer rows
           if (isShedSpacer) return null;
 
           const rowH = isShedSheet && (r === 7 || r === 8) ? Math.max(rowHeights[r] ?? 20, 26) : (rowHeights[r] ?? 20);
-          const isShedTotals  = isShedSheet && r === 11;
-          const isShedData    = isShedSheet && r >= 12 && r <= 71;
-          const isShedSummary = isShedSheet && r >= 72;
+          const isShedTotals  = isShedSheet && r === shedDataStartRow - 1;
+          const isShedData    = isShedSheet && r >= shedDataStartRow && r < shedDataStartRow + 60;
+          const isShedSummary = isShedSheet && r >= shedDataStartRow + 60;
           const isEobHeader   = isEobSheet  && r === 3;
           const isAnyHeader   = isShedHeader || isEobHeader;
           const rowBg = isAnyHeader
