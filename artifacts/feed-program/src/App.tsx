@@ -1,6 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import * as XLSX from "xlsx";
 import JSZip from "jszip";
+import {
+  parseXlsxBuffer,
+  encodeCell,
+  decodeRange,
+  type WorkBook,
+  type WorkSheet,
+  type CellObject,
+} from "./lib/xlsxParser";
 import { EndOfBatchContent } from "./components/EndOfBatchContent";
 
 function escapeXml(str: string) {
@@ -348,7 +355,7 @@ function borderStyle(b?: { style?: string; color?: { rgb?: string } }): string |
 }
 
 function parseSheet(
-  ws: XLSX.WorkSheet,
+  ws: WorkSheet,
   name: string,
   rawName: string,
   tabArgb: string | undefined,
@@ -358,7 +365,7 @@ function parseSheet(
   if (!ref) {
     return { name, rawName, tabColor: tabArgb, cells: new Map(), minRow: 0, maxRow: 0, minCol: 0, maxCol: 0, colWidths: [], rowHeights: [], merges: [] };
   }
-  const range = XLSX.utils.decode_range(ref);
+  const range = decodeRange(ref);
   const minRow = range.s.r, maxRow = range.e.r;
   const minCol = range.s.c, maxCol = range.e.c;
 
@@ -393,8 +400,8 @@ function parseSheet(
   for (let r = minRow; r <= maxRow; r++) {
     for (let c = minCol; c <= maxCol; c++) {
       const key = `${r},${c}`;
-      const addr = XLSX.utils.encode_cell({ r, c });
-      const cell: XLSX.CellObject | undefined = ws[addr];
+      const addr = encodeCell({ r, c });
+      const cell: CellObject | undefined = ws[addr] as CellObject | undefined;
       const hidden = mergeHidden.has(key);
       const merge = mergeSet.get(key);
 
@@ -896,7 +903,7 @@ function SheetView({
                 } else if (isShedSheet && isShedData && (c === 13 || c === 14)) {
                   cellBg = info.bgColor ?? "#DBEEF4";
                 } else {
-                  cellBg = info.bgColor;
+                  cellBg = info.bgColor ?? null;
                 }
 
                 // If a cell's font colour is white but the background is white/light,
@@ -1067,7 +1074,7 @@ function computeFeedAlerts(
       return parseFloat(raw.replace(/,/g, "")) || 0;
     };
 
-    const maxRow = sheets[i].numRows - 1;
+    const maxRow = sheets[i].maxRow;
 
     // Walk from bottom to find latest row with a valid age AND feed usage
     let latestRow = -1;
@@ -1405,12 +1412,12 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   const res = await fetch(`${baseUrl}batch-results.xlsx`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buf = await res.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array", raw: true });
+  const wb = await parseXlsxBuffer(buf, { raw: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws || !ws["!ref"]) return { sheds: [], summary: null };
 
   const gv = (row: number, col: number): unknown => {
-    const cell = ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })];
+    const cell = ws[encodeCell({ r: row - 1, c: col - 1 })] as CellObject | undefined;
     return cell?.v !== undefined ? cell.v : null;
   };
   const num = (v: unknown) => { const n = parseFloat(String(v ?? "").replace(/,/g, "")); return isNaN(n) ? 0 : n; };
@@ -1440,7 +1447,7 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   ];
 
   const sheds: ShedBatchData[] = [];
-  const range = XLSX.utils.decode_range(ws["!ref"]!);
+  const range = decodeRange(ws["!ref"]!);
   let shedCounter = 0;
 
   for (let r = 1; r <= range.e.r + 1; r++) {
@@ -2730,7 +2737,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
-  const workbookRef = useRef<XLSX.WorkBook | null>(null);
+  const workbookRef = useRef<WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
   const deliverySeedDoneRef = useRef(false);
@@ -2791,9 +2798,9 @@ export default function App() {
       fetch(xlsxUrl).then(r => { if (!r.ok) throw new Error(`xlsx HTTP ${r.status}`); return r.arrayBuffer(); }),
       fetch(styleUrl).then(r => { if (!r.ok) throw new Error(`styles HTTP ${r.status}`); return r.json(); }),
     ])
-      .then(([buf, styleData]: [ArrayBuffer, Record<string, Record<string, RichStyle>>]) => {
+      .then(async ([buf, styleData]: [ArrayBuffer, Record<string, Record<string, RichStyle>>]) => {
         rawBufferRef.current = buf;
-        const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellDates: true, dense: false });
+        const wb = await parseXlsxBuffer(buf, { cellStyles: true, cellDates: true });
         workbookRef.current = wb;
 
         // Build a trimmed-name -> richStyles lookup from style-data.json
@@ -3084,7 +3091,7 @@ export default function App() {
         fetch(`${BASE}style-data.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})) as Promise<Record<string, Record<string, RichStyle>>>,
       ]);
 
-      const wb = XLSX.read(buf, { type: "array", cellStyles: true, cellDates: true, dense: false });
+      const wb = await parseXlsxBuffer(buf, { cellStyles: true, cellDates: true });
       rawBufferRef.current = buf;
       workbookRef.current = wb;
       seedDoneRef.current = false;
@@ -3271,7 +3278,7 @@ export default function App() {
       if (!xml) continue;
       sheetEdits.forEach((newVal, key) => {
         const [r, c] = key.split(",").map(Number);
-        const addr = XLSX.utils.encode_cell({ r, c });
+        const addr = encodeCell({ r, c });
         xml = updateCellInXml(xml!, addr, newVal);
       });
       zip.file(xmlPath, xml!);

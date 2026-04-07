@@ -75,7 +75,6 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "jszip": "^3.10.1",
-    "xlsx": "^0.18.5"
+    "jszip": "^3.10.1"
   }
 }
