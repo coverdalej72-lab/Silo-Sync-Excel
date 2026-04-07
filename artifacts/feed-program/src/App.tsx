@@ -1,4 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import {
+  ComposedChart, Line, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ReferenceLine, ResponsiveContainer, Legend, Scatter, ScatterChart,
+} from "recharts";
 import JSZip from "jszip";
 import {
   parseXlsxBuffer,
