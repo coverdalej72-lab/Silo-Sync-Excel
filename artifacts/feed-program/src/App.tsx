@@ -1430,6 +1430,8 @@ interface ShedBatchData {
   totalCaught: number;
   aveWeight: number;
   totalWeight: number;
+  fcr: number;
+  cfcr: number;
   cages: number;
   catches: ShedCatch[];
 }
@@ -1488,9 +1490,9 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   // Shed data: 3 sheds per block, stacked every 16 rows.
   // Column groups (1-indexed): left=cols1-9, mid=cols11-19, right=cols21-29
   const COLS = [
-    { p: 2,  m: 2,  mp: 3,  tc: 2,  aw: 6,  tw: 7  },
-    { p: 12, m: 12, mp: 13, tc: 12, aw: 16, tw: 17 },
-    { p: 22, m: 22, mp: 23, tc: 22, aw: 26, tw: 27 },
+    { p: 2,  m: 2,  mp: 3,  tc: 2,  aw: 6,  tw: 7,  fcr: 8,  cfcr: 9  },
+    { p: 12, m: 12, mp: 13, tc: 12, aw: 16, tw: 17, fcr: 18, cfcr: 19 },
+    { p: 22, m: 22, mp: 23, tc: 22, aw: 26, tw: 27, fcr: 28, cfcr: 29 },
   ];
 
   const sheds: ShedBatchData[] = [];
@@ -1530,6 +1532,8 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
         totalCaught: num(gv(tRow, c.tc)),
         aveWeight:   num(gv(tRow, c.aw)),
         totalWeight: num(gv(tRow, c.tw)),
+        fcr:         num(gv(tRow, c.fcr)),
+        cfcr:        num(gv(tRow, c.cfcr)),
         cages:       catches.length,
         catches,
       });
@@ -1906,6 +1910,105 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           </div>
         )}
       </div>
+
+      {/* ── Shed Comparison Chart ────────────────────────────────── */}
+      {(() => {
+        // Build per-shed chart data by merging xlsx sheds + catchMap cage counts
+        const allShedNums = Array.from(
+          new Set([
+            ...xlSheds.map(s => s.shedNum),
+            ...Object.keys(catchMap).map(Number).filter(n => (catchMap[n] ?? []).length > 0),
+          ])
+        ).sort((a, b) => a - b);
+
+        if (allShedNums.length === 0) return null;
+
+        const chartData = allShedNums.map(shedNum => {
+          const xl     = xlSheds.find(s => s.shedNum === shedNum);
+          const catches = catchMap[shedNum] ?? [];
+          const cages   = catches.length;
+          // FCR / cFCR: prefer xlsx value, fall back to calculating from catch data
+          const fcr    = xl?.fcr  && xl.fcr  > 0 ? xl.fcr  : null;
+          const cfcr   = xl?.cfcr && xl.cfcr > 0 ? xl.cfcr : null;
+          const mortPct = xl?.mortPct ?? null;
+          const aveWgt  = xl?.aveWeight && xl.aveWeight > 0
+            ? xl.aveWeight
+            : catches.reduce((a, r) => a + (parseFloat(r.aveWgt) || 0), 0) /
+              (catches.filter(r => parseFloat(r.aveWgt) > 0).length || 1);
+          return {
+            shed:    `Shed ${shedNum}`,
+            shedNum,
+            fcr:     fcr    ?? undefined,
+            cfcr:    cfcr   ?? undefined,
+            cages:   cages  > 0 ? cages : undefined,
+            mortPct: mortPct != null && mortPct > 0 ? parseFloat(mortPct.toFixed(2)) : undefined,
+            aveWgt:  aveWgt > 0 ? parseFloat(aveWgt.toFixed(3)) : undefined,
+          };
+        }).filter(d => d.fcr != null || d.cfcr != null || d.cages != null);
+
+        if (chartData.length === 0) return null;
+
+        const hasFCR   = chartData.some(d => d.fcr  != null);
+        const hasCFCR  = chartData.some(d => d.cfcr != null);
+        const hasCages = chartData.some(d => d.cages != null);
+
+        // Custom tooltip
+        const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
+          if (!active || !payload?.length) return null;
+          return (
+            <div style={{ background: "#fff", border: "1px solid #ddd", borderRadius: 8, padding: "10px 14px", fontSize: 12, boxShadow: "0 3px 10px rgba(0,0,0,0.12)" }}>
+              <div style={{ fontWeight: 800, marginBottom: 6, color: "#333" }}>{label}</div>
+              {payload.map(p => (
+                <div key={p.name} style={{ display: "flex", justifyContent: "space-between", gap: 20, color: p.color, marginBottom: 2 }}>
+                  <span>{p.name}</span>
+                  <span style={{ fontWeight: 700 }}>{p.name === "Cages" ? p.value : p.value.toFixed(3)}</span>
+                </div>
+              ))}
+            </div>
+          );
+        };
+
+        return (
+          <div style={{ background: "#fff", border: "1px solid #e0e8e4", borderRadius: 12, padding: "16px 20px", marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ background: "var(--pm-primary)", color: "#fff", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 13 }}>📊 ALL SHEDS — PERFORMANCE</div>
+              <div style={{ display: "flex", gap: 14, marginLeft: "auto", flexWrap: "wrap" }}>
+                {hasFCR  && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2980b9" }}><span style={{ width: 12, height: 12, background: "#2980b9", borderRadius: 2, display: "inline-block" }} />FCR</span>}
+                {hasCFCR && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#16a085" }}><span style={{ width: 12, height: 12, background: "#16a085", borderRadius: 2, display: "inline-block" }} />cFCR</span>}
+                {hasCages && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#C9A227" }}><span style={{ width: 12, height: 2, background: "#C9A227", display: "inline-block" }} />Cages</span>}
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={chartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="shed" tick={{ fontSize: 11, fontWeight: 600 }} />
+                <YAxis yAxisId="fcr" domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: "FCR", angle: -90, position: "insideLeft", fontSize: 11, fill: "#2980b9" }} />
+                {hasCages && <YAxis yAxisId="cages" orientation="right" tick={{ fontSize: 11 }} label={{ value: "Cages", angle: 90, position: "insideRight", fontSize: 11, fill: "#C9A227" }} />}
+                <Tooltip content={<ChartTooltip />} />
+                {hasFCR  && <Bar yAxisId="fcr"   dataKey="fcr"   name="FCR"  fill="#2980b9" radius={[4, 4, 0, 0]} maxBarSize={40} />}
+                {hasCFCR && <Bar yAxisId="fcr"   dataKey="cfcr"  name="cFCR" fill="#16a085" radius={[4, 4, 0, 0]} maxBarSize={40} />}
+                {hasCages && <Line yAxisId="cages" type="monotone" dataKey="cages" name="Cages" stroke="#C9A227" strokeWidth={2.5} dot={{ r: 5, fill: "#C9A227", stroke: "#fff", strokeWidth: 2 }} />}
+              </ComposedChart>
+            </ResponsiveContainer>
+
+            {/* Ave weight secondary chart */}
+            {chartData.some(d => d.aveWgt != null) && (
+              <div style={{ marginTop: 16, borderTop: "1px solid #f0f0f0", paddingTop: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#8e44ad", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 8 }}>Avg Live Weight per Shed (kg)</div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <ComposedChart data={chartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="shed" tick={{ fontSize: 11, fontWeight: 600 }} />
+                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: "kg", angle: -90, position: "insideLeft", fontSize: 11, fill: "#8e44ad" }} />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Bar dataKey="aveWgt" name="Avg Weight (kg)" fill="#8e44ad" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Feed summary — live values from End of Batch sheet, fall back to xlsx */}
       {summary && (() => {
