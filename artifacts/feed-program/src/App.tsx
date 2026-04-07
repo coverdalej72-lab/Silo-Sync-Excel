@@ -769,9 +769,18 @@ function SheetView({
                   : rawVal;
                 const fs = isShedHeader ? (info.fontSize ?? 11) : (info.fontSize ?? 11);
 
-                // Column I (index 8) = FEED ON HAND — highlight red when negative (feed run out)
-                const numVal = parseFloat(displayVal.replace(/,/g, ""));
-                const isFeedRunOut = c === 8 && !isNaN(numVal) && numVal < 0 && !isAnyHeader;
+                // Column I (index 8) = FEED ON HAND — 3-tier colour alert
+                const numVal = parseFloat(String(displayVal).replace(/,/g, ""));
+                const fohStatus: 'critical' | 'warning' | 'caution' | null = (() => {
+                  if (c !== 8 || isAnyHeader || !isShedData || isNaN(numVal) || !isFinite(numVal)) return null;
+                  if (numVal <= 0) return 'critical';
+                  const usageRaw = edits.has(`${r},7`) ? edits.get(`${r},7`)! : (cells.get(`${r},7`)?.value ?? "");
+                  const usage = parseFloat(String(usageRaw).replace(/,/g, "")) || 0;
+                  if (usage > 0 && numVal <= usage * 2) return 'warning';
+                  if (usage > 0 && numVal <= usage * 4) return 'caution';
+                  return null;
+                })();
+                const isFeedRunOut = fohStatus === 'critical';
 
                 // Columns E & F (FEED ORDERED / SILO) — strip XLSX yellow highlight
                 // Header rows override everything; otherwise strip E/F yellow
@@ -779,6 +788,12 @@ function SheetView({
                 let cellBg: string | null;
                 if (isAnyHeader) {
                   cellBg = "#1a5c36";
+                } else if (fohStatus === 'critical') {
+                  cellBg = "#dc2626";
+                } else if (fohStatus === 'warning') {
+                  cellBg = "#f59e0b";
+                } else if (fohStatus === 'caution') {
+                  cellBg = "#fef08a";
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
                 } else if (isShedSheet && isShedData && (c === 13 || c === 14)) {
@@ -796,8 +811,12 @@ function SheetView({
                 };
                 const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
-                  : isFeedRunOut
+                  : fohStatus === 'critical'
                   ? "#ffffff"
+                  : fohStatus === 'warning'
+                  ? "#7c2d12"
+                  : fohStatus === 'caution'
+                  ? "#713f12"
                   : safeFontColor(info.fontColor);
 
                 const borderStyle = isAnyHeader
@@ -816,9 +835,9 @@ function SheetView({
                     colSpan={info.colSpan}
                     rowSpan={info.rowSpan}
                     onDoubleClick={() => !isAnyHeader && setEditingCell({ r, c, sheetIdx })}
-                    title={isFeedRunOut ? "⚠ FEED RUN OUT" : "Double-click to edit"}
+                    title={fohStatus === 'critical' ? "🔴 FEED RUN OUT — order immediately!" : fohStatus === 'warning' ? "🟠 FEED LOW — less than 2 days remaining" : fohStatus === 'caution' ? "🟡 FEED GETTING LOW — less than 4 days remaining" : "Double-click to edit"}
                     style={{
-                      background: isFeedRunOut ? "#dc2626" : (cellBg ?? (rowBg ?? "#fff")),
+                      background: cellBg ?? (rowBg ?? "#fff"),
                       color: cellTextColor,
                       fontWeight: info.bold || isAnyHeader ? "bold" : "normal",
                       fontStyle: info.italic ? "italic" : "normal",
@@ -2609,6 +2628,7 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem(CULLS_LOG_KEY) || "{}"); } catch { return {}; }
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [showFeedAlert, setShowFeedAlert] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
   const workbookRef = useRef<XLSX.WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
@@ -3194,6 +3214,43 @@ export default function App() {
     setHasChanges(false);
   };
 
+  // Scan all shed sheets for low/critical Feed On Hand in their most recent data row
+  // IMPORTANT: must be before early returns to satisfy Rules of Hooks
+  const feedAlertInfo = useMemo(() => {
+    const alerts: { name: string; status: 'critical' | 'warning' }[] = [];
+    for (let si = 0; si < sheets.length; si++) {
+      const sheet = sheets[si];
+      if (!sheet.rawName?.toUpperCase().includes("SHED")) continue;
+      const sheetEdits = edits[si] ?? new Map<string, string>();
+      const getVal = (r: number, c: number): string => {
+        const key = `${r},${c}`;
+        return sheetEdits.has(key) ? sheetEdits.get(key)! : String(sheet.cells?.get(key)?.value ?? "");
+      };
+      // Dynamic data start
+      let dataStart = 12;
+      for (let r = 9; r <= 16; r++) {
+        if (getVal(r, 0).trim() === "1" || getVal(r, 1).trim() === "1") { dataStart = r; break; }
+      }
+      // Find last row with a numeric FOH value (col 8)
+      let lastFoh: number | null = null;
+      let lastUsage = 0;
+      for (let r = dataStart; r < dataStart + 60; r++) {
+        const foh = parseFloat(getVal(r, 8).replace(/,/g, ""));
+        if (!isNaN(foh) && isFinite(foh)) {
+          lastFoh = foh;
+          lastUsage = parseFloat(getVal(r, 7).replace(/,/g, "")) || 0;
+        }
+      }
+      if (lastFoh === null) continue;
+      if (lastFoh <= 0) {
+        alerts.push({ name: sheet.rawName, status: 'critical' });
+      } else if (lastUsage > 0 && lastFoh <= lastUsage * 2) {
+        alerts.push({ name: sheet.rawName, status: 'warning' });
+      }
+    }
+    return alerts;
+  }, [sheets, edits]);
+
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-green-50">
       <div className="text-center">
@@ -3209,15 +3266,50 @@ export default function App() {
     </div>
   );
 
+  const hasCritical = feedAlertInfo.some(a => a.status === 'critical');
+
   const current = sheets[active];
 
   return (
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-zinc-900">
+      {/* Bell-ring keyframe */}
+      <style>{`
+        @keyframes bell-ring {
+          0%,100% { transform: rotate(0deg); }
+          10%,30%  { transform: rotate(-12deg); }
+          20%,40%  { transform: rotate(12deg); }
+          50%      { transform: rotate(0deg); }
+        }
+      `}</style>
       {/* Header */}
       <div className="bg-[#1a5c36] text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0">
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
         <div className="ml-auto flex items-center gap-2">
           {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
+          {feedAlertInfo.length > 0 && (
+            <button
+              onClick={() => setShowFeedAlert(true)}
+              title={`${feedAlertInfo.length} shed${feedAlertInfo.length > 1 ? "s" : ""} with low feed — click for details`}
+              style={{
+                background: hasCritical ? "#dc2626" : "#f59e0b",
+                color: hasCritical ? "#fff" : "#7c2d12",
+                border: "none",
+                borderRadius: 6,
+                padding: "4px 10px",
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                animation: "bell-ring 2s ease infinite",
+                boxShadow: hasCritical ? "0 0 0 2px #fca5a5" : "0 0 0 2px #fde68a",
+              }}
+            >
+              <span style={{ display: "inline-block", fontSize: 16 }}>🔔</span>
+              {feedAlertInfo.length} Feed Alert{feedAlertInfo.length > 1 ? "s" : ""}
+            </button>
+          )}
           <button
             onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
@@ -3435,6 +3527,40 @@ export default function App() {
         style={{ display: "none" }}
         onChange={e => { const f = e.target.files?.[0]; if (f) importSpreadsheet(f); }}
       />
+
+      {/* ── Feed Alert Modal ── */}
+      {showFeedAlert && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowFeedAlert(false); }}
+        >
+          <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 8px 40px rgba(0,0,0,0.25)", width: 360, maxWidth: "92vw", overflow: "hidden" }}>
+            <div style={{ background: hasCritical ? "#dc2626" : "#f59e0b", color: hasCritical ? "#fff" : "#7c2d12", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 800, fontSize: 16 }}>🔔 Feed On Hand Alerts</span>
+              <button onClick={() => setShowFeedAlert(false)} style={{ background: "none", border: "none", color: "inherit", fontSize: 22, cursor: "pointer", lineHeight: 1, opacity: 0.8 }}>×</button>
+            </div>
+            <div style={{ padding: "16px 20px" }}>
+              <p style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>
+                Based on the most recent data row per shed:
+              </p>
+              {feedAlertInfo.map((a) => (
+                <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "10px 14px", borderRadius: 8, background: a.status === 'critical' ? "#fee2e2" : "#fef3c7", border: `1px solid ${a.status === 'critical' ? "#fca5a5" : "#fde68a"}` }}>
+                  <span style={{ fontSize: 20 }}>{a.status === 'critical' ? "🔴" : "🟠"}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: a.status === 'critical' ? "#7f1d1d" : "#78350f" }}>{a.name}</div>
+                    <div style={{ fontSize: 12, color: a.status === 'critical' ? "#b91c1c" : "#92400e" }}>
+                      {a.status === 'critical' ? "FEED RUN OUT — order immediately!" : "Less than 2 days of feed remaining — order soon"}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", fontSize: 12, color: "#166534" }}>
+                <strong>Colour guide:</strong> 🔴 Run out &nbsp;|&nbsp; 🟠 &lt; 2 days &nbsp;|&nbsp; 🟡 &lt; 4 days &nbsp;|&nbsp; No colour = plenty of feed
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Settings Panel ── */}
       {showSettings && (
