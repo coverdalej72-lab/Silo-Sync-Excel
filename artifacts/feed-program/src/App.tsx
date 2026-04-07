@@ -812,13 +812,13 @@ function SheetView({
                 if (isAnyHeader) {
                   cellBg = "#1a5c36";
                 } else if (fohStatus === 'critical') {
-                  cellBg = "#dc2626";
+                  cellBg = "#fecaca";
                 } else if (fohStatus === 'warning') {
-                  cellBg = "#f59e0b";
+                  cellBg = "#fed7aa";
                 } else if (fohStatus === 'caution') {
-                  cellBg = "#fef08a";
+                  cellBg = "#fef9c3";
                 } else if (fohStatus === 'good') {
-                  cellBg = "#bbf7d0";
+                  cellBg = "#dcfce7";
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
                 } else if (isShedSheet && isShedData && (c === 13 || c === 14)) {
@@ -837,13 +837,13 @@ function SheetView({
                 const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
                   : fohStatus === 'critical'
-                  ? "#ffffff"
+                  ? "#991b1b"
                   : fohStatus === 'warning'
-                  ? "#7c2d12"
+                  ? "#92400e"
                   : fohStatus === 'caution'
-                  ? "#713f12"
+                  ? "#854d0e"
                   : fohStatus === 'good'
-                  ? "#14532d"
+                  ? "#166534"
                   : safeFontColor(info.fontColor);
 
                 const borderStyle = isAnyHeader
