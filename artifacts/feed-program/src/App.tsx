@@ -794,14 +794,14 @@ function SheetView({
 
                 // Column I (index 8) = FEED ON HAND — 3-tier colour alert
                 const numVal = parseFloat(String(displayVal).replace(/,/g, ""));
-                const fohStatus: 'critical' | 'warning' | 'caution' | null = (() => {
+                const fohStatus: 'critical' | 'warning' | 'caution' | 'good' | null = (() => {
                   if (c !== 8 || isAnyHeader || !isShedData || isNaN(numVal) || !isFinite(numVal)) return null;
                   if (numVal <= 0) return 'critical';
                   const usageRaw = edits.has(`${r},7`) ? edits.get(`${r},7`)! : (cells.get(`${r},7`)?.value ?? "");
                   const usage = parseFloat(String(usageRaw).replace(/,/g, "")) || 0;
                   if (usage > 0 && numVal <= usage * 2) return 'warning';
                   if (usage > 0 && numVal <= usage * 4) return 'caution';
-                  return null;
+                  return 'good';
                 })();
                 const isFeedRunOut = fohStatus === 'critical';
 
@@ -809,9 +809,7 @@ function SheetView({
                 // Header rows override everything; otherwise strip E/F yellow
                 // Col 13 (CATCH/MORTS) & col 14 (BIRDS LEFT) — apply light blue bg on shed data rows
                 let cellBg: string | null;
-                if (isAnyHeader && isShedHeader && c === 8 && worstFohStatus) {
-                  cellBg = worstFohStatus === 'critical' ? "#dc2626" : worstFohStatus === 'warning' ? "#f59e0b" : "#eab308";
-                } else if (isAnyHeader) {
+                if (isAnyHeader) {
                   cellBg = "#1a5c36";
                 } else if (fohStatus === 'critical') {
                   cellBg = "#dc2626";
@@ -819,6 +817,8 @@ function SheetView({
                   cellBg = "#f59e0b";
                 } else if (fohStatus === 'caution') {
                   cellBg = "#fef08a";
+                } else if (fohStatus === 'good') {
+                  cellBg = "#bbf7d0";
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
                 } else if (isShedSheet && isShedData && (c === 13 || c === 14)) {
@@ -834,9 +834,7 @@ function SheetView({
                   const fcl = fc.toLowerCase().replace(/\s/g, "");
                   return (fcl === "#ffffff" || fcl === "#fff" || fcl === "white") ? "#000" : fc;
                 };
-                const cellTextColor = (isAnyHeader && isShedHeader && c === 8 && worstFohStatus)
-                  ? (worstFohStatus === 'critical' ? "#ffffff" : "#7c2d12")
-                  : isAnyHeader
+                const cellTextColor = isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
                   : fohStatus === 'critical'
                   ? "#ffffff"
@@ -844,6 +842,8 @@ function SheetView({
                   ? "#7c2d12"
                   : fohStatus === 'caution'
                   ? "#713f12"
+                  : fohStatus === 'good'
+                  ? "#14532d"
                   : safeFontColor(info.fontColor);
 
                 const borderStyle = isAnyHeader
