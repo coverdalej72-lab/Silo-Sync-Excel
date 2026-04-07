@@ -113,6 +113,7 @@ function saveFarmConfig(cfg: FarmConfigData) {
 
 const BATCH_HISTORY_KEY    = "feedmate-batch-history";
 const FLOCK_WEIGHIN_KEY   = "feedmate-flock-weighins";
+const FLOCK_BREEDS_KEY    = "feedmate-flock-breeds";
 interface BatchHistoryEntry {
   batchNum: number;
   date: string;
@@ -2791,11 +2792,18 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
   const [weighIns, setWeighIns] = useState<WeighInData>(() => {
     try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) || "{}"); } catch { return {}; }
   });
-  const [breedKey, setBreedKey]     = useState("ross308");
+  const [shedBreeds, setShedBreeds] = useState<Record<number, string>>(() => {
+    try { return JSON.parse(localStorage.getItem(FLOCK_BREEDS_KEY) || "{}"); } catch { return {}; }
+  });
   const [targetAge, setTargetAge]   = useState(42);
   const [editingWI, setEditingWI]   = useState<{ sgId: number; age: number; val: string } | null>(null);
 
-  const breed = BREED_STANDARDS[breedKey];
+  const getShedBreed = (sgId: number) => BREED_STANDARDS[shedBreeds[sgId] ?? "ross308"] ?? BREED_STANDARDS.ross308;
+  const setShedBreed = (sgId: number, key: string) => {
+    const next = { ...shedBreeds, [sgId]: key };
+    setShedBreeds(next);
+    localStorage.setItem(FLOCK_BREEDS_KEY, JSON.stringify(next));
+  };
 
   const saveWeighIn = (sgId: number, age: number, grams: number | null) => {
     const next: WeighInData = JSON.parse(JSON.stringify(weighIns));
@@ -2851,7 +2859,8 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
   }
 
   const getProj = (info: ShedFI) => {
-    const wi = weighIns[info.sgId] ?? {};
+    const breed  = getShedBreed(info.sgId);
+    const wi     = weighIns[info.sgId] ?? {};
     const latest = [...breed.data].reverse().find(p => wi[p.age] > 0);
     const ratio  = latest ? wi[latest.age] / latest.weight : 1.0;
     const tgtPt  = breed.data.find(p => p.age >= targetAge) ?? breed.data[breed.data.length - 1];
@@ -2885,14 +2894,6 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 10, opacity: 0.7, textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 3 }}>Breed Standard</div>
-            <select value={breedKey} onChange={e => setBreedKey(e.target.value)}
-              style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, padding: "4px 10px", fontSize: 13, fontWeight: 600 }}>
-              <option value="ross308" style={{ color: "#000" }}>Ross 308</option>
-              <option value="cobb500" style={{ color: "#000" }}>Cobb 500</option>
-            </select>
-          </div>
-          <div>
             <div style={{ fontSize: 10, opacity: 0.7, textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 3 }}>Target Catch Age</div>
             <div style={{ display: "flex", gap: 5 }}>
               {[35, 42, 49].map(a => (
@@ -2924,6 +2925,15 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
               <span style={{ fontSize: 13, opacity: 0.85 }}>{info.shed1} · {info.shed2}</span>
               {info.age > 0 && <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 6, padding: "2px 9px", fontSize: 13, fontWeight: 700 }}>Day {info.age}</div>}
               {info.placementDate && <span style={{ fontSize: 12, opacity: 0.75 }}>📅 {info.placementDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</span>}
+              {/* Per-shed breed selector */}
+              <select
+                value={shedBreeds[info.sgId] ?? "ross308"}
+                onChange={e => setShedBreed(info.sgId, e.target.value)}
+                style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 6, padding: "3px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              >
+                <option value="ross308" style={{ color: "#000" }}>Ross 308</option>
+                <option value="cobb500" style={{ color: "#000" }}>Cobb 500</option>
+              </select>
               <div style={{ marginLeft: "auto", textAlign: "right" }}>
                 <div style={{ fontSize: 18, fontWeight: 800 }}>{info.birds > 0 ? info.birds.toLocaleString() : "—"}</div>
                 <div style={{ fontSize: 9, opacity: 0.65, textTransform: "uppercase" as const, letterSpacing: 0.8 }}>Birds</div>
@@ -2943,7 +2953,7 @@ function FlockForecastView({ sheets, edits, farmConfig }: {
                     </tr>
                   </thead>
                   <tbody>
-                    {breed.data.map((pt, idx) => {
+                    {getShedBreed(info.sgId).data.map((pt, idx) => {
                       const actual   = wi[pt.age];
                       const isEdit   = editingWI?.sgId === info.sgId && editingWI?.age === pt.age;
                       const isPast   = info.age >= pt.age;
