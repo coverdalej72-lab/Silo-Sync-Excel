@@ -120,6 +120,67 @@ function parseDateInput(str: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// Build the initial edits map for a shed sheet by seeding values from the
+// spreadsheet template that should be treated as app-level edits:
+//   • Feed Alloc (COL_G) — cascaded from the allocation header row
+//   • Feed Ordered (COL_E) — preserved so deliveries in old spreadsheets survive
+//   • Silo A/B/C (COL_K/L/M) — preserved so silo readings in old spreadsheets survive
+// After seeding, the FOH cascade is run so Feed On Hand reflects all of these.
+function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
+  const m = new Map<string, string>();
+  const isShed = sheet.name.toUpperCase().includes("SHED") &&
+                 !sheet.name.toUpperCase().includes("WEEKLY");
+  if (!isShed) return m;
+
+  const getCellNum = (r: number, c: number): number =>
+    parseFloat(sheet.cells.get(`${r},${c}`)?.value ?? "0") || 0;
+  const getCellStr = (r: number, c: number): string =>
+    sheet.cells.get(`${r},${c}`)?.value ?? "";
+
+  // Seed Feed Alloc cascade (COL_G)
+  let gPrev = getCellNum(11, COL_G);
+  for (let r = 12; r <= 71; r++) {
+    const h = getCellNum(r, COL_H);
+    const g = gPrev - h;
+    m.set(`${r},${COL_G}`, String(Math.round(g * 100) / 100));
+    gPrev = g;
+  }
+
+  // Seed Feed Ordered (COL_E) and Silo readings (COL_K/L/M) from the spreadsheet
+  // template so that values from an imported old spreadsheet are preserved and
+  // picked up by the FOH cascade (which only reads from edits, not template cells).
+  let minSeedRow = sheet.maxRow + 1;
+  for (let r = 12; r <= 71; r++) {
+    const e = getCellStr(r, COL_E);
+    const k = getCellStr(r, COL_K);
+    const l = getCellStr(r, COL_L);
+    const mv = getCellStr(r, COL_M);
+    if (e !== "" && parseFloat(e) !== 0) {
+      m.set(`${r},${COL_E}`, e);
+      if (r < minSeedRow) minSeedRow = r;
+    }
+    if (k !== "" && parseFloat(k) !== 0) {
+      m.set(`${r},${COL_K}`, k);
+      if (r < minSeedRow) minSeedRow = r;
+    }
+    if (l !== "" && parseFloat(l) !== 0) {
+      m.set(`${r},${COL_L}`, l);
+      if (r < minSeedRow) minSeedRow = r;
+    }
+    if (mv !== "" && parseFloat(mv) !== 0) {
+      m.set(`${r},${COL_M}`, mv);
+      if (r < minSeedRow) minSeedRow = r;
+    }
+  }
+
+  // Run the FOH cascade from the earliest seeded row so Feed On Hand is correct
+  if (minSeedRow <= sheet.maxRow) {
+    return recalculate(sheet.cells, m, minSeedRow, COL_K, sheet.maxRow);
+  }
+
+  return m;
+}
+
 function recalculate(
   cells: Map<string, CellInfo>,
   edits: Map<string, string>,
@@ -2762,22 +2823,9 @@ export default function App() {
         // Seed initial edits: cascade Feed Alloc (col G=6) from cream row down
         // for each shed sheet, using whatever Feed Usage (col H=7) values exist.
         // G(r) = G(r-1) - H(r) starting from the cream row allocation at r=11.
-        const initialEdits = result.map((sheet) => {
-          const m = new Map<string, string>();
-          const isShed = sheet.name.toUpperCase().includes("SHED") &&
-                         !sheet.name.toUpperCase().includes("WEEKLY");
-          if (!isShed) return m;
-          const getCell = (r: number, c: number): number =>
-            parseFloat(sheet.cells.get(`${r},${c}`)?.value ?? "0") || 0;
-          let gPrev = getCell(11, COL_G); // cream row starting allocation
-          for (let r = 12; r <= 71; r++) {
-            const h = getCell(r, COL_H); // Feed Usage for this day
-            const g = gPrev - h;
-            m.set(`${r},${COL_G}`, String(Math.round(g * 100) / 100));
-            gPrev = g;
-          }
-          return m;
-        });
+        // Also seeds Feed Ordered (E) and Silo readings (K/L/M) from the spreadsheet
+        // template so they are preserved when importing an old spreadsheet.
+        const initialEdits = result.map(buildInitialEditsForSheet);
         setEdits(initialEdits);
         setActive(startIdx);
         setLoading(false);
@@ -3064,23 +3112,10 @@ export default function App() {
         result.push(parseSheet(ws, trimmedName, rawName, tabArgb, richStyles));
       });
 
-      // Seed initial edits — cascade Feed Alloc (col G=6) from cream row down
-      const initialEdits = result.map((sheet) => {
-        const m = new Map<string, string>();
-        const isShed = sheet.name.toUpperCase().includes("SHED") &&
-                       !sheet.name.toUpperCase().includes("WEEKLY");
-        if (!isShed) return m;
-        const getCell = (r: number, c: number): number =>
-          parseFloat(sheet.cells.get(`${r},${c}`)?.value ?? "0") || 0;
-        let gPrev = getCell(11, COL_G);
-        for (let r = 12; r <= 71; r++) {
-          const h = getCell(r, COL_H);
-          const g = gPrev - h;
-          m.set(`${r},${COL_G}`, String(Math.round(g * 100) / 100));
-          gPrev = g;
-        }
-        return m;
-      });
+      // Seed initial edits — cascade Feed Alloc (col G=6) from cream row down.
+      // Also seeds Feed Ordered (E) and Silo readings (K/L/M) from the spreadsheet
+      // template so they are preserved when importing an old spreadsheet.
+      const initialEdits = result.map(buildInitialEditsForSheet);
 
       setSheets(result);
       setEdits(initialEdits);
