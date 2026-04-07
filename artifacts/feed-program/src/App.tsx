@@ -111,7 +111,8 @@ function saveFarmConfig(cfg: FarmConfigData) {
   window.dispatchEvent(new StorageEvent("storage", { key: FARM_CONFIG_KEY }));
 }
 
-const BATCH_HISTORY_KEY = "feedmate-batch-history";
+const BATCH_HISTORY_KEY    = "feedmate-batch-history";
+const FLOCK_WEIGHIN_KEY   = "feedmate-flock-weighins";
 interface BatchHistoryEntry {
   batchNum: number;
   date: string;
@@ -2757,10 +2758,327 @@ function HistoryView() {
   );
 }
 
+// ── Flock Forecast ─────────────────────────────────────────────────────────
+interface WeighInData { [shedGroupId: number]: { [age: number]: number } }
+interface BreedPoint  { age: number; weight: number; fcr: number }
+const BREED_STANDARDS: Record<string, { name: string; data: BreedPoint[] }> = {
+  ross308: { name: "Ross 308", data: [
+    { age:  7, weight:  175, fcr: 0.85 },
+    { age: 14, weight:  500, fcr: 1.12 },
+    { age: 21, weight: 1020, fcr: 1.28 },
+    { age: 28, weight: 1700, fcr: 1.40 },
+    { age: 35, weight: 2450, fcr: 1.55 },
+    { age: 42, weight: 3150, fcr: 1.70 },
+    { age: 49, weight: 3800, fcr: 1.85 },
+    { age: 56, weight: 4350, fcr: 2.00 },
+  ]},
+  cobb500: { name: "Cobb 500", data: [
+    { age:  7, weight:  180, fcr: 0.83 },
+    { age: 14, weight:  510, fcr: 1.10 },
+    { age: 21, weight: 1040, fcr: 1.27 },
+    { age: 28, weight: 1730, fcr: 1.38 },
+    { age: 35, weight: 2500, fcr: 1.52 },
+    { age: 42, weight: 3200, fcr: 1.67 },
+    { age: 49, weight: 3850, fcr: 1.82 },
+  ]},
+};
+
+function FlockForecastView({ sheets, edits, farmConfig }: {
+  sheets: SheetParsed[];
+  edits: Map<string, string>[];
+  farmConfig: FarmConfigData;
+}) {
+  const [weighIns, setWeighIns] = useState<WeighInData>(() => {
+    try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) || "{}"); } catch { return {}; }
+  });
+  const [breedKey, setBreedKey]     = useState("ross308");
+  const [targetAge, setTargetAge]   = useState(42);
+  const [editingWI, setEditingWI]   = useState<{ sgId: number; age: number; val: string } | null>(null);
+
+  const breed = BREED_STANDARDS[breedKey];
+
+  const saveWeighIn = (sgId: number, age: number, grams: number | null) => {
+    const next: WeighInData = JSON.parse(JSON.stringify(weighIns));
+    if (!next[sgId]) next[sgId] = {};
+    if (grams === null || grams <= 0) delete next[sgId][age];
+    else next[sgId][age] = grams;
+    setWeighIns(next);
+    localStorage.setItem(FLOCK_WEIGHIN_KEY, JSON.stringify(next));
+  };
+
+  const gcv = (si: number, r: number, c: number): string => {
+    const ed = edits[si]?.get(`${r},${c}`);
+    if (ed !== undefined) return ed;
+    return String(sheets[si]?.cells.get(`${r},${c}`)?.value ?? "");
+  };
+  const gcn = (si: number, r: number, c: number) => parseFloat(gcv(si, r, c).replace(/,/g, "")) || 0;
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  type ShedFI = {
+    si: number; sgId: number; label: string;
+    shed1: string; shed2: string; birds: number;
+    placementDate: Date | null; age: number;
+    feedUsed: number; feedOnHand: number;
+  };
+
+  const shedInfos: ShedFI[] = [];
+  let shedCount = 0;
+  for (let i = 0; i < sheets.length; i++) {
+    const tabName = sheets[i].name.trim().toUpperCase();
+    if (tabName === "WEEKLY STOCK TAKE" || tabName === "CONSUMPTION GUIDE") continue;
+    if (!tabName.includes("SHED")) continue;
+    const sgId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
+    shedCount++;
+    const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
+    if (grpCfg && grpCfg.active === false) continue;
+
+    const shed1 = gcv(i, 3, 1) || `Shed ${sgId * 2 - 1}`;
+    const shed2 = gcv(i, 4, 1) || `Shed ${sgId * 2}`;
+    const birds  = gcn(i, 3, 2) + gcn(i, 4, 2);
+    const pd     = parseDateInput(gcv(i, 2, 2));
+    const age    = pd ? Math.floor((today.getTime() - pd.getTime()) / 86400000) + 1 : 0;
+
+    let feedUsed = 0;
+    for (let r = 12; r <= 71; r++) {
+      const n = parseFloat(gcv(i, r, COL_H).replace(/,/g, ""));
+      if (!isNaN(n) && n > 0) feedUsed += n;
+    }
+    const curRow   = Math.min(Math.max(12, 11 + age), 71);
+    const feedOnHand = parseFloat(gcv(i, curRow, COL_I).replace(/,/g, "")) || 0;
+
+    shedInfos.push({ si: i, sgId, label: `Shed ${sgId * 2 - 1} & ${sgId * 2}`, shed1, shed2, birds, placementDate: pd, age, feedUsed, feedOnHand });
+  }
+
+  const getProj = (info: ShedFI) => {
+    const wi = weighIns[info.sgId] ?? {};
+    const latest = [...breed.data].reverse().find(p => wi[p.age] > 0);
+    const ratio  = latest ? wi[latest.age] / latest.weight : 1.0;
+    const tgtPt  = breed.data.find(p => p.age >= targetAge) ?? breed.data[breed.data.length - 1];
+    const projWt = Math.round(tgtPt.weight * ratio);
+
+    const latestWt = latest ? wi[latest.age] : 0;
+    const wgKg     = info.birds > 0 && latestWt > 0 ? ((latestWt - 42) / 1000) * info.birds : 0;
+    const actFCR   = wgKg > 0 && info.feedUsed > 0 ? info.feedUsed / wgKg : null;
+    const latestFCR = latest?.fcr ?? tgtPt.fcr;
+    const projFCR  = actFCR ? Math.round((tgtPt.fcr * (actFCR / latestFCR)) * 100) / 100 : tgtPt.fcr;
+
+    const curPt    = breed.data.find(p => p.age >= info.age) ?? breed.data[0];
+    const curProjWt = curPt.weight * ratio;
+    const wgNeeded = Math.max(0, (projWt - (latestWt || curProjWt)) / 1000);
+    const feedNeeded = info.birds > 0 && wgNeeded > 0 ? Math.round(info.birds * wgNeeded * projFCR) : 0;
+
+    return { ratio, projWt, actFCR, projFCR, feedNeeded, stdWt: tgtPt.weight, stdFCR: tgtPt.fcr, daysLeft: Math.max(0, targetAge - info.age), latestAge: latest?.age ?? null };
+  };
+
+  const hdr = (txt: string) => (
+    <div style={{ fontWeight: 700, fontSize: 11, color: "var(--pm-primary)", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 8 }}>{txt}</div>
+  );
+
+  return (
+    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto", fontFamily: "Calibri,'Segoe UI',sans-serif" }}>
+      {/* Page header */}
+      <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", borderRadius: 12, padding: "16px 22px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>🔮 Flock Forecast</div>
+          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>Growth predictions based on standard breed curves &amp; your weigh-ins</div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 10, opacity: 0.7, textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 3 }}>Breed Standard</div>
+            <select value={breedKey} onChange={e => setBreedKey(e.target.value)}
+              style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, padding: "4px 10px", fontSize: 13, fontWeight: 600 }}>
+              <option value="ross308" style={{ color: "#000" }}>Ross 308</option>
+              <option value="cobb500" style={{ color: "#000" }}>Cobb 500</option>
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 10, opacity: 0.7, textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 3 }}>Target Catch Age</div>
+            <div style={{ display: "flex", gap: 5 }}>
+              {[35, 42, 49].map(a => (
+                <button key={a} onClick={() => setTargetAge(a)}
+                  style={{ background: targetAge === a ? "#C9A227" : "rgba(255,255,255,0.15)", color: targetAge === a ? "#000" : "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, padding: "4px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                  {a}d
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {shedInfos.length === 0 && (
+        <div style={{ textAlign: "center", padding: 60, color: "#aaa", fontSize: 15 }}>No active shed sheets found.</div>
+      )}
+
+      {shedInfos.map(info => {
+        const p    = getProj(info);
+        const wi   = weighIns[info.sgId] ?? {};
+        const suf  = info.feedOnHand > 0 && p.feedNeeded > 0 ? info.feedOnHand >= p.feedNeeded : null;
+        const buf  = info.feedOnHand - p.feedNeeded;
+
+        return (
+          <div key={info.sgId} style={{ background: "#fff", borderRadius: 12, border: "1px solid #e0e8e4", boxShadow: "0 2px 8px rgba(0,0,0,0.07)", marginBottom: 20, overflow: "hidden" }}>
+            {/* Shed header bar */}
+            <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "11px 18px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ background: "#C9A227", color: "#000", borderRadius: 6, padding: "2px 12px", fontWeight: 800, fontSize: 14 }}>{info.label}</div>
+              <span style={{ fontSize: 13, opacity: 0.85 }}>{info.shed1} · {info.shed2}</span>
+              {info.age > 0 && <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 6, padding: "2px 9px", fontSize: 13, fontWeight: 700 }}>Day {info.age}</div>}
+              {info.placementDate && <span style={{ fontSize: 12, opacity: 0.75 }}>📅 {info.placementDate.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</span>}
+              <div style={{ marginLeft: "auto", textAlign: "right" }}>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{info.birds > 0 ? info.birds.toLocaleString() : "—"}</div>
+                <div style={{ fontSize: 9, opacity: 0.65, textTransform: "uppercase" as const, letterSpacing: 0.8 }}>Birds</div>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr" }}>
+              {/* Left — Weigh-in tracker */}
+              <div style={{ padding: "16px 18px", borderRight: "1px solid #f0f0f0" }}>
+                {hdr("🐔 Weigh-in Tracker — click a day to enter weight")}
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "var(--pm-primary-soft)" }}>
+                      {["Age", "Standard", "Actual", "Δ%", ""].map((h, i) => (
+                        <th key={i} style={{ padding: "5px 8px", textAlign: i === 0 ? "left" : "right", color: "var(--pm-primary)", fontWeight: 700, fontSize: 11, textTransform: "uppercase" as const }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {breed.data.map((pt, idx) => {
+                      const actual   = wi[pt.age];
+                      const isEdit   = editingWI?.sgId === info.sgId && editingWI?.age === pt.age;
+                      const isPast   = info.age >= pt.age;
+                      const isTgt    = pt.age === targetAge;
+                      const delta    = actual ? ((actual - pt.weight) / pt.weight) * 100 : null;
+                      const statusDot = actual == null ? null : delta! >= 3 ? "🟢" : delta! >= -3 ? "🟡" : "🔴";
+                      return (
+                        <tr key={pt.age} style={{ background: idx % 2 === 0 ? "#fafcfb" : "#fff", borderBottom: "1px solid #f4f4f4", opacity: !isPast && !isTgt ? 0.55 : 1 }}>
+                          <td style={{ padding: "5px 8px", fontWeight: isTgt ? 800 : 600, color: isTgt ? "#C9A227" : "#333" }}>
+                            Day {pt.age}{isTgt ? " 🎯" : ""}
+                          </td>
+                          <td style={{ padding: "5px 8px", textAlign: "right", color: "#666" }}>{pt.weight.toLocaleString()}g</td>
+                          <td style={{ padding: "5px 8px", textAlign: "right", cursor: isPast ? "pointer" : "default",
+                              color: actual ? (delta! >= 0 ? "#1a7a40" : "#c0392b") : "#ccc" }}
+                            onClick={() => isPast && setEditingWI({ sgId: info.sgId, age: pt.age, val: actual ? String(actual) : "" })}>
+                            {isEdit ? (
+                              <input autoFocus type="number" value={editingWI!.val}
+                                onChange={e => setEditingWI(prev => prev ? { ...prev, val: e.target.value } : prev)}
+                                onBlur={() => {
+                                  const g = parseFloat(editingWI!.val);
+                                  saveWeighIn(info.sgId, pt.age, isNaN(g) ? null : g);
+                                  setEditingWI(null);
+                                }}
+                                onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setEditingWI(null); }}
+                                style={{ width: 72, textAlign: "right", border: "1.5px solid var(--pm-primary)", borderRadius: 4, padding: "2px 5px", fontSize: 13, outline: "none" }} />
+                            ) : (
+                              actual
+                                ? <strong>{actual.toLocaleString()}g</strong>
+                                : isPast
+                                  ? <span style={{ color: "#bbb", fontSize: 11 }}>— tap to enter</span>
+                                  : <span style={{ color: "#ddd" }}>—</span>
+                            )}
+                          </td>
+                          <td style={{ padding: "5px 8px", textAlign: "right", fontWeight: 700, color: delta == null ? "#ddd" : delta >= 0 ? "#1a7a40" : "#c0392b" }}>
+                            {delta != null ? `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%` : "—"}
+                          </td>
+                          <td style={{ padding: "5px 8px", textAlign: "right" }}>{statusDot ?? (isPast ? <span style={{ color: "#e0e0e0" }}>⬜</span> : null)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Right — Predictions */}
+              <div style={{ padding: "16px 18px" }}>
+                {hdr(`📊 Predictions — Day ${targetAge} target`)}
+
+                {/* Projected weight */}
+                <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 8, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase" as const, letterSpacing: 0.4, marginBottom: 3 }}>Projected Catch Weight</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "var(--pm-primary)", lineHeight: 1 }}>{p.projWt > 0 ? `${p.projWt.toLocaleString()}g` : "—"}</div>
+                  {p.projWt > 0 && (
+                    <>
+                      <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                        Standard: {p.stdWt.toLocaleString()}g &nbsp;
+                        <span style={{ fontWeight: 700, color: p.ratio >= 1 ? "#1a7a40" : "#c0392b" }}>
+                          ({p.ratio >= 1 ? "+" : ""}{((p.ratio - 1) * 100).toFixed(1)}% vs standard)
+                        </span>
+                      </div>
+                      {info.birds > 0 && (
+                        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
+                          Total live: ~{((p.projWt / 1000) * info.birds / 1000).toFixed(1)}t
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* FCR */}
+                <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 8, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase" as const, letterSpacing: 0.4, marginBottom: 6 }}>Feed Conversion Ratio (FCR)</div>
+                  <div style={{ display: "flex", gap: 16, alignItems: "flex-end" }}>
+                    {[
+                      { label: "Actual so far", val: p.actFCR ? p.actFCR.toFixed(2) : "—", color: p.actFCR ? (p.actFCR <= p.stdFCR ? "#1a7a40" : "#c0392b") : "#bbb" },
+                      { label: "Projected",     val: (p.actFCR ? p.projFCR : p.stdFCR).toFixed(2), color: "var(--pm-primary)" },
+                      { label: "Standard",      val: p.stdFCR.toFixed(2), color: "#aaa" },
+                    ].map(({ label, val, color }) => (
+                      <div key={label} style={{ flex: 1 }}>
+                        <div style={{ fontSize: 10, color: "#bbb", marginBottom: 2 }}>{label}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color }}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Feed sufficiency */}
+                <div style={{ background: suf === null ? "var(--pm-primary-soft)" : suf ? "#f0faf4" : "#fff5f5", border: `1px solid ${suf === null ? "var(--pm-primary-border)" : suf ? "#a8ddb8" : "#f0b0b0"}`, borderRadius: 8, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase" as const, letterSpacing: 0.4, marginBottom: 8 }}>Feed Sufficiency</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 10, color: "#bbb" }}>Needed to Day {targetAge}</div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: "#c0392b" }}>{p.feedNeeded > 0 ? `${p.feedNeeded.toLocaleString()} kg` : "—"}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "#bbb" }}>Feed on Hand</div>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: "var(--pm-primary)" }}>{info.feedOnHand > 0 ? `${Math.round(info.feedOnHand).toLocaleString()} kg` : "—"}</div>
+                    </div>
+                  </div>
+                  {suf !== null && (
+                    <div style={{ fontWeight: 700, fontSize: 13, color: suf ? "#1a7a40" : "#c0392b" }}>
+                      {suf ? `✅ Sufficient — ${Math.round(buf).toLocaleString()} kg buffer` : `⚠️ Shortfall of ${Math.abs(Math.round(buf)).toLocaleString()} kg — order more`}
+                    </div>
+                  )}
+                </div>
+
+                {/* Days chip row */}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {p.daysLeft > 0 && info.age > 0 && (
+                    <div style={{ background: "var(--pm-primary-pale)", border: "1px solid var(--pm-primary-border)", borderRadius: 6, padding: "5px 11px", fontSize: 12, fontWeight: 600, color: "var(--pm-primary)" }}>
+                      🗓 {p.daysLeft} day{p.daysLeft !== 1 ? "s" : ""} to catch
+                    </div>
+                  )}
+                  {p.latestAge && (
+                    <div style={{ background: "#fff8e0", border: "1px solid #e8d070", borderRadius: 6, padding: "5px 11px", fontSize: 12, fontWeight: 600, color: "#7a6000" }}>
+                      📍 Last weigh-in: Day {p.latestAge}
+                    </div>
+                  )}
+                  {!info.placementDate && (
+                    <div style={{ fontSize: 12, color: "#bbb", padding: "5px 0" }}>Set a placement date on the Summary tab to enable age calculations.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
-  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history">(null);
+  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "flockForecast">(null);
   const [batchResultsSummary, setBatchResultsSummary] = useState<BatchSummary | null>(null);
   const [batchKey, setBatchKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -3589,6 +3907,21 @@ export default function App() {
         >
           📈 History
         </button>
+        {/* Flock Forecast tab */}
+        <button
+          onClick={() => setActiveView("flockForecast")}
+          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          style={{
+            backgroundColor: activeView === "flockForecast" ? "#4e1a6e" : "#4e1a6e88",
+            color: "#fff",
+            borderColor: "#4e1a6e",
+            opacity: activeView === "flockForecast" ? 1 : 0.72,
+            transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)",
+            marginLeft: 4,
+          }}
+        >
+          🔮 Flock Forecast
+        </button>
       </div>
 
       {/* Feed Alert Banner */}
@@ -3599,7 +3932,11 @@ export default function App() {
 
       {/* Spreadsheet / Summary */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2" style={{ borderColor: "var(--pm-primary-mid)" }}>
-        {activeView === "history" ? (
+        {activeView === "flockForecast" ? (
+          <div className="flex-1 overflow-auto">
+            <FlockForecastView sheets={sheets} edits={edits} farmConfig={farmConfig} />
+          </div>
+        ) : activeView === "history" ? (
           <div className="flex-1 overflow-auto">
             <HistoryView />
           </div>
