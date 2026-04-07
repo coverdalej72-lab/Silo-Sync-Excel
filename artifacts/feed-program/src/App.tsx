@@ -13,6 +13,8 @@ import {
   type CellObject,
 } from "./lib/xlsxParser";
 import { EndOfBatchContent } from "./components/EndOfBatchContent";
+import EggProductionView from "./components/EggProductionView";
+import BodyWeightView from "./components/BodyWeightView";
 
 function escapeXml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -81,7 +83,7 @@ const COL_M = 12;  // Silo C
 const FARM_CONFIG_KEY = "silo-farm-config";
 
 interface FarmShedConfig { shedGroupId: number; active: boolean; silos: { letter: string }[] }
-interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean; theme?: string; processor?: "baiada" | "ingham" }
+interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean; theme?: string; processor?: "baiada" | "ingham"; farmType?: "broiler" | "breeder" }
 
 interface AppTheme { id: string; name: string; primary: string; mid: string; pale: string; border: string; soft: string; dim: string }
 const APP_THEMES: AppTheme[] = [
@@ -3303,7 +3305,7 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
-  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "flockForecast">(null);
+  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "flockForecast" | "eggProduction" | "bodyWeight">(null);
   const [batchResultsSummary, setBatchResultsSummary] = useState<BatchSummary | null>(null);
   const [batchKey, setBatchKey] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -3973,7 +3975,7 @@ export default function App() {
       `}</style>
       {/* Header */}
       <div className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)" }}>
-        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — Feed Program</span>
+        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — {(farmConfig.farmType ?? "broiler") === "breeder" ? "Breeder Program" : "Feed Program"}</span>
         <div className="ml-auto flex items-center gap-2">
           {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
           {(() => {
@@ -4090,65 +4092,44 @@ export default function App() {
           );
         });
         })()}
-        {/* Batch Results tab — sits after end of batch */}
-        <button
-          onClick={() => setActiveView("batchResults")}
+        {/* ── Broiler-only tabs ── */}
+        {(farmConfig.farmType ?? "broiler") === "broiler" && (<>
+          <button onClick={() => setActiveView("batchResults")}
+            className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            style={{ backgroundColor: activeView === "batchResults" ? "var(--pm-primary)" : "var(--pm-primary-dim)", color: "#fff", borderColor: "var(--pm-primary)", opacity: activeView === "batchResults" ? 1 : 0.72, transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            📊 Batch Results
+          </button>
+          <button onClick={() => setActiveView("flockForecast")}
+            className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            style={{ backgroundColor: activeView === "flockForecast" ? "#4e1a6e" : "#4e1a6e88", color: "#fff", borderColor: "#4e1a6e", opacity: activeView === "flockForecast" ? 1 : 0.72, transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            🔮 Flock Forecast
+          </button>
+        </>)}
+
+        {/* ── Breeder-only tabs ── */}
+        {(farmConfig.farmType ?? "broiler") === "breeder" && (<>
+          <button onClick={() => setActiveView("eggProduction")}
+            className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            style={{ backgroundColor: activeView === "eggProduction" ? "#b8860b" : "#b8860b88", color: "#fff", borderColor: "#b8860b", opacity: activeView === "eggProduction" ? 1 : 0.72, transform: activeView === "eggProduction" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            🥚 Egg Production
+          </button>
+          <button onClick={() => setActiveView("bodyWeight")}
+            className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            style={{ backgroundColor: activeView === "bodyWeight" ? "#5a3e7a" : "#5a3e7a88", color: "#fff", borderColor: "#5a3e7a", opacity: activeView === "bodyWeight" ? 1 : 0.72, transform: activeView === "bodyWeight" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            ⚖️ Body Weight
+          </button>
+        </>)}
+
+        {/* ── Shared tabs ── */}
+        <button onClick={() => setActiveView("morts")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{
-            backgroundColor: activeView === "batchResults" ? "var(--pm-primary)" : "var(--pm-primary-dim)",
-            color: "#fff",
-            borderColor: "var(--pm-primary)",
-            opacity: activeView === "batchResults" ? 1 : 0.72,
-            transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)",
-            marginLeft: 4,
-          }}
-        >
-          📊 Batch Results
-        </button>
-        {/* Morts tab */}
-        <button
-          onClick={() => setActiveView("morts")}
-          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{
-            backgroundColor: activeView === "morts" ? "#8b1a1a" : "#8b1a1a88",
-            color: "#fff",
-            borderColor: "#8b1a1a",
-            opacity: activeView === "morts" ? 1 : 0.72,
-            transform: activeView === "morts" ? "translateY(1px)" : "translateY(3px)",
-            marginLeft: 4,
-          }}
-        >
+          style={{ backgroundColor: activeView === "morts" ? "#8b1a1a" : "#8b1a1a88", color: "#fff", borderColor: "#8b1a1a", opacity: activeView === "morts" ? 1 : 0.72, transform: activeView === "morts" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
           💀 Morts
         </button>
-        {/* History tab */}
-        <button
-          onClick={() => setActiveView("history")}
+        <button onClick={() => setActiveView("history")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{
-            backgroundColor: activeView === "history" ? "var(--pm-primary)" : "var(--pm-primary-dim)",
-            color: "#fff",
-            borderColor: "var(--pm-primary)",
-            opacity: activeView === "history" ? 1 : 0.72,
-            transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)",
-            marginLeft: 4,
-          }}
-        >
+          style={{ backgroundColor: activeView === "history" ? "var(--pm-primary)" : "var(--pm-primary-dim)", color: "#fff", borderColor: "var(--pm-primary)", opacity: activeView === "history" ? 1 : 0.72, transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
           📈 History
-        </button>
-        {/* Flock Forecast tab */}
-        <button
-          onClick={() => setActiveView("flockForecast")}
-          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{
-            backgroundColor: activeView === "flockForecast" ? "#4e1a6e" : "#4e1a6e88",
-            color: "#fff",
-            borderColor: "#4e1a6e",
-            opacity: activeView === "flockForecast" ? 1 : 0.72,
-            transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)",
-            marginLeft: 4,
-          }}
-        >
-          🔮 Flock Forecast
         </button>
       </div>
 
@@ -4160,7 +4141,15 @@ export default function App() {
 
       {/* Spreadsheet / Summary */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2" style={{ borderColor: "var(--pm-primary-mid)" }}>
-        {activeView === "flockForecast" ? (
+        {activeView === "eggProduction" ? (
+          <div className="flex-1 overflow-auto">
+            <EggProductionView farmConfig={farmConfig} shedPlacement={shedPlacement} />
+          </div>
+        ) : activeView === "bodyWeight" ? (
+          <div className="flex-1 overflow-auto">
+            <BodyWeightView farmConfig={farmConfig} shedPlacement={shedPlacement} />
+          </div>
+        ) : activeView === "flockForecast" ? (
           <div className="flex-1 overflow-auto">
             <FlockForecastView sheets={sheets} edits={edits} farmConfig={farmConfig} catchMap={catchMap} />
           </div>
@@ -4300,7 +4289,28 @@ export default function App() {
                 />
               </div>
 
-              {/* Processor / Integrator */}
+              {/* Farm Type */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Farm Type</label>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Switches the app between broiler grow-out and breeder (parent stock) modes.</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {(["broiler", "breeder"] as const).map(ft => {
+                    const label  = ft === "broiler" ? "🐔 Broiler" : "🥚 Breeder";
+                    const sub    = ft === "broiler" ? "Grow-out / FCR / Catch" : "Eggs / Body Weight / HDP";
+                    const active = (farmConfig.farmType ?? "broiler") === ft;
+                    return (
+                      <button key={ft} onClick={() => { const u = { ...farmConfig, farmType: ft }; saveFarmConfig(u); setFarmConfig(u); }}
+                        style={{ flex: 1, padding: "10px 8px", borderRadius: 8, cursor: "pointer", border: `2px solid ${active ? "var(--pm-primary)" : "#ddd"}`, background: active ? "var(--pm-primary-soft)" : "#f9f9f9", color: active ? "var(--pm-primary)" : "#666", fontWeight: 700, fontSize: 13, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                        <span>{label}</span>
+                        <span style={{ fontWeight: 400, fontSize: 10, opacity: 0.8 }}>{sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Processor / Integrator — broiler only */}
+              {(farmConfig.farmType ?? "broiler") === "broiler" && (
               <div>
                 <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Processor / Integrator</label>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Selects which performance metric is highlighted in the shed comparison chart.</p>
@@ -4331,6 +4341,7 @@ export default function App() {
                   })}
                 </div>
               </div>
+              )}
 
               {/* Active Sheds */}
               <div>
