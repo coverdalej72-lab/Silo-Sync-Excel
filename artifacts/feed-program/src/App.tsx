@@ -106,8 +106,8 @@ function readBatchHistory(): BatchHistoryEntry[] {
   try { return JSON.parse(localStorage.getItem(BATCH_HISTORY_KEY) ?? "[]"); } catch { return []; }
 }
 
-// Maps shed sheet index (0-based, counting only SHED sheets) → shedGroupId (1–10)
-const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+// Maps shed sheet index (0-based, counting only SHED sheets) → shedGroupId (1–12)
+const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 // Cobb 500 grams per bird per day (day 1 → day 54)
 const COBB500_GRAMS = [22,24,26,28,30,32,34,36,40,45,50,55,60,65,74,75,80,87,93,97,103,107,113,118,122,128,134,139,140,142,149,153,158,163,165,168,171,174,176,178,180,181,188,190,192,193,194,195,196,197,197,197,198,197];
@@ -1063,7 +1063,7 @@ function computeFeedAlerts(
     shedCount++;
 
     const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-    const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+    const groupActive = groupCfg ? groupCfg.active !== false : true;
     if (!groupActive) continue;
 
     const getV = (row: number, col: number): number => {
@@ -1299,7 +1299,7 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     if (tabName.includes("SHED")) {
       const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
       const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-      const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+      const groupActive = groupCfg ? groupCfg.active !== false : true;
       if (groupActive) shedItems.push({ sheetIdx: i, shedGroupId });
       shedCount++;
     }
@@ -3061,7 +3061,7 @@ export default function App() {
       if (!name.includes("SHED")) continue;
       const shedGroupId = SHED_SHEET_ORDER[shedCount++] ?? shedCount;
       const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-      const active = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+      const active = groupCfg ? groupCfg.active !== false : true;
       if (!active) continue;
       totalBirds += getCell(i, 3, 2) + getCell(i, 4, 2);
       for (let r = 12; r <= 71; r++) { const f = getCell(i, r, 4); if (f) totalFeedKg += f; }
@@ -3453,8 +3453,8 @@ export default function App() {
             const shedGroupId = SHED_SHEET_ORDER[shedCount];
             shedCount++;
             const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-            // If config found: use stored active flag. If missing: groups 1-6 active by default, 7+ inactive.
-            const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+            // If config found: use stored active flag. If missing: all groups active by default.
+            const groupActive = groupCfg ? groupCfg.active !== false : true;
             if (!groupActive) return null;
           }
 
@@ -3681,7 +3681,7 @@ export default function App() {
                   {SHED_SHEET_ORDER.map(shedGroupId => {
                     const shedNums = `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
                     const existing = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-                    const isActive = existing ? existing.active !== false : shedGroupId <= 6;
+                    const isActive = existing ? existing.active !== false : true;
                     return (
                       <label key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "8px 12px", borderRadius: 7, background: isActive ? "#eef6f1" : "#f5f5f5", border: `1.5px solid ${isActive ? "#1a5c36" : "#ddd"}` }}>
                         <input
