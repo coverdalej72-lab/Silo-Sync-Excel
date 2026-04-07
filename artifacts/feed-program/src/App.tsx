@@ -1913,38 +1913,30 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
 
       {/* ── Shed Comparison Chart ────────────────────────────────── */}
       {(() => {
-        // Build per-shed chart data by merging xlsx sheds + catchMap cage counts
-        const allShedNums = Array.from(
-          new Set([
-            ...xlSheds.map(s => s.shedNum),
-            ...Object.keys(catchMap).map(Number).filter(n => (catchMap[n] ?? []).length > 0),
-          ])
-        ).sort((a, b) => a - b);
+        // Mirror exactly the same shed list as the per-shed cards (activeShedNums / shedStats)
+        if (shedStats.length === 0) return null;
 
-        if (allShedNums.length === 0) return null;
-
-        const chartData = allShedNums.map(shedNum => {
-          const xl     = xlSheds.find(s => s.shedNum === shedNum);
-          const catches = catchMap[shedNum] ?? [];
-          const cages   = catches.length;
-          // FCR / cFCR: prefer xlsx value, fall back to calculating from catch data
-          const fcr    = xl?.fcr  && xl.fcr  > 0 ? xl.fcr  : null;
-          const cfcr   = xl?.cfcr && xl.cfcr > 0 ? xl.cfcr : null;
-          const mortPct = xl?.mortPct ?? null;
-          const aveWgt  = xl?.aveWeight && xl.aveWeight > 0
-            ? xl.aveWeight
-            : catches.reduce((a, r) => a + (parseFloat(r.aveWgt) || 0), 0) /
-              (catches.filter(r => parseFloat(r.aveWgt) > 0).length || 1);
+        const chartData = shedStats.map(({ shedNum, placement, totalCaught, totalWgtKg, aveWgt, morts, mortPct }) => {
+          const xl    = xlSheds.find(s => s.shedNum === shedNum);
+          const cages = (catchMap[shedNum] ?? []).length;
+          // FCR / cFCR: from xlsx totals row only
+          const fcr  = xl?.fcr  && xl.fcr  > 0 ? xl.fcr  : undefined;
+          const cfcr = xl?.cfcr && xl.cfcr > 0 ? xl.cfcr : undefined;
+          // Average weight: from catch data if available, else xlsx
+          const wgt  = aveWgt > 0 ? parseFloat(aveWgt.toFixed(3))
+            : (xl?.aveWeight && xl.aveWeight > 0 ? xl.aveWeight : undefined);
           return {
-            shed:    `Shed ${shedNum}`,
+            shed:     `Shed ${shedNum}`,
             shedNum,
-            fcr:     fcr    ?? undefined,
-            cfcr:    cfcr   ?? undefined,
-            cages:   cages  > 0 ? cages : undefined,
-            mortPct: mortPct != null && mortPct > 0 ? parseFloat(mortPct.toFixed(2)) : undefined,
-            aveWgt:  aveWgt > 0 ? parseFloat(aveWgt.toFixed(3)) : undefined,
+            placement: placement > 0 ? placement : undefined,
+            caught:   totalCaught > 0 ? totalCaught : undefined,
+            fcr,
+            cfcr,
+            cages:    cages > 0 ? cages : undefined,
+            mortPct:  mortPct > 0 ? parseFloat(mortPct.toFixed(2)) : undefined,
+            aveWgt:   wgt,
           };
-        }).filter(d => d.fcr != null || d.cfcr != null || d.cages != null);
+        });
 
         if (chartData.length === 0) return null;
 
