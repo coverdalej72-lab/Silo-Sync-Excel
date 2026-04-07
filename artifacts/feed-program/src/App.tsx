@@ -703,6 +703,29 @@ function SheetView({
     return 12; // fallback
   }, [isShedSheet, cells]);
 
+  // Compute worst FOH status across all data rows — used to colour the FEED ON HAND column header
+  const worstFohStatus = useMemo<'critical' | 'warning' | 'caution' | null>(() => {
+    if (!isShedSheet) return null;
+    let dataStart = 12;
+    for (let r = 9; r <= 16; r++) {
+      const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
+      const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
+      if (v0 === "1" || v1 === "1") { dataStart = r; break; }
+    }
+    let worst: 'critical' | 'warning' | 'caution' | null = null;
+    for (let r = dataStart; r < dataStart + 60; r++) {
+      const fohRaw = edits.has(`${r},8`) ? edits.get(`${r},8`)! : String(cells.get(`${r},8`)?.value ?? "");
+      const foh = parseFloat(fohRaw.replace(/,/g, ""));
+      if (isNaN(foh) || !isFinite(foh)) continue;
+      if (foh <= 0) return 'critical';
+      const usageRaw = edits.has(`${r},7`) ? edits.get(`${r},7`)! : String(cells.get(`${r},7`)?.value ?? "");
+      const usage = parseFloat(usageRaw.replace(/,/g, "")) || 0;
+      if (usage > 0 && foh <= usage * 2) worst = 'warning';
+      else if (usage > 0 && foh <= usage * 4 && worst !== 'warning') worst = 'caution';
+    }
+    return worst;
+  }, [isShedSheet, cells, edits]);
+
   // Pre-compute header row heights for sticky offsets
   const row7Height  = isShedSheet ? Math.max(rowHeights[7]  ?? 20, 26) : 0;
   // EOB header row 3 is sticky at top=0
@@ -786,7 +809,9 @@ function SheetView({
                 // Header rows override everything; otherwise strip E/F yellow
                 // Col 13 (CATCH/MORTS) & col 14 (BIRDS LEFT) — apply light blue bg on shed data rows
                 let cellBg: string | null;
-                if (isAnyHeader) {
+                if (isAnyHeader && isShedHeader && c === 8 && worstFohStatus) {
+                  cellBg = worstFohStatus === 'critical' ? "#dc2626" : worstFohStatus === 'warning' ? "#f59e0b" : "#eab308";
+                } else if (isAnyHeader) {
                   cellBg = "#1a5c36";
                 } else if (fohStatus === 'critical') {
                   cellBg = "#dc2626";
@@ -809,7 +834,9 @@ function SheetView({
                   const fcl = fc.toLowerCase().replace(/\s/g, "");
                   return (fcl === "#ffffff" || fcl === "#fff" || fcl === "white") ? "#000" : fc;
                 };
-                const cellTextColor = isAnyHeader
+                const cellTextColor = (isAnyHeader && isShedHeader && c === 8 && worstFohStatus)
+                  ? (worstFohStatus === 'critical' ? "#ffffff" : "#7c2d12")
+                  : isAnyHeader
                   ? (info.bold ? "#C9A227" : "rgba(255,255,255,0.92)")
                   : fohStatus === 'critical'
                   ? "#ffffff"
