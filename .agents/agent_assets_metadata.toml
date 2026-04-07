@@ -1,3 +1,14 @@
 uploads = []
-generated = []
 outputs = []
+
+[[generated]]
+id = "W4qaIlch4dVmpNpuJ-jdQ"
+uri = "file://attached_assets/generated_images/poultry-mate-logo-icon.png"
+type = "image"
+title = "poultry mate icon logo"
+
+[[generated]]
+id = "sLdgV67a6gTSI9p9uhp0f"
+uri = "file://attached_assets/generated_images/poultry-mate-logo-horizontal.png"
+type = "image"
+title = "poultry mate horizontal logo"
