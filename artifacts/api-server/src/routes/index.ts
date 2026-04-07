@@ -7,6 +7,7 @@ import onedriveRouter from "./onedrive";
 import exportRouter from "./export";
 import batchRouter from "./batch";
 import stripeRouter from "./stripe";
+import sponsorsRouter from "./sponsors";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(deliveriesRouter);
 router.use(onedriveRouter);
 router.use(batchRouter);
 router.use(stripeRouter);
+router.use(sponsorsRouter);
 
 export default router;

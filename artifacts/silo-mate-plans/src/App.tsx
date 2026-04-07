@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const GREEN = "#1a5c36";
 const GOLD = "#C9A227";
@@ -195,9 +195,6 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
 }
 
 // ── Sponsor management ────────────────────────────────────────────────────────
-const ADMIN_PASSWORD  = import.meta.env.VITE_ADMIN_PASSWORD ?? "";
-const SPONSORS_KEY    = "pm-current-sponsors";
-
 type Sponsor = {
   id: string;
   name: string;
@@ -206,11 +203,14 @@ type Sponsor = {
   logoUrl?: string;
 };
 
-function loadSponsors(): Sponsor[] {
-  try { return JSON.parse(localStorage.getItem(SPONSORS_KEY) || "[]"); } catch { return []; }
-}
-function saveSponsors(list: Sponsor[]) {
-  localStorage.setItem(SPONSORS_KEY, JSON.stringify(list));
+async function fetchSponsorsFromApi(): Promise<Sponsor[]> {
+  try {
+    const resp = await fetch(`${window.location.origin}/api/sponsors`);
+    if (!resp.ok) return [];
+    return (await resp.json()) as Sponsor[];
+  } catch {
+    return [];
+  }
 }
 
 const TIER_META: Record<Sponsor["tier"], { label: string; colour: string; icon: string; w: number; h: number }> = {
@@ -219,29 +219,66 @@ const TIER_META: Record<Sponsor["tier"], { label: string; colour: string; icon: 
   seedling: { label: "Seedling Sponsor",   colour: "#16a34a", icon: "🌱", w: 130, h: 65 },
 };
 
-function SponsorAdminModal({ sponsors, onChange, onClose }: {
-  sponsors: Sponsor[];
-  onChange: (list: Sponsor[]) => void;
+function SponsorAdminModal({ onClose, onRefresh }: {
   onClose: () => void;
+  onRefresh: () => void;
 }) {
   const [authed, setAuthed]     = useState(false);
   const [pw, setPw]             = useState("");
   const [pwErr, setPwErr]       = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [form, setForm]         = useState<Omit<Sponsor, "id">>({ name: "", tier: "flock", website: "", logoUrl: "" });
 
-  const submit = () => {
-    if (pw === ADMIN_PASSWORD) { setAuthed(true); setPwErr(false); }
-    else { setPwErr(true); }
+  const apiBase = window.location.origin;
+
+  const reloadSponsors = async (password: string) => {
+    const resp = await fetch(`${apiBase}/api/sponsors`, {
+      headers: { "X-Admin-Password": password },
+    });
+    if (resp.ok) setSponsors((await resp.json()) as Sponsor[]);
   };
 
-  const addSponsor = () => {
+  const submit = async () => {
+    setVerifying(true);
+    try {
+      const resp = await fetch(`${apiBase}/api/admin/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pw }),
+      });
+      if (resp.ok) {
+        setAuthed(true);
+        setPwErr(false);
+        await reloadSponsors(pw);
+      } else {
+        setPwErr(true);
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const addSponsor = async () => {
     if (!form.name.trim()) return;
-    const updated = [...sponsors, { ...form, id: Date.now().toString() }];
-    onChange(updated);
+    await fetch(`${apiBase}/api/sponsors`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Password": pw },
+      body: JSON.stringify(form),
+    });
+    await reloadSponsors(pw);
+    onRefresh();
     setForm({ name: "", tier: "flock", website: "", logoUrl: "" });
   };
 
-  const remove = (id: string) => onChange(sponsors.filter(s => s.id !== id));
+  const remove = async (id: string) => {
+    await fetch(`${apiBase}/api/sponsors/${id}`, {
+      method: "DELETE",
+      headers: { "X-Admin-Password": pw },
+    });
+    await reloadSponsors(pw);
+    onRefresh();
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
@@ -266,8 +303,8 @@ function SponsorAdminModal({ sponsors, onChange, onClose }: {
               style={{ border: `1.5px solid ${pwErr ? "#dc2626" : "#e5e7eb"}`, borderRadius: 8, padding: "10px 12px", fontSize: 14, outline: "none" }}
             />
             {pwErr && <p style={{ color: "#dc2626", fontSize: 12, margin: 0 }}>Incorrect password</p>}
-            <button onClick={submit} style={{ background: GREEN, color: "#fff", fontWeight: 700, fontSize: 14, padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer" }}>
-              Unlock Admin Panel
+            <button onClick={submit} disabled={verifying} style={{ background: GREEN, color: "#fff", fontWeight: 700, fontSize: 14, padding: "12px 0", borderRadius: 10, border: "none", cursor: verifying ? "default" : "pointer", opacity: verifying ? 0.7 : 1 }}>
+              {verifying ? "Verifying…" : "Unlock Admin Panel"}
             </button>
           </div>
         ) : (
@@ -1197,15 +1234,16 @@ export default function App() {
   const [showReceipt, setShowReceipt] = useState(false);
   const [showSponsorReceipt, setShowSponsorReceipt] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [sponsors, setSponsors] = useState<Sponsor[]>(loadSponsors);
+  const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [checkoutPlan, setCheckoutPlan] = useState<typeof PLANS[0] | null>(null);
   const [showManagePortal, setShowManagePortal] = useState(false);
   const [supporterTier, setSupporterTier] = useState<typeof SUPPORTER_TIERS[0] | null>(null);
 
-  const updateSponsors = (list: Sponsor[]) => {
-    saveSponsors(list);
-    setSponsors(list);
+  const refreshSponsors = () => {
+    fetchSponsorsFromApi().then(setSponsors);
   };
+
+  useEffect(() => { refreshSponsors(); }, []);
   const [shareLabel, setShareLabel] = useState<"share" | "copied">("share");
 
   const handleShare = async () => {
@@ -1230,7 +1268,7 @@ export default function App() {
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#f9fafb", minHeight: "100vh" }}>
       {showReceipt && <ReceiptModal onClose={() => setShowReceipt(false)} />}
       {showSponsorReceipt && <SponsorReceiptModal onClose={() => setShowSponsorReceipt(false)} />}
-      {showAdminPanel && <SponsorAdminModal sponsors={sponsors} onChange={updateSponsors} onClose={() => setShowAdminPanel(false)} />}
+      {showAdminPanel && <SponsorAdminModal onClose={() => setShowAdminPanel(false)} onRefresh={refreshSponsors} />}
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} yearly={yearly} onClose={() => setCheckoutPlan(null)} />}
       {showManagePortal && <ManageSubscriptionModal onClose={() => setShowManagePortal(false)} />}
       {supporterTier && <SupporterCheckoutModal tier={supporterTier} onClose={() => setSupporterTier(null)} />}
