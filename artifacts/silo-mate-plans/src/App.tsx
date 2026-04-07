@@ -606,9 +606,10 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
 
 // Stripe price IDs (sandbox) — seeded via scripts/src/seed-poultry-mate-plans.ts
 const STRIPE_PRICES = {
-  bronze: { monthly: "price_1TJQv0Gt1TYrsK4OuhGtZUfC", yearly: "price_1TJQv0Gt1TYrsK4OsV1quRSe" },
-  silver: { monthly: "price_1TJQv1Gt1TYrsK4OMeaXgIpr", yearly: "price_1TJQv1Gt1TYrsK4ORRnC8SpN" },
-  gold:   { monthly: "price_1TJQv1Gt1TYrsK4OsBkAHkai", yearly: "price_1TJQv1Gt1TYrsK4O7EwyiJtc" },
+  bronze:   { monthly: "price_1TJQv0Gt1TYrsK4OuhGtZUfC", yearly: "price_1TJQv0Gt1TYrsK4OsV1quRSe" },
+  silver:   { monthly: "price_1TJQv1Gt1TYrsK4OMeaXgIpr", yearly: "price_1TJQv1Gt1TYrsK4ORRnC8SpN" },
+  gold:     { monthly: "price_1TJQv1Gt1TYrsK4OsBkAHkai", yearly: "price_1TJQv1Gt1TYrsK4O7EwyiJtc" },
+  platinum: { monthly: "price_platinum_monthly_placeholder", yearly: "price_platinum_yearly_placeholder" },
 };
 
 const CHARITIES = [
@@ -683,9 +684,37 @@ const PLANS = [
       "Priority support",
       "Per-grower integrator pricing available",
     ],
+    notIncluded: [
+      "Breeder / parent stock farm mode",
+      "Egg production & HDP% tracking",
+      "Body weight & uniformity tracking",
+    ],
+    cta: "Start Free Trial",
+    highlight: false,
+  },
+  {
+    id: "platinum",
+    name: "Platinum",
+    icon: "💎",
+    color: "#7c3aed",
+    tagline: "Complete lifecycle management for breeder & parent stock farms.",
+    monthlyPrice: 250,
+    yearlyPrice: 2700,
+    features: [
+      "Everything in Gold",
+      "Breeder / parent stock farm mode",
+      "Egg production tracking per shed",
+      "HDP% (Hen Day Production) analytics",
+      "Floor egg & settable egg breakdown",
+      "Body weight tracking with breed targets",
+      "Ross 308 & Cobb 500 target curves",
+      "Uniformity % monitoring per shed",
+      "Breeder Program header & tailored tabs",
+    ],
     notIncluded: [],
     cta: "Start Free Trial",
     highlight: false,
+    premium: true,
   },
 ];
 
@@ -713,6 +742,14 @@ const FAQS = [
   {
     q: "Is Gold suitable for integrators?",
     a: "Yes. Integrators can manage multiple grower sites under one Gold account, or ask us about per-grower volume pricing.",
+  },
+  {
+    q: "What is the Platinum plan for?",
+    a: "Platinum is designed for breeder and parent stock farms. It unlocks breeder farm mode, daily egg production tracking with HDP% analytics, floor egg and settable egg breakdowns, weekly body weight monitoring, and breed target curves for Ross 308 and Cobb 500 flocks.",
+  },
+  {
+    q: "Can broiler and breeder farms use the same account?",
+    a: "Yes. Each farm can be configured independently as either a broiler or breeder operation. A Platinum account lets you manage multiple farm types under one subscription.",
   },
 ];
 
@@ -783,19 +820,21 @@ function Faq({ q, a }: { q: string; a: string }) {
 function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: boolean; onSelect: (plan: typeof PLANS[0]) => void }) {
   const displayPrice  = yearly ? plan.yearlyPrice : plan.monthlyPrice;
   const savedPerYear  = Math.round(plan.monthlyPrice * 12 - plan.yearlyPrice);
+  const isPremium     = (plan as any).premium === true;
+  const accentColor   = isPremium ? plan.color : GREEN;
 
   return (
     <div
       style={{
-        background: "#fff",
-        border: `2px solid ${plan.highlight ? GREEN : "#e5e7eb"}`,
+        background: isPremium ? "#faf5ff" : "#fff",
+        border: `2px solid ${(plan.highlight || isPremium) ? accentColor : "#e5e7eb"}`,
         borderRadius: 16,
         padding: "28px 24px",
         display: "flex",
         flexDirection: "column",
         gap: 0,
         position: "relative",
-        boxShadow: plan.highlight ? `0 8px 32px ${GREEN}22` : "0 2px 8px #0001",
+        boxShadow: (plan.highlight || isPremium) ? `0 8px 32px ${accentColor}33` : "0 2px 8px #0001",
         flex: 1,
         minWidth: 260,
         maxWidth: 360,
@@ -819,6 +858,26 @@ function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: b
           }}
         >
           MOST POPULAR
+        </div>
+      )}
+      {isPremium && (
+        <div
+          style={{
+            position: "absolute",
+            top: -14,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "linear-gradient(90deg, #7c3aed, #a855f7)",
+            color: "#fff",
+            fontSize: 12,
+            fontWeight: 700,
+            padding: "4px 16px",
+            borderRadius: 999,
+            letterSpacing: "0.05em",
+            whiteSpace: "nowrap",
+          }}
+        >
+          💎 BREEDER EDITION
         </div>
       )}
 
@@ -845,8 +904,8 @@ function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: b
             <span
               style={{
                 marginLeft: 8,
-                background: "#d1fae5",
-                color: GREEN,
+                background: isPremium ? "#ede9fe" : "#d1fae5",
+                color: accentColor,
                 fontSize: 11,
                 fontWeight: 700,
                 padding: "2px 8px",
@@ -869,9 +928,9 @@ function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: b
           display: "block",
           width: "100%",
           textAlign: "center",
-          background: plan.highlight ? GREEN : "transparent",
-          color: plan.highlight ? "#fff" : GREEN,
-          border: `2px solid ${GREEN}`,
+          background: (plan.highlight || isPremium) ? accentColor : "transparent",
+          color: (plan.highlight || isPremium) ? "#fff" : accentColor,
+          border: `2px solid ${accentColor}`,
           borderRadius: 10,
           padding: "12px 0",
           fontWeight: 700,
@@ -887,7 +946,7 @@ function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: b
       <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
         {plan.features.map((f) => (
           <div key={f} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <CheckIcon color={plan.highlight ? GREEN : plan.color} />
+            <CheckIcon color={accentColor} />
             <span style={{ fontSize: 14, color: "#374151" }}>{f}</span>
           </div>
         ))}
