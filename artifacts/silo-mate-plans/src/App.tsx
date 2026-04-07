@@ -195,7 +195,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
 }
 
 // ── Sponsor management ────────────────────────────────────────────────────────
-const ADMIN_PASSWORD  = "PoultryMate2025";
+const ADMIN_PASSWORD  = import.meta.env.VITE_ADMIN_PASSWORD ?? "";
 const SPONSORS_KEY    = "pm-current-sponsors";
 
 type Sponsor = {
