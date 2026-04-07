@@ -1345,9 +1345,12 @@ export default function App() {
         top: 0,
         zIndex: 100,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <SiloIcon />
-          <span style={{ fontWeight: 800, fontSize: 20, letterSpacing: "-0.03em" }}>Poultry Mate</span>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <img
+            src="/plans/logo-white.png"
+            alt="Poultry Mate"
+            style={{ height: 40, width: "auto", objectFit: "contain" }}
+          />
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
