@@ -208,6 +208,13 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
       m.set(`${r},${COL_M}`, mv);
       if (r < minSeedRow) minSeedRow = r;
     }
+    // Col F (5) is the silo letter column — valid values are A/B/C only.
+    // Spreadsheets often have formula artefacts here that resolve to numbers.
+    // Suppress those so only actual letters show through on shed data rows.
+    const fLetter = getCellStr(r, 5);
+    if (fLetter !== "" && !isNaN(parseFloat(fLetter))) {
+      m.set(`${r},5`, "");
+    }
   }
 
   // Always seed Feed On Hand (COL_I) from the template into the edits map,
