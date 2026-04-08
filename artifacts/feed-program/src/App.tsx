@@ -2048,8 +2048,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         )}
         {summary && summary.cage > 0 && (
           <div style={cardStyle("#7f8c8d")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(2)} <span style={{ fontSize: 13 }}>kg</span></div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Cage (kg)</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(2)} <span style={{ fontSize: 13 }}>days</span></div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Average Age</div>
           </div>
         )}
       </div>
@@ -2873,7 +2873,7 @@ function HistoryView() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 600 }}>
           <thead>
             <tr style={{ background: "var(--pm-primary)", color: "#fff" }}>
-              {["Batch", "Date", "Birds Placed", "Feed (kg)", "FCR", "CFCR", "Cage (kg)", "Mortality"].map(h => (
+              {["Batch", "Date", "Birds Placed", "Feed (kg)", "FCR", "CFCR", "Ave. Age", "Mortality"].map(h => (
                 <th key={h} style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -2889,7 +2889,7 @@ function HistoryView() {
                   <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.totalFeedKg > 0 ? e.totalFeedKg.toLocaleString() : "—"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.fcr !== null ? e.fcr.toFixed(3) : "—"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cfcr !== null ? e.cfcr.toFixed(3) : "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cage !== null ? `${e.cage.toFixed(2)} kg` : "—"}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cage !== null ? `${e.cage.toFixed(2)} days` : "—"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "center", color: e.mortalityPct !== null && e.mortalityPct > 5 ? "#c0392b" : "inherit" }}>{e.mortalityPct !== null ? `${e.mortalityPct.toFixed(2)}%` : "—"}</td>
                 </tr>
               );
@@ -2904,7 +2904,7 @@ function HistoryView() {
         <BarChart entries={recent} getValue={e => e.totalFeedKg || null} label="Feed Ordered (kg)" format={fmtFeed} color="var(--pm-primary-mid)" />
         <BarChart entries={recent} getValue={e => e.fcr} label="FCR" format={fmtDec} color="#2980b9" />
         <BarChart entries={recent} getValue={e => e.cfcr} label="CFCR" format={fmtDec} color="#8e44ad" />
-        <BarChart entries={recent} getValue={e => e.cage} label="Cage Weight (kg)" format={fmtKg} color="#C9A227" />
+        <BarChart entries={recent} getValue={e => e.cage} label="Average Age (days)" format={v => `${v.toFixed(2)} days`} color="#C9A227" />
         <BarChart entries={recent} getValue={e => e.mortalityPct} label="Mortality %" format={fmtMort} color="#c0392b" />
       </div>
     </div>
