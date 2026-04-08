@@ -3692,6 +3692,12 @@ export default function App() {
 
   const importSpreadsheet = async (file: File) => {
     try {
+      // Save current batch to history before wiping it, then reset the API
+      // (deliveries + silo readings) so the new file starts with a clean slate —
+      // equivalent to pressing "Start New Batch" + loading a file in one step.
+      captureAndSaveBatchHistory();
+      try { await fetch("/api/batch/reset", { method: "DELETE" }); } catch { /* best effort */ }
+
       // Load file + app style theme in parallel
       const [buf, styleData] = await Promise.all([
         file.arrayBuffer(),
@@ -3741,10 +3747,13 @@ export default function App() {
       localStorage.removeItem(MORTS_LOG_KEY);
       localStorage.removeItem(CULLS_LOG_KEY);
 
-      // Clear Batch Results
+      // Clear catch data and batch identifiers
       setBatchResultsSummary(null);
+      setCatchMap({});
+      localStorage.removeItem("silo-batch-catches");
       localStorage.removeItem("silo-batch-num");
       localStorage.removeItem("silo-batch-farm-name");
+      setBatchKey(k => k + 1);
 
       setShowSettings(false);
     } catch (err) {
