@@ -2048,8 +2048,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         )}
         {summary && summary.cage > 0 && (
           <div style={cardStyle("#7f8c8d")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CAGE Eff.</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(3)} <span style={{ fontSize: 13 }}>kg</span></div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Cage (kg)</div>
           </div>
         )}
       </div>
