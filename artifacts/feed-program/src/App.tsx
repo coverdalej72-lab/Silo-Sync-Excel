@@ -1648,7 +1648,7 @@ function parseEmailCatchText(text: string): ParsedEmailRow[] {
   return results;
 }
 
-function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch, onSummaryLoaded, onCatchMapChange }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void; onSummaryLoaded?: (s: BatchSummary) => void; onCatchMapChange?: (m: CatchMap) => void }) {
+function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch, onSummaryLoaded, onCatchMapChange, cleared }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void; onSummaryLoaded?: (s: BatchSummary) => void; onCatchMapChange?: (m: CatchMap) => void; cleared?: boolean }) {
   const [xlSheds, setXlSheds] = useState<ShedBatchData[]>([]);
   const [summary, setSummary] = useState<BatchSummary | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ok" | "error">("loading");
@@ -1676,6 +1676,14 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const [emailImportMode, setEmailImportMode] = useState<"add" | "replace">("add");
 
   useEffect(() => {
+    if (cleared) {
+      // Batch was just reset — don't repopulate from the static xlsx file.
+      // Show a blank state until the user loads new batch results.
+      setXlSheds([]);
+      setSummary(null);
+      setLoadState("ok");
+      return;
+    }
     loadBatchResultsXlsx(import.meta.env.BASE_URL)
       .then(({ sheds, summary }) => { setXlSheds(sheds); setSummary(summary); setLoadState("ok"); if (summary) onSummaryLoaded?.(summary); })
       .catch(() => setLoadState("error"));
@@ -3352,6 +3360,7 @@ export default function App() {
   const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "flockForecast" | "eggProduction" | "bodyWeight">(null);
   const [batchResultsSummary, setBatchResultsSummary] = useState<BatchSummary | null>(null);
   const [batchKey, setBatchKey] = useState(0);
+  const [batchCleared, setBatchCleared] = useState<boolean>(() => localStorage.getItem("silo-batch-cleared") === "1");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
@@ -3799,6 +3808,8 @@ export default function App() {
 
       // Clear catch data, batch identifiers, and auto-saved edits (new file = new batch)
       setBatchResultsSummary(null);
+      setBatchCleared(false);
+      localStorage.removeItem("silo-batch-cleared");
       setCatchMap({});
       localStorage.removeItem("silo-batch-catches");
       localStorage.removeItem("silo-batch-num");
@@ -3935,6 +3946,8 @@ export default function App() {
 
     // Clear Batch Results summary, catch data, batch identifiers, and auto-saved edits
     setBatchResultsSummary(null);
+    setBatchCleared(true);
+    localStorage.setItem("silo-batch-cleared", "1");
     setCatchMap({});
     localStorage.removeItem("silo-batch-catches");
     localStorage.removeItem("silo-batch-num");
@@ -4285,7 +4298,12 @@ export default function App() {
               edits={edits}
               farmConfig={farmConfig}
               shedPlacement={shedPlacement}
-              onSummaryLoaded={setBatchResultsSummary}
+              cleared={batchCleared}
+              onSummaryLoaded={s => {
+                setBatchResultsSummary(s);
+                setBatchCleared(false);
+                localStorage.removeItem("silo-batch-cleared");
+              }}
               onCatchMapChange={setCatchMap}
               onEobCatch={(shedNum, totalCaught) => {
                 const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
