@@ -18,6 +18,12 @@ uri = "file://attached_assets/generated_images/poultry-mate-logo-white.png"
 type = "image"
 title = "poultry mate white logo navbar"
 
+[[generated]]
+id = "gV8RwEYjgPlMs_EUTpQw5"
+uri = "file://attached_assets/generated_images/hero-banner.png"
+type = "image"
+title = "poultry farm hero banner"
+
 [[outputs]]
 id = "BjxMPq3OLSZYscXJ3BSpp"
 uri = "file://attached_assets/generated_images/poultry-mate-logo-horizontal.png"

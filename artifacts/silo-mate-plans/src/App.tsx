@@ -1391,12 +1391,29 @@ export default function App() {
 
       {/* HERO */}
       <section style={{
-        background: `linear-gradient(135deg, ${GREEN} 0%, #2d7a4f 100%)`,
+        position: "relative",
         color: "#fff",
-        padding: "72px 24px 64px",
+        padding: "90px 24px 80px",
         textAlign: "center",
+        overflow: "hidden",
       }}>
-        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+        {/* Farm background photo */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: "url(/plans/hero-banner.png)",
+          backgroundSize: "cover",
+          backgroundPosition: "center 40%",
+          zIndex: 0,
+        }} />
+        {/* Dark gradient overlay so text stays legible */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(to bottom, rgba(10,50,25,0.72) 0%, rgba(10,50,25,0.60) 60%, rgba(10,50,25,0.80) 100%)",
+          zIndex: 1,
+        }} />
+        <div style={{ maxWidth: 660, margin: "0 auto", position: "relative", zIndex: 2 }}>
           <div style={{
             display: "inline-block",
             background: "rgba(255,255,255,0.15)",
