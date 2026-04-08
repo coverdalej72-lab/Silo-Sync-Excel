@@ -966,7 +966,9 @@ function SheetView({
                   cellBg = "#dcfce7";
                 } else if (c === COL_E || c === 5) {
                   cellBg = null;
-                } else if (isShedSheet && isShedData && (c === 13 || c === 14)) {
+                } else if (isShedSheet && isShedData && c === 13) {
+                  cellBg = "#fff";
+                } else if (isShedSheet && isShedData && c === 14) {
                   cellBg = info.bgColor ?? "#DBEEF4";
                 } else {
                   cellBg = info.bgColor ?? null;
@@ -989,6 +991,8 @@ function SheetView({
                   ? "#854d0e"
                   : fohStatus === 'good'
                   ? "#166534"
+                  : (isShedSheet && isShedData && c === 13)
+                  ? "#000"
                   : safeFontColor(info.fontColor);
 
                 const borderStyle = isAnyHeader
