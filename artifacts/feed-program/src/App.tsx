@@ -118,6 +118,15 @@ function saveFarmConfig(cfg: FarmConfigData) {
 }
 
 const BATCH_HISTORY_KEY    = "feedmate-batch-history";
+const EDITS_AUTOSAVE_KEY   = "feedmate-edits-autosave";
+
+function serializeEdits(edits: Map<string, string>[]): string {
+  return JSON.stringify(edits.map(m => [...m.entries()]));
+}
+function deserializeEdits(json: string): Map<string, string>[] {
+  const arr = JSON.parse(json) as [string, string][][];
+  return arr.map(pairs => new Map(pairs));
+}
 const FLOCK_WEIGHIN_KEY   = "feedmate-flock-weighins";
 const FLOCK_BREEDS_KEY    = "feedmate-flock-breeds";
 interface BatchHistoryEntry {
@@ -3340,11 +3349,13 @@ export default function App() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
+  const [autoSaveFlash, setAutoSaveFlash] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
   const workbookRef = useRef<WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
   const deliverySeedDoneRef = useRef(false);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
 
   // Map shedNum → current placement count (live from shed sheet edits)
@@ -3442,6 +3453,24 @@ export default function App() {
         // Also seeds Feed Ordered (E) and Silo readings (K/L/M) from the spreadsheet
         // template so they are preserved when importing an old spreadsheet.
         const initialEdits = result.map(buildInitialEditsForSheet);
+
+        // Restore any auto-saved edits from the previous session and merge them
+        // on top of the template defaults so nothing is lost on refresh.
+        try {
+          const saved = localStorage.getItem(EDITS_AUTOSAVE_KEY);
+          if (saved) {
+            const savedMaps = deserializeEdits(saved);
+            for (let i = 0; i < Math.min(initialEdits.length, savedMaps.length); i++) {
+              const savedMap = savedMaps[i];
+              if (savedMap && savedMap.size > 0) {
+                const merged = new Map(initialEdits[i]);
+                savedMap.forEach((v, k) => merged.set(k, v));
+                initialEdits[i] = merged;
+              }
+            }
+          }
+        } catch { /* corrupt data — ignore and start fresh */ }
+
         setEdits(initialEdits);
         setActive(startIdx);
         setLoading(false);
@@ -3747,12 +3776,13 @@ export default function App() {
       localStorage.removeItem(MORTS_LOG_KEY);
       localStorage.removeItem(CULLS_LOG_KEY);
 
-      // Clear catch data and batch identifiers
+      // Clear catch data, batch identifiers, and auto-saved edits (new file = new batch)
       setBatchResultsSummary(null);
       setCatchMap({});
       localStorage.removeItem("silo-batch-catches");
       localStorage.removeItem("silo-batch-num");
       localStorage.removeItem("silo-batch-farm-name");
+      localStorage.removeItem(EDITS_AUTOSAVE_KEY);
       setBatchKey(k => k + 1);
 
       setShowSettings(false);
@@ -3882,16 +3912,33 @@ export default function App() {
     localStorage.removeItem(MORTS_LOG_KEY);
     localStorage.removeItem(CULLS_LOG_KEY);
 
-    // Clear Batch Results summary, catch data, and batch identifiers
+    // Clear Batch Results summary, catch data, batch identifiers, and auto-saved edits
     setBatchResultsSummary(null);
     setCatchMap({});
     localStorage.removeItem("silo-batch-catches");
     localStorage.removeItem("silo-batch-num");
     localStorage.removeItem("silo-batch-farm-name");
+    localStorage.removeItem(EDITS_AUTOSAVE_KEY);
     setBatchKey(k => k + 1);
 
     setHasChanges(false);
   };
+
+  // ── Auto-save edits to localStorage ─────────────────────────────────────────
+  // Debounced: waits 2 s after the last change before writing.
+  // Cleared on import / new-batch so stale edits never bleed into a new batch.
+  useEffect(() => {
+    if (sheets.length === 0) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(EDITS_AUTOSAVE_KEY, serializeEdits(edits));
+        setAutoSaveFlash(true);
+        setTimeout(() => setAutoSaveFlash(false), 2500);
+      } catch { /* storage full — silently skip */ }
+    }, 2000);
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [edits, sheets.length]);
 
   const downloadFile = async () => {
     if (!rawBufferRef.current) return;
@@ -4017,7 +4064,10 @@ export default function App() {
       <div className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)" }}>
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — {(farmConfig.farmType ?? "broiler") === "breeder" ? "Breeder Program" : "Feed Program"}</span>
         <div className="ml-auto flex items-center gap-2">
-          {hasChanges && <span className="text-yellow-300 text-xs font-semibold">● Unsaved changes</span>}
+          {autoSaveFlash
+            ? <span style={{ color: "#86efac", fontSize: 12, fontWeight: 600 }}>✓ Auto-saved</span>
+            : hasChanges && <span style={{ color: "#fde68a", fontSize: 12, fontWeight: 600 }}>● Saving…</span>
+          }
           {(() => {
             const isGood = feedAlertInfo.length === 0;
             const bg    = isGood ? "#16a34a" : hasCritical ? "#dc2626" : "#f59e0b";
