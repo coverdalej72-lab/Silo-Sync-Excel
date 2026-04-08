@@ -1515,21 +1515,23 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   };
   const num = (v: unknown) => { const n = parseFloat(String(v ?? "").replace(/,/g, "")); return isNaN(n) ? 0 : n; };
 
-  // Overall summary from the right-side summary block (cols 32-40)
+  // Overall summary from the right-side summary block
+  // Data sits in column AG (col 33, 1-indexed) for bird/weight metrics,
+  // and column AK (col 37, 1-indexed) for feed/FCR metrics.
   const farmName   = String(gv(1, 2) ?? "");
   const batchNum   = num(gv(1, 7));
-  const totalPlaced    = num(gv(4, 34));
-  const totalOut       = num(gv(7, 34));
-  const mortalityPct   = num(gv(5, 34)) * 100;
-  const aveWeight      = num(gv(9, 34));
-  const fcr            = num(gv(9, 38));
-  const cfcr           = num(gv(11, 38));
-  const cage           = num(gv(6, 40));
-  const actualAge      = num(gv(11, 34));   // "Actual Age" — average age (days) at catch
-  const correctedAge   = num(gv(12, 34));   // "Correct Age to 2.45" — age corrected to standard weight
-  const feedOnHand     = num(gv(6, 38));
-  const feedDelivered  = num(gv(5, 38));
-  const feedConsumed   = num(gv(7, 38));
+  const totalPlaced    = num(gv(4, 33));   // AG4  — total birds placed
+  const totalOut       = num(gv(7, 33));   // AG7  — total birds caught
+  const mortalityPct   = num(gv(5, 33)) * 100; // AG5 — mortality fraction → %
+  const aveWeight      = num(gv(9, 33));   // AG9  — average live weight (kg)
+  const fcr            = num(gv(9, 37));   // AK9  — FCR
+  const cfcr           = num(gv(11, 37));  // AK11 — CFCR
+  const cage           = num(gv(6, 40));   // AN6  — average age at cage (days)
+  const actualAge      = num(gv(11, 33));  // AG11 — actual age (days) at catch
+  const correctedAge   = num(gv(12, 33));  // AG12 — corrected age to 2.45 kg standard
+  const feedOnHand     = num(gv(6, 37));   // AK6  — feed on hand (kg)
+  const feedDelivered  = num(gv(5, 37));   // AK5  — total feed delivered (kg)
+  const feedConsumed   = num(gv(7, 37));   // AK7  — total feed consumed (kg)
 
   // Shed data: 3 sheds per block, stacked every 16 rows.
   // Column groups (1-indexed): left=cols1-9, mid=cols11-19, right=cols21-29
