@@ -1259,6 +1259,16 @@ function FeedAlertBanner({ alerts, onGoToShed }: { alerts: FeedAlert[]; onGoToSh
   );
 }
 
+function fmtAllocValue(raw: string): string {
+  if (!raw) return raw;
+  const stripped = raw.replace(/,/g, "");
+  const n = parseFloat(stripped);
+  if (isNaN(n)) return raw;
+  // Round to 2 dp to eliminate floating-point artefacts (e.g. 163516.19999999998)
+  const rounded = Math.round(n * 100) / 100;
+  return rounded.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
 function ShedSummaryCard({
   sheetIdx, sheet, edits, onEdit, getCell, eobSheetIdx, shed1Num, shed2Num,
 }: {
@@ -1274,10 +1284,10 @@ function ShedSummaryCard({
   const shed2Name = getCell(sheetIdx, 4, 1) || "Shed 2";
   const shed1Birds = getCell(sheetIdx, 3, 2);
   const shed2Birds = getCell(sheetIdx, 4, 2);
-  const strAlloc  = getCell(sheetIdx, 1, 7);
-  const gwrAlloc  = getCell(sheetIdx, 2, 7);
-  const finAlloc  = getCell(sheetIdx, 3, 7);
-  const wdwAlloc  = getCell(sheetIdx, 4, 7);
+  const strAlloc  = fmtAllocValue(getCell(sheetIdx, 1, 7));
+  const gwrAlloc  = fmtAllocValue(getCell(sheetIdx, 2, 7));
+  const finAlloc  = fmtAllocValue(getCell(sheetIdx, 3, 7));
+  const wdwAlloc  = fmtAllocValue(getCell(sheetIdx, 4, 7));
 
   const b1 = parseFloat(shed1Birds.replace(/,/g, "")) || 0;
   const b2 = parseFloat(shed2Birds.replace(/,/g, "")) || 0;
