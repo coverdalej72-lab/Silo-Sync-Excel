@@ -1397,19 +1397,27 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-        {shedItems.map(({ sheetIdx, shedGroupId }) => (
-          <ShedSummaryCard
-            key={shedGroupId}
-            sheetIdx={sheetIdx}
-            sheet={sheets[sheetIdx]}
-            edits={edits[sheetIdx] ?? new Map()}
-            onEdit={handleEdit}
-            getCell={getCell}
-            eobSheetIdx={eobIdx}
-            shed1Num={shedGroupId * 2 - 1}
-            shed2Num={shedGroupId * 2}
-          />
-        ))}
+        {shedItems.map(({ sheetIdx, shedGroupId }) => {
+          // Derive actual shed numbers from the sheet name (e.g. "SHED 1 & 2" → 1, 2).
+          // Falling back to the shedGroupId formula only if the name has no shed number pair,
+          // because the formula breaks when sheets aren't in perfect sequential order.
+          const nameMatch = sheets[sheetIdx]?.rawName?.match(/(\d+)\s*&\s*(\d+)/);
+          const shed1Num = nameMatch ? parseInt(nameMatch[1]) : shedGroupId * 2 - 1;
+          const shed2Num = nameMatch ? parseInt(nameMatch[2]) : shedGroupId * 2;
+          return (
+            <ShedSummaryCard
+              key={shedGroupId}
+              sheetIdx={sheetIdx}
+              sheet={sheets[sheetIdx]}
+              edits={edits[sheetIdx] ?? new Map()}
+              onEdit={handleEdit}
+              getCell={getCell}
+              eobSheetIdx={eobIdx}
+              shed1Num={shed1Num}
+              shed2Num={shed2Num}
+            />
+          );
+        })}
       </div>
     </div>
   );
