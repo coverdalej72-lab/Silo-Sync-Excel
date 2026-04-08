@@ -15,6 +15,7 @@ import {
 import { EndOfBatchContent } from "./components/EndOfBatchContent";
 import EggProductionView from "./components/EggProductionView";
 import BodyWeightView from "./components/BodyWeightView";
+import { LANGUAGES, createTranslator, LanguageContext, useT } from "./lib/i18n";
 
 function escapeXml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -83,7 +84,7 @@ const COL_M = 12;  // Silo C
 const FARM_CONFIG_KEY = "silo-farm-config";
 
 interface FarmShedConfig { shedGroupId: number; active: boolean; silos: { letter: string }[] }
-interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean; theme?: string; processor?: "baiada" | "ingham"; farmType?: "broiler" | "breeder" }
+interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean; theme?: string; processor?: "baiada" | "ingham"; farmType?: "broiler" | "breeder"; language?: string }
 
 interface AppTheme { id: string; name: string; primary: string; mid: string; pale: string; border: string; soft: string; dim: string }
 const APP_THEMES: AppTheme[] = [
@@ -1068,6 +1069,7 @@ function SheetView({
 // ── Summary Tab Components ────────────────────────────────────────────────
 
 function SummaryInputField({ label, value, onSave, wide }: { label: string; value: string; onSave: (v: string) => void; wide?: boolean }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
@@ -1091,7 +1093,7 @@ function SummaryInputField({ label, value, onSave, wide }: { label: string; valu
           onClick={() => { setDraft(value); setEditing(true); }}
           style={{ flex: 1, background: "#f5f5f5", borderRadius: 4, padding: "3px 7px", fontSize: 13, cursor: "pointer", minHeight: 22, color: value ? "#000" : "#aaa", minWidth: 0 }}
         >
-          {value || "tap to edit…"}
+          {value || t("tapToEdit")}
         </div>
       )}
     </div>
@@ -1277,6 +1279,7 @@ function ShedSummaryCard({
   getCell: (si: number, r: number, c: number) => string;
   eobSheetIdx: number; shed1Num: number; shed2Num: number;
 }) {
+  const t = useT();
   if (!sheet) return null;
   const shedNum   = getCell(sheetIdx, 0, 6);
   const placement = getCell(sheetIdx, 2, 2);
@@ -1306,13 +1309,13 @@ function ShedSummaryCard({
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14, whiteSpace: "nowrap" }}>SHED {shedNum}</div>
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
           <div style={{ fontSize: 17, fontWeight: 800, lineHeight: 1.1 }}>{totalBirds > 0 ? totalBirds.toLocaleString() : "—"}</div>
-          <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Birds</div>
+          <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>{t("totalBirds")}</div>
         </div>
       </div>
       <div style={{ padding: "12px 14px" }}>
-        <SummaryInputField label="Placement" value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
+        <SummaryInputField label={t("placement")} value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
-        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>Birds Per Shed</div>
+        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>{t("birdsPerShed")}</div>
         <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => {
           onEdit(sheetIdx, "3,2", v);
           if (eobSheetIdx >= 0) onEdit(eobSheetIdx, `${shed1Num + 3},22`, v);
@@ -1322,7 +1325,7 @@ function ShedSummaryCard({
           if (eobSheetIdx >= 0) onEdit(eobSheetIdx, `${shed2Num + 3},22`, v);
         }} />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
-        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>Feed Allocations (kg)</div>
+        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>{t("feedAllocations")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
           {([["STR", "1,7", strAlloc], ["GWR", "2,7", gwrAlloc], ["FIN", "3,7", finAlloc], ["WDW", "4,7", wdwAlloc]] as [string, string, string][]).map(([lbl, key, val]) => (
             <SummaryInputField key={lbl} label={lbl} value={val} onSave={v => onEdit(sheetIdx, key, v)} />
@@ -1335,13 +1338,13 @@ function ShedSummaryCard({
               {totalFeed > 0 && (
                 <div style={{ flex: 1, background: "var(--pm-primary-soft)", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--pm-primary)" }}>{totalFeed.toLocaleString()}</div>
-                  <div style={{ fontSize: 9, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>Feed Ordered (kg)</div>
+                  <div style={{ fontSize: 9, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{t("feedOrderedKg")}</div>
                 </div>
               )}
               {kgPerBird && (
                 <div style={{ flex: 1, background: "#fff8e6", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#8b6a00" }}>{kgPerBird}</div>
-                  <div style={{ fontSize: 9, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>kg / Bird</div>
+                  <div style={{ fontSize: 9, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{t("kgPerBird")}</div>
                 </div>
               )}
             </div>
@@ -1358,6 +1361,7 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
   handleEdit: (si: number, key: string, val: string) => void;
   farmConfig: FarmConfigData;
 }) {
+  const t = useT();
   const getCell = (si: number, r: number, c: number) => {
     const e = edits[si];
     if (e?.has(`${r},${c}`)) return e.get(`${r},${c}`) ?? "";
@@ -1406,18 +1410,18 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
         <div style={{ marginLeft: "auto", display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
             <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{grandBirds > 0 ? grandBirds.toLocaleString() : "—"}</div>
-            <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Birds Placed</div>
+            <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>{t("totalBirdsPlaced")}</div>
           </div>
           {grandFeed > 0 && (
             <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
               <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{grandFeed.toLocaleString()}</div>
-              <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Total Feed Ordered (kg)</div>
+              <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>{t("totalFeedOrderedKg")}</div>
             </div>
           )}
           {overallKgPerBird && (
             <div style={{ background: "rgba(201,162,39,0.3)", border: "1px solid #C9A227", borderRadius: 8, padding: "5px 16px", textAlign: "center" }}>
               <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.1 }}>{overallKgPerBird}</div>
-              <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Overall kg / Bird</div>
+              <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>{t("overallKgPerBird")}</div>
             </div>
           )}
         </div>
@@ -3361,6 +3365,7 @@ export default function App() {
   const [showFeedAlert, setShowFeedAlert] = useState(false);
   const [autoSaveFlash, setAutoSaveFlash] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
+  const t = useMemo(() => createTranslator(farmConfig.language), [farmConfig.language]);
   const workbookRef = useRef<WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
@@ -4041,6 +4046,7 @@ export default function App() {
 
   const appTheme = getTheme(farmConfig.theme);
   return (
+    <LanguageContext.Provider value={t}>
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-zinc-900" style={{
       "--pm-primary": appTheme.primary,
       "--pm-primary-mid": appTheme.mid,
@@ -4099,16 +4105,16 @@ export default function App() {
           <button
             onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
-            title="Settings"
+            title={t("settings")}
           >
-            ⚙ Settings
+            ⚙ {t("settings")}
           </button>
           <button
             onClick={downloadFile}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors"
             style={{ background: hasChanges ? "#f59e0b" : "#2d8653", color: hasChanges ? "#000" : "#fff" }}
           >
-            ⬇ Save & Download
+            ⬇ {t("saveDownload")}
           </button>
           <button
             onClick={() => {
@@ -4373,14 +4379,14 @@ export default function App() {
           <div style={{ width: 340, maxWidth: "100vw", height: "100%", background: "#fff", boxShadow: "-4px 0 24px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", overflowY: "auto" }}>
             {/* Header */}
             <div style={{ background: "var(--pm-primary)", color: "#fff", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 800, fontSize: 17 }}>⚙ Settings</span>
+              <span style={{ fontWeight: 800, fontSize: 17 }}>⚙ {t("settings")}</span>
               <button onClick={() => setShowSettings(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
             </div>
 
             <div style={{ padding: "20px 20px 32px", flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
               {/* Farm Name */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Farm Name</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("farmName")}</label>
                 <input
                   value={settingsFarmName}
                   onChange={e => setSettingsFarmName(e.target.value)}
@@ -4391,7 +4397,7 @@ export default function App() {
 
               {/* Farm Type */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Farm Type</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("farmType")}</label>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Switches the app between broiler grow-out and breeder (parent stock) modes.</p>
                 <div style={{ display: "flex", gap: 10 }}>
                   {(["broiler", "breeder"] as const).map(ft => {
@@ -4445,7 +4451,7 @@ export default function App() {
 
               {/* Active Sheds */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Active Sheds</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("activeSheds")}</label>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {SHED_SHEET_ORDER.map(shedGroupId => {
                     const shedNums = `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
@@ -4469,7 +4475,7 @@ export default function App() {
                           style={{ width: 17, height: 17, accentColor: "var(--pm-primary)", cursor: "pointer" }}
                         />
                         <span style={{ fontWeight: 600, fontSize: 14, color: isActive ? "var(--pm-primary)" : "#888" }}>{shedNums}</span>
-                        {isActive && <span style={{ marginLeft: "auto", fontSize: 11, color: "#2d8653", fontWeight: 700 }}>ACTIVE</span>}
+                        {isActive && <span style={{ marginLeft: "auto", fontSize: 11, color: "#2d8653", fontWeight: 700 }}>{t("active")}</span>}
                       </label>
                     );
                   })}
@@ -4478,10 +4484,10 @@ export default function App() {
 
               {/* Extra Shed Columns Toggle */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Shed Extra Columns</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("shedExtraColumns")}</label>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Show or hide the extra columns after BIRDS LEFT (Shed #, Diff, Discrepancy) on shed tabs.</p>
                 <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }}>
-                  <span style={{ fontSize: 14, color: "#333", flex: 1 }}>Show extra columns</span>
+                  <span style={{ fontSize: 14, color: "#333", flex: 1 }}>{t("showExtraColumns")}</span>
                   <div
                     onClick={() => {
                       const updated = { ...farmConfig, showExtraShedCols: !(farmConfig.showExtraShedCols ?? false) };
@@ -4505,7 +4511,7 @@ export default function App() {
 
               {/* Theme Picker */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Theme</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("themeLabel")}</label>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {APP_THEMES.map(t => {
                     const active = (farmConfig.theme ?? "forest") === t.id;
@@ -4535,9 +4541,40 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Language */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("language")}</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {LANGUAGES.map(lang => {
+                    const active = (farmConfig.language ?? "en") === lang.code;
+                    return (
+                      <button
+                        key={lang.code}
+                        onClick={() => {
+                          const updated = { ...farmConfig, language: lang.code };
+                          saveFarmConfig(updated);
+                          setFarmConfig(updated);
+                        }}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 7, cursor: "pointer",
+                          border: `1.5px solid ${active ? "var(--pm-primary)" : "#ddd"}`,
+                          background: active ? "var(--pm-primary-soft)" : "#f9f9f9",
+                          fontWeight: active ? 700 : 500, fontSize: 14,
+                          color: active ? "var(--pm-primary)" : "#444",
+                        }}
+                      >
+                        <span style={{ fontSize: 20 }}>{lang.flag}</span>
+                        <span style={{ flex: 1, textAlign: "left" }}>{lang.name}</span>
+                        {active && <span style={{ fontSize: 11, fontWeight: 700, color: "var(--pm-primary)" }}>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Import Spreadsheet */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Import Feed Program</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("importFeedProgram")}</label>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>Load your own spreadsheet to replace the current program. Your batch history is kept.</p>
                 <div style={{ fontSize: 11, color: "#555", background: "var(--pm-primary-soft)", border: "1px solid #c8ddc8", borderRadius: 6, padding: "8px 10px", marginBottom: 10, lineHeight: 1.6 }}>
                   <strong>Excel / Windows:</strong> open your file, save as .xlsx<br/>
@@ -4548,19 +4585,19 @@ export default function App() {
                   onClick={() => importFileRef.current?.click()}
                   style={{ width: "100%", background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                 >
-                  <span style={{ fontSize: 16 }}>⬆</span> Import .xlsx File
+                  <span style={{ fontSize: 16 }}>⬆</span> {t("importXlsxBtn")}
                 </button>
               </div>
 
               {/* New Batch */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Start New Batch</label>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("startNewBatch")}</label>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Clears all delivery and silo records and resets the spreadsheet to its base state. This cannot be undone.</p>
                 <button
                   onClick={() => { setShowSettings(false); resetForNewBatch(); }}
                   style={{ width: "100%", background: "#c0392b", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
                 >
-                  ↺ New Batch
+                  {t("newBatchBtn")}
                 </button>
               </div>
             </div>
@@ -4576,18 +4613,19 @@ export default function App() {
                 }}
                 style={{ flex: 1, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
               >
-                Save & Close
+                {t("saveClose")}
               </button>
               <button
                 onClick={() => setShowSettings(false)}
                 style={{ flex: 1, background: "#f5f5f5", color: "#333", border: "1px solid #ddd", borderRadius: 7, padding: "10px 0", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
               >
-                Cancel
+                {t("cancel")}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
+    </LanguageContext.Provider>
   );
 }
