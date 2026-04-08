@@ -151,6 +151,9 @@ const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 // Cobb 500 grams per bird per day (day 1 → day 54)
 const COBB500_GRAMS = [22,24,26,28,30,32,34,36,40,45,50,55,60,65,74,75,80,87,93,97,103,107,113,118,122,128,134,139,140,142,149,153,158,163,165,168,171,174,176,178,180,181,188,190,192,193,194,195,196,197,197,197,198,197];
 
+// Cobb 500 average live weight per bird (kg) at each day (day 1 → day 56)
+const COBB_WEIGHT_KG = [0.042,0.055,0.071,0.090,0.112,0.138,0.169,0.205,0.246,0.293,0.346,0.406,0.472,0.545,0.626,0.714,0.810,0.914,1.026,1.145,1.272,1.405,1.546,1.693,1.846,2.005,2.170,2.339,2.513,2.691,2.872,3.056,3.242,3.430,3.618,3.807,3.996,4.184,4.371,4.556,4.739,4.920,5.098,5.272,5.443,5.609,5.770,5.926,6.076,6.220,6.358,6.489,6.613,6.730,6.840,6.942];
+
 function parseDateInput(str: string): Date | null {
   if (!str) return null;
   // DD/MM/YYYY or D/M/YYYY
@@ -1359,6 +1362,177 @@ function ShedSummaryCard({
   );
 }
 
+function PredictionBanner({ sheets, edits, farmConfig }: {
+  sheets: SheetParsed[];
+  edits: Map<string, string>[];
+  farmConfig: FarmConfigData;
+}) {
+  const getCell = (si: number, r: number, c: number): string => {
+    const e = edits[si];
+    if (e?.has(`${r},${c}`)) return e.get(`${r},${c}`) ?? "";
+    return String(sheets[si]?.cells.get(`${r},${c}`)?.value ?? "");
+  };
+  const getNum = (si: number, r: number, c: number) =>
+    parseFloat(getCell(si, r, c).replace(/,/g, "")) || 0;
+
+  // Collect active shed sheet indices
+  const activeShedIdxs: number[] = [];
+  let shedOrder = 0;
+  for (let i = 0; i < sheets.length; i++) {
+    const name = sheets[i].name.trim().toUpperCase();
+    if (!name.includes("SHED") || name.includes("WEEKLY")) continue;
+    const shedGroupId = SHED_SHEET_ORDER[shedOrder] ?? (shedOrder + 1);
+    const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+    if (groupCfg?.active !== false) activeShedIdxs.push(i);
+    shedOrder++;
+  }
+
+  let totalBirds = 0;
+  for (const si of activeShedIdxs) {
+    totalBirds += getNum(si, 3, 2) + getNum(si, 4, 2);
+  }
+  if (totalBirds === 0) return null;
+
+  // Aggregate daily data across all active sheds (rows 12–71 = days 1–60)
+  let lastActualDay = 0;
+  const dailyUsage: number[] = [];
+  const dailyFOH: number[]   = [];
+
+  for (let day = 1; day <= 60; day++) {
+    const r = 11 + day;
+    let usage = 0, foh = 0;
+    for (const si of activeShedIdxs) {
+      usage += getNum(si, r, COL_H);
+      foh   += getNum(si, r, COL_I);
+    }
+    dailyUsage.push(usage);
+    dailyFOH.push(foh);
+    if (usage > 0) lastActualDay = day;
+  }
+
+  if (lastActualDay === 0) return null;
+
+  const totalFeedSoFar = dailyUsage.slice(0, lastActualDay).reduce((a, b) => a + b, 0);
+  const currentFOH     = dailyFOH[lastActualDay - 1] || 0;
+
+  // Average daily usage (recent 5 days)
+  const recentSlice   = dailyUsage.slice(Math.max(0, lastActualDay - 5), lastActualDay);
+  const avgDailyUsage = recentSlice.reduce((a, b) => a + b, 0) / (recentSlice.length || 1);
+
+  // Projected remaining days based on current FOH
+  const projRemaining  = avgDailyUsage > 0 ? Math.round(currentFOH / avgDailyUsage) : 0;
+  const projCatchDay   = Math.min(lastActualDay + projRemaining, 65);
+  const projTotalFeed  = totalFeedSoFar + avgDailyUsage * projRemaining;
+
+  // Projected live weight at catch (Cobb500 curve)
+  const projWeightKg = COBB_WEIGHT_KG[Math.min(projCatchDay - 1, COBB_WEIGHT_KG.length - 1)] || 0;
+
+  // Projected FCR at catch
+  const projFCR = totalBirds > 0 && projWeightKg > 0
+    ? projTotalFeed / (totalBirds * projWeightKg)
+    : 0;
+
+  // Chart data
+  const chartMax = Math.max(projCatchDay, lastActualDay) + 2;
+  const chartData = Array.from({ length: chartMax }, (_, i) => {
+    const day = i + 1;
+    const std = day <= COBB500_GRAMS.length
+      ? Math.round(COBB500_GRAMS[day - 1] * totalBirds / 1000)
+      : null;
+    return {
+      day,
+      actual:    day <= lastActualDay ? Math.round(dailyUsage[day - 1]) : null,
+      standard:  std,
+      projected: day > lastActualDay && day <= projCatchDay ? Math.round(avgDailyUsage) : null,
+    };
+  });
+
+  const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}t` : `${n}kg`;
+
+  const Chip = ({ label, value, accent }: { label: string; value: string; accent?: boolean }) => (
+    <div style={{
+      background: accent ? "rgba(201,162,39,0.18)" : "rgba(255,255,255,0.12)",
+      border: accent ? "1px solid #C9A227" : "1px solid rgba(255,255,255,0.2)",
+      borderRadius: 8, padding: "6px 14px", textAlign: "center", minWidth: 80,
+    }}>
+      <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.1, color: accent ? "#C9A227" : "#fff" }}>{value}</div>
+      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8, color: "#fff", marginTop: 2 }}>{label}</div>
+    </div>
+  );
+
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: number }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{ background: "#1a2e1a", border: "1px solid #2d5a2d", borderRadius: 6, padding: "8px 12px", fontSize: 11 }}>
+        <div style={{ fontWeight: 700, color: "#C9A227", marginBottom: 4 }}>Day {label}</div>
+        {payload.map(p => (
+          <div key={p.name} style={{ color: p.color }}>
+            {p.name}: {fmtK(p.value)}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      background: "linear-gradient(135deg, #0f2410 0%, #1a3a1a 100%)",
+      border: "1px solid #2d5a2d",
+      borderRadius: 10,
+      padding: "14px 18px 10px",
+      marginBottom: 18,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ background: "#C9A227", color: "#000", borderRadius: 6, padding: "2px 12px", fontWeight: 800, fontSize: 12, letterSpacing: 0.5 }}>
+          📈 BATCH FORECAST
+        </div>
+        <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>
+          Based on current feed usage • Cobb 500 standard
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Chip label="Current Day"       value={`Day ${lastActualDay}`} />
+          <Chip label="Est. Catch Day"    value={`Day ${projCatchDay}`} />
+          <Chip label="Proj. Weight"      value={`${projWeightKg.toFixed(2)} kg`} accent />
+          <Chip label="Proj. FCR"         value={projFCR > 0 ? projFCR.toFixed(3) : "—"} />
+          <Chip label="Feed On Hand"      value={fmtK(Math.round(currentFOH))} />
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={140}>
+        <ComposedChart data={chartData} margin={{ top: 2, right: 8, bottom: 0, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" />
+          <XAxis
+            dataKey="day"
+            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }}
+            tickLine={false}
+            axisLine={{ stroke: "rgba(255,255,255,0.15)" }}
+            label={{ value: "Day", position: "insideBottomRight", offset: -2, fill: "rgba(255,255,255,0.4)", fontSize: 10 }}
+          />
+          <YAxis
+            tickFormatter={v => `${(v / 1000).toFixed(0)}t`}
+            tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 10 }}
+            tickLine={false}
+            axisLine={false}
+            width={32}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <ReferenceLine x={lastActualDay} stroke="#f97316" strokeDasharray="4 3" strokeWidth={1.5} />
+          <Bar dataKey="actual"    name="Actual"    fill="#22c55e" opacity={0.8} maxBarSize={14} />
+          <Line dataKey="standard" name="Standard"  stroke="rgba(255,255,255,0.35)" strokeDasharray="5 3" dot={false} strokeWidth={1.5} connectNulls={false} />
+          <Line dataKey="projected" name="Projected" stroke="#f97316" strokeDasharray="4 3" dot={false} strokeWidth={2} connectNulls={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+
+      <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 10, color: "rgba(255,255,255,0.45)", flexWrap: "wrap" }}>
+        <span><span style={{ color: "#22c55e" }}>██</span> Actual daily feed</span>
+        <span><span style={{ color: "rgba(255,255,255,0.4)" }}>╌╌</span> Cobb 500 standard</span>
+        <span><span style={{ color: "#f97316" }}>╌╌</span> Projected (from current FOH)</span>
+        <span><span style={{ color: "#f97316" }}>│</span> Today (Day {lastActualDay})</span>
+      </div>
+    </div>
+  );
+}
+
 function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
   sheets: SheetParsed[];
   edits: Map<string, string>[];
@@ -1404,6 +1578,7 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
 
   return (
     <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
+      <PredictionBanner sheets={sheets} edits={edits} farmConfig={farmConfig} />
       <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", borderBottom: "3px solid #C9A227" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>BATCH SUMMARY</div>
         {batchNum && (
