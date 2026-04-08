@@ -1288,11 +1288,39 @@ function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIER
   );
 }
 
+function CheckoutSuccessModal({ onClose }: { onClose: () => void }) {
+  const appUrl = `${window.location.origin}/feed-program/`;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: "40px 36px", maxWidth: 480, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+        <div style={{ fontSize: 52, marginBottom: 12 }}>🎉</div>
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: GREEN, marginBottom: 8 }}>You're all set!</h2>
+        <p style={{ color: "#444", lineHeight: 1.6, marginBottom: 24 }}>
+          Thanks for subscribing to Poultry Mate. Your account is active — click below to open the app and start tracking your farm.
+        </p>
+        <a
+          href={appUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: "block", background: GREEN, color: "#fff", fontWeight: 800, fontSize: 16, padding: "14px 24px", borderRadius: 10, textDecoration: "none", marginBottom: 12 }}
+        >
+          Open Feed Program →
+        </a>
+        <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
+          Bookmark that link — it's your app. A Stripe receipt has been sent to your email.
+        </p>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", fontSize: 13, cursor: "pointer" }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [yearly, setYearly] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showSponsorReceipt, setShowSponsorReceipt] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [checkoutPlan, setCheckoutPlan] = useState<typeof PLANS[0] | null>(null);
   const [showManagePortal, setShowManagePortal] = useState(false);
@@ -1303,6 +1331,16 @@ export default function App() {
   };
 
   useEffect(() => { refreshSponsors(); }, []);
+
+  // Show success modal if redirected back from Stripe after payment
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success" || params.get("supporter") === "success") {
+      setShowCheckoutSuccess(true);
+      // Clean the URL so refreshing doesn't re-show the modal
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
   const [shareLabel, setShareLabel] = useState<"share" | "copied">("share");
 
   const handleShare = async () => {
@@ -1325,6 +1363,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", background: "#f9fafb", minHeight: "100vh" }}>
+      {showCheckoutSuccess && <CheckoutSuccessModal onClose={() => setShowCheckoutSuccess(false)} />}
       {showReceipt && <ReceiptModal onClose={() => setShowReceipt(false)} />}
       {showSponsorReceipt && <SponsorReceiptModal onClose={() => setShowSponsorReceipt(false)} />}
       {showAdminPanel && <SponsorAdminModal onClose={() => setShowAdminPanel(false)} onRefresh={refreshSponsors} />}
