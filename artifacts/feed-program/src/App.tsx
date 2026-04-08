@@ -3918,8 +3918,11 @@ export default function App() {
     const a = document.createElement("a");
     a.href = url;
     a.download = "feed-program.xlsx";
+    a.style.display = "none";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     setHasChanges(false);
   };
 
