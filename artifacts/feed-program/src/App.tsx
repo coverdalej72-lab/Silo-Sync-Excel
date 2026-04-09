@@ -1564,6 +1564,11 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
   farmConfig: FarmConfigData;
 }) {
   const t = useT();
+  const [growerName, setGrowerName] = React.useState<string>(
+    () => localStorage.getItem("summary-grower-name") ?? ""
+  );
+  const [editingGrower, setEditingGrower] = React.useState(false);
+  const [growerDraft, setGrowerDraft] = React.useState("");
   const getCell = (si: number, r: number, c: number) => {
     const e = edits[si];
     if (e?.has(`${r},${c}`)) return e.get(`${r},${c}`) ?? "";
@@ -1608,6 +1613,33 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
         {batchNum && (
           <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 7, padding: "3px 14px", fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>
             Batch #{batchNum}
+          </div>
+        )}
+        {/* Grower name — editable, black text */}
+        {editingGrower ? (
+          <input
+            autoFocus
+            value={growerDraft}
+            onChange={e => setGrowerDraft(e.target.value)}
+            onBlur={() => {
+              const v = growerDraft.trim().toUpperCase();
+              setGrowerName(v);
+              if (v) localStorage.setItem("summary-grower-name", v);
+              else localStorage.removeItem("summary-grower-name");
+              setEditingGrower(false);
+            }}
+            onKeyDown={e => {
+              if (e.key === "Enter" || e.key === "Escape") (e.target as HTMLInputElement).blur();
+            }}
+            placeholder="GROWER NAME"
+            style={{ background: "#fff", color: "#000", border: "2px solid #C9A227", borderRadius: 7, padding: "3px 12px", fontWeight: 800, fontSize: 15, outline: "none", textTransform: "uppercase", minWidth: 160 }}
+          />
+        ) : (
+          <div
+            title="Click to edit grower name"
+            onClick={() => { setGrowerDraft(growerName); setEditingGrower(true); }}
+            style={{ background: "#fff", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15, cursor: "pointer", textTransform: "uppercase", letterSpacing: 0.5, minWidth: 100, border: "2px solid transparent" }}>
+            {growerName || <span style={{ opacity: 0.35, fontWeight: 400, fontSize: 13 }}>+ Grower name</span>}
           </div>
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 12, flexWrap: "wrap" }}>
