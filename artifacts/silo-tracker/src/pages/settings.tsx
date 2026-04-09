@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash, Smartphone, Share2 } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
@@ -109,6 +109,109 @@ function BatchNumberRow() {
           <span className="text-[10px] text-muted-foreground">✏</span>
         </button>
       )}
+    </div>
+  );
+}
+
+function AddToHomeScreenSection() {
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [installed, setInstalled] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+    setIsInstalled(standalone);
+    setIsIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handler as any);
+    return () => window.removeEventListener("beforeinstallprompt", handler as any);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setInstalled(true);
+      toast({ title: "App installed!", description: "Find Silo Mate on your home screen." });
+    }
+    setDeferredPrompt(null);
+  };
+
+  return (
+    <div>
+      <SectionLabel title="Add to Home Screen" />
+      <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+        {isInstalled || installed ? (
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <Check className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-foreground">Already installed</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Silo Mate is on your home screen</p>
+            </div>
+          </div>
+        ) : isIos ? (
+          <div className="px-4 py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <Smartphone className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm text-foreground">iPhone / iPad</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Follow these steps in Safari</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {[
+                { step: "1", text: <>Tap the <Share2 className="inline w-3.5 h-3.5 mb-0.5" /> <strong>Share</strong> button at the bottom of Safari</> },
+                { step: "2", text: <><strong>Scroll down</strong> and tap <strong>"Add to Home Screen"</strong></> },
+                { step: "3", text: <>Tap <strong>"Add"</strong> — the app will appear on your home screen</> },
+              ].map(({ step, text }) => (
+                <div key={step} className="flex items-start gap-3 bg-secondary/50 rounded-xl px-3 py-2.5">
+                  <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">{step}</span>
+                  <p className="text-sm text-foreground">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : deferredPrompt ? (
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+              <Smartphone className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm text-foreground">Add to Home Screen</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Install for quick access from your home screen</p>
+            </div>
+            <button
+              onClick={handleInstall}
+              className="shrink-0 bg-primary text-primary-foreground font-bold text-xs px-4 py-2 rounded-xl"
+            >
+              Install
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-9 h-9 rounded-xl bg-secondary flex items-center justify-center shrink-0">
+              <Smartphone className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-foreground">Open on your phone</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Open this app in your phone's browser, then use the Settings page to add it to your home screen</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -483,6 +586,9 @@ export default function Settings() {
           Paste either link in any browser on PC, Mac, tablet, or phone to open the app.
         </p>
       </div>
+
+      {/* Add to Home Screen */}
+      <AddToHomeScreenSection />
 
       {/* Downloads */}
       <div>
