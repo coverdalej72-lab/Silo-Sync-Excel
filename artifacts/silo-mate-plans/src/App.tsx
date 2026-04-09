@@ -604,13 +604,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-// Stripe price IDs (sandbox) — seeded via scripts/src/seed-poultry-mate-plans.ts
-const STRIPE_PRICES = {
-  bronze:   { monthly: "price_1TJQv0Gt1TYrsK4OuhGtZUfC", yearly: "price_1TJQv0Gt1TYrsK4OsV1quRSe" },
-  silver:   { monthly: "price_1TJQv1Gt1TYrsK4OMeaXgIpr", yearly: "price_1TJQv1Gt1TYrsK4ORRnC8SpN" },
-  gold:     { monthly: "price_1TJQv1Gt1TYrsK4OsBkAHkai", yearly: "price_1TJQv1Gt1TYrsK4O7EwyiJtc" },
-  platinum: { monthly: "price_platinum_monthly_placeholder", yearly: "price_platinum_yearly_placeholder" },
-};
+// Price IDs are loaded dynamically from the API — never hardcoded.
 
 const CHARITIES = [
   { id: "rural-aid",   name: "Rural Aid Australia",    icon: "🌾", desc: "Supporting farmers in crisis across Australia" },
@@ -1045,17 +1039,39 @@ function CheckoutModal({ plan, yearly, onClose }: {
   const [charityId, setCharityId]   = useState(CHARITIES[0].id);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState("");
+  const [priceId, setPriceId]       = useState<string | null>(null);
 
-  const priceId = STRIPE_PRICES[plan.id as keyof typeof STRIPE_PRICES]?.[yearly ? "yearly" : "monthly"];
-  const price   = yearly ? plan.yearlyPrice : plan.monthlyPrice;
+  const price = yearly ? plan.yearlyPrice : plan.monthlyPrice;
+  const interval = yearly ? "year" : "month";
+
+  // Load the live price ID from the API on mount
+  useEffect(() => {
+    const domain = window.location.origin;
+    fetch(`${domain}/api/stripe/plans`)
+      .then(r => r.json())
+      .then(data => {
+        const product = (data.data ?? []).find((p: any) =>
+          p.metadata?.tier === plan.id
+        );
+        const matchingPrice = (product?.prices ?? []).find((p: any) =>
+          p.recurring?.interval === interval
+        );
+        if (matchingPrice) {
+          setPriceId(matchingPrice.id);
+        } else {
+          setError("Unable to load plan pricing. Please try again later.");
+        }
+      })
+      .catch(() => setError("Unable to load plan pricing. Please try again later."));
+  }, [plan.id, interval]);
 
   const handleCheckout = async () => {
     if (!email.includes("@")) { setError("Please enter a valid email address."); return; }
+    if (!priceId) { setError("Pricing not loaded yet. Please try again."); return; }
     setLoading(true);
     setError("");
     try {
-      const apiBase = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-      const domain  = window.location.origin;
+      const domain = window.location.origin;
       const resp = await fetch(`${domain}/api/stripe/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1137,10 +1153,10 @@ function CheckoutModal({ plan, yearly, onClose }: {
 
         <button
           onClick={handleCheckout}
-          disabled={loading}
-          style={{ width: "100%", background: loading ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 800, fontSize: 15, padding: "14px 0", borderRadius: 12, border: "none", cursor: loading ? "not-allowed" : "pointer", transition: "background 0.2s" }}
+          disabled={loading || !priceId}
+          style={{ width: "100%", background: (loading || !priceId) ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 800, fontSize: 15, padding: "14px 0", borderRadius: 12, border: "none", cursor: (loading || !priceId) ? "not-allowed" : "pointer", transition: "background 0.2s" }}
         >
-          {loading ? "Redirecting to Stripe…" : `Subscribe — $${price.toFixed(2)}/${yearly ? "yr" : "mo"}`}
+          {loading ? "Redirecting to Stripe…" : !priceId ? "Loading…" : `Subscribe — $${price.toFixed(2)}/${yearly ? "yr" : "mo"}`}
         </button>
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
           Secure payment via Stripe · Cancel anytime
