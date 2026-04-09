@@ -742,6 +742,7 @@ function SheetView({
   const { cells, minRow, maxRow, minCol, maxCol, colWidths, rowHeights } = sheet;
   const effectiveStart = startRow ?? minRow;
   const inputRef = useRef<HTMLInputElement>(null);
+  const navigatingRef = useRef(false);
 
   // Trim empty trailing columns — only consider visible rows (r >= effectiveStart)
   const displayMaxCol = useMemo(() => {
@@ -1045,13 +1046,28 @@ function SheetView({
                       <input
                         ref={inputRef}
                         defaultValue={isCatchOrBirds && displayVal === "—" ? "" : displayVal}
-                        onBlur={(e) => commitEdit(r, c, e.target.value)}
+                        onBlur={(e) => {
+                          if (navigatingRef.current) { navigatingRef.current = false; return; }
+                          commitEdit(r, c, e.target.value);
+                        }}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === "Tab") {
+                          if (e.key === "Escape") { setEditingCell(null); return; }
+                          const val = (e.target as HTMLInputElement).value;
+                          const navigate = (newR: number, newC: number) => {
                             e.preventDefault();
-                            commitEdit(r, c, (e.target as HTMLInputElement).value);
+                            navigatingRef.current = true;
+                            onEdit(`${r},${c}`, val);
+                            let nc = newC;
+                            if (isShedSheet && nc === 3) nc += (newC > c ? 1 : -1);
+                            setEditingCell({ r: newR, c: Math.max(minCol, Math.min(nc, displayMaxCol)), sheetIdx });
+                          };
+                          if (e.key === "Enter" || e.key === "ArrowDown") {
+                            navigate(r + 1, c);
+                          } else if (e.key === "ArrowUp") {
+                            navigate(r - 1, c);
+                          } else if (e.key === "Tab") {
+                            navigate(r, e.shiftKey ? c - 1 : c + 1);
                           }
-                          if (e.key === "Escape") setEditingCell(null);
                         }}
                         style={{
                           width: "100%", height: "100%", border: "none", outline: "none",
@@ -4331,7 +4347,7 @@ export default function App() {
 
       {/* Hint bar */}
       <div className="dark:bg-zinc-800 border-b border-green-200 dark:border-zinc-700 px-4 py-1 text-xs text-green-800 dark:text-green-300 shrink-0" style={{ background: "var(--pm-primary-pale)" }}>
-        Double-click any cell to edit. Press <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd> or click away to confirm.
+        Double-click any cell to edit. <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd> / <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">↑↓</kbd> move between rows · <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Tab</kbd> moves columns · <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Esc</kbd> cancels
       </div>
 
       {/* Sheet tabs */}
