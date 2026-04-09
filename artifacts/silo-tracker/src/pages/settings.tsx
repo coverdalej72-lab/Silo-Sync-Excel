@@ -66,20 +66,36 @@ function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void;
 function BatchNumberRow() {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(() => localStorage.getItem("silo-batch-num") ?? "");
+  const [syncedVal, setSyncedVal] = useState(() => localStorage.getItem("silo-batch-num") ?? "");
   const { toast } = useToast();
+
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === "silo-batch-num") {
+        const newVal = e.newValue ?? "";
+        setSyncedVal(newVal);
+        if (!editing) setVal(newVal);
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, [editing]);
 
   const save = () => {
     const parsed = parseInt(val, 10);
     if (!isNaN(parsed) && parsed > 0) {
       localStorage.setItem("silo-batch-num", String(parsed));
+      setSyncedVal(String(parsed));
       toast({ title: `Batch #${parsed} saved` });
     } else {
-      setVal(localStorage.getItem("silo-batch-num") ?? "");
+      const current = localStorage.getItem("silo-batch-num") ?? "";
+      setVal(current);
+      setSyncedVal(current);
     }
     setEditing(false);
   };
 
-  const current = localStorage.getItem("silo-batch-num");
+  const current = syncedVal || localStorage.getItem("silo-batch-num") || "";
   const displayNum = current ? parseInt(current, 10) : null;
 
   return (

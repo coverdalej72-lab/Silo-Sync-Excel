@@ -1920,6 +1920,18 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
       .catch(() => setLoadState("error"));
   }, []);
 
+  // Sync batch number from Silo Mate (and vice versa) via storage events
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === "silo-batch-num") {
+        const parsed = e.newValue ? parseInt(e.newValue, 10) || null : null;
+        setOverrideBatchNum(parsed);
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
   // Seed catchMap from xlsx on first load (if localStorage was empty)
   useEffect(() => {
     if (loadState !== "ok") return;
