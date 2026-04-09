@@ -3765,6 +3765,7 @@ export default function App() {
   const [showFeedAlert, setShowFeedAlert] = useState(false);
   const [autoSaveFlash, setAutoSaveFlash] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
+  const [settingsBatchNum, setSettingsBatchNum] = useState("");
   const t = useMemo(() => createTranslator(farmConfig.language), [farmConfig.language]);
   const workbookRef = useRef<WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
@@ -4507,7 +4508,7 @@ export default function App() {
             );
           })()}
           <button
-            onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setShowSettings(true); }}
+            onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setSettingsBatchNum(localStorage.getItem("silo-batch-num") ?? ""); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
             title={t("settings")}
           >
@@ -4801,6 +4802,20 @@ export default function App() {
                 />
               </div>
 
+              {/* Batch Number */}
+              <div>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Batch Number</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={settingsBatchNum}
+                  onChange={e => setSettingsBatchNum(e.target.value)}
+                  placeholder="e.g. 42"
+                  style={{ width: "100%", border: "1.5px solid #c8d8c8", borderRadius: 6, padding: "8px 12px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                />
+                <p style={{ fontSize: 12, color: "#666", marginTop: 5 }}>Shown in Batch Results and End of Batch reports. Shared with Silo Mate.</p>
+              </div>
+
               {/* Farm Type */}
               <div>
                 <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("farmType")}</label>
@@ -5015,6 +5030,12 @@ export default function App() {
                   const updated = { ...farmConfig, farmName: settingsFarmName.trim() || undefined };
                   saveFarmConfig(updated);
                   setFarmConfig(updated);
+                  const parsed = parseInt(settingsBatchNum, 10);
+                  if (!isNaN(parsed) && parsed > 0) {
+                    localStorage.setItem("silo-batch-num", String(parsed));
+                  } else {
+                    localStorage.removeItem("silo-batch-num");
+                  }
                   setShowSettings(false);
                 }}
                 style={{ flex: 1, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
