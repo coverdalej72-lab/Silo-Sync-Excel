@@ -77,3 +77,15 @@ id = "QMYZuoVh_5aQD26urjLFt"
 uri = "file://attached_assets/icon-option-3.png"
 type = "image"
 title = "Option 3 — Golden badge style"
+
+[[outputs]]
+id = "Kc4bcunVRbDQNIcG9-hPc"
+uri = "file://artifacts/silo-tracker/public/icon-512.png"
+type = "image"
+title = "App Icon (512×512)"
+
+[[outputs]]
+id = "kV_aBho32jm37X3RZYd9t"
+uri = "file://artifacts/silo-tracker/public/icon-192.png"
+type = "image"
+title = "App Icon (192×192 — home screen size)"
