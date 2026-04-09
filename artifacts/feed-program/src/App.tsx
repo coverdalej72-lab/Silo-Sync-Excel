@@ -2258,10 +2258,66 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         {summary && summary.cage > 0 && (
           <div style={cardStyle("#7f8c8d")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(2)} <span style={{ fontSize: 13 }}>days</span></div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Average Age</div>
+            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Cage Age</div>
           </div>
         )}
       </div>
+
+      {/* Ross 308 FF As-Hatched standard comparison at cage age */}
+      {summary && summary.cage > 0 && (() => {
+        const std = getRoss308Standard(summary.cage);
+        if (!std) return null;
+        const actualWgtKg = summary.aveWeight;   // already in kg from xlsx
+        const actualFcr   = summary.fcr;
+        const stdWgtKg    = std.weight / 1000;
+        const wgtDelta    = actualWgtKg > 0 ? actualWgtKg - stdWgtKg : null;
+        const fcrDelta    = actualFcr   > 0 ? actualFcr   - std.fcr  : null;
+        const isExtrapolated = summary.cage > 33;
+        const fmtDelta = (v: number, decimals: number, lowerIsBetter = false) => {
+          const sign  = v > 0 ? "+" : "";
+          const color = (v > 0) === !lowerIsBetter ? "#27ae60" : "#e74c3c";
+          return <span style={{ color, fontWeight: 700, fontSize: 13 }}>{sign}{v.toFixed(decimals)}</span>;
+        };
+        return (
+          <div style={{ background: "#f0f7f3", border: "1px solid #b2d8c6", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                vs Ross 308 FF Standard
+              </div>
+              <div style={{ fontSize: 10, color: "#888", background: "#e0f0e9", borderRadius: 4, padding: "2px 7px" }}>
+                As-Hatched · {Math.round(summary.cage)} day{Math.round(summary.cage) !== 1 ? "s" : ""}
+              </div>
+              {isExtrapolated && (
+                <div style={{ fontSize: 10, color: "#a07030", background: "#fff3dc", borderRadius: 4, padding: "2px 7px" }}>
+                  * extrapolated beyond day 33
+                </div>
+              )}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 }}>Standard Weight</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#154d2c" }}>{stdWgtKg.toFixed(3)} kg</div>
+                {wgtDelta !== null && (
+                  <div style={{ fontSize: 12, marginTop: 2 }}>
+                    Actual: <strong>{actualWgtKg.toFixed(3)} kg</strong> &nbsp;
+                    {fmtDelta(wgtDelta, 3)}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 }}>Standard FCR</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#154d2c" }}>{std.fcr.toFixed(3)}</div>
+                {fcrDelta !== null && (
+                  <div style={{ fontSize: 12, marginTop: 2 }}>
+                    Actual: <strong>{actualFcr.toFixed(3)}</strong> &nbsp;
+                    {fmtDelta(fcrDelta, 3, true)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Feed summary — live values from End of Batch sheet, fall back to xlsx */}
       {summary && (() => {
@@ -3124,16 +3180,97 @@ function HistoryView() {
 // ── Flock Forecast ─────────────────────────────────────────────────────────
 interface WeighInData { [shedGroupId: number]: { [age: number]: number } }
 interface BreedPoint  { age: number; weight: number; fcr: number }
+
+// Ross 308 FF 2022 — As-Hatched (Mixed Sex) Performance Objectives
+// Days 0–33: exact values from official Aviagen 2022 PDF.
+// Days 34–56: extrapolated from confirmed 2022 growth trajectory.
+const ROSS308FF_DAILY: BreedPoint[] = [
+  { age:  0, weight:   44, fcr: 0.000 },
+  { age:  1, weight:   62, fcr: 0.196 },
+  { age:  2, weight:   81, fcr: 0.352 },
+  { age:  3, weight:  102, fcr: 0.476 },
+  { age:  4, weight:  125, fcr: 0.577 },
+  { age:  5, weight:  151, fcr: 0.658 },
+  { age:  6, weight:  181, fcr: 0.724 },
+  { age:  7, weight:  213, fcr: 0.780 },
+  { age:  8, weight:  249, fcr: 0.826 },
+  { age:  9, weight:  288, fcr: 0.865 },
+  { age: 10, weight:  330, fcr: 0.900 },
+  { age: 11, weight:  376, fcr: 0.930 },
+  { age: 12, weight:  425, fcr: 0.957 },
+  { age: 13, weight:  477, fcr: 0.982 },
+  { age: 14, weight:  533, fcr: 1.005 },
+  { age: 15, weight:  592, fcr: 1.026 },
+  { age: 16, weight:  655, fcr: 1.047 },
+  { age: 17, weight:  720, fcr: 1.066 },
+  { age: 18, weight:  789, fcr: 1.086 },
+  { age: 19, weight:  860, fcr: 1.105 },
+  { age: 20, weight:  935, fcr: 1.123 },
+  { age: 21, weight: 1012, fcr: 1.142 },
+  { age: 22, weight: 1092, fcr: 1.160 },
+  { age: 23, weight: 1174, fcr: 1.178 },
+  { age: 24, weight: 1258, fcr: 1.196 },
+  { age: 25, weight: 1345, fcr: 1.214 },
+  { age: 26, weight: 1434, fcr: 1.233 },
+  { age: 27, weight: 1524, fcr: 1.251 },
+  { age: 28, weight: 1616, fcr: 1.269 },
+  { age: 29, weight: 1710, fcr: 1.288 },
+  { age: 30, weight: 1805, fcr: 1.306 },
+  { age: 31, weight: 1901, fcr: 1.325 },
+  { age: 32, weight: 1999, fcr: 1.343 },
+  { age: 33, weight: 2097, fcr: 1.362 },
+  // extrapolated ↓
+  { age: 34, weight: 2196, fcr: 1.381 },
+  { age: 35, weight: 2296, fcr: 1.400 },
+  { age: 36, weight: 2397, fcr: 1.418 },
+  { age: 37, weight: 2499, fcr: 1.436 },
+  { age: 38, weight: 2602, fcr: 1.454 },
+  { age: 39, weight: 2705, fcr: 1.473 },
+  { age: 40, weight: 2807, fcr: 1.492 },
+  { age: 41, weight: 2907, fcr: 1.511 },
+  { age: 42, weight: 3005, fcr: 1.530 },
+  { age: 43, weight: 3101, fcr: 1.550 },
+  { age: 44, weight: 3194, fcr: 1.570 },
+  { age: 45, weight: 3284, fcr: 1.590 },
+  { age: 46, weight: 3371, fcr: 1.610 },
+  { age: 47, weight: 3455, fcr: 1.631 },
+  { age: 48, weight: 3535, fcr: 1.652 },
+  { age: 49, weight: 3612, fcr: 1.673 },
+  { age: 50, weight: 3686, fcr: 1.695 },
+  { age: 51, weight: 3757, fcr: 1.717 },
+  { age: 52, weight: 3825, fcr: 1.740 },
+  { age: 53, weight: 3890, fcr: 1.763 },
+  { age: 54, weight: 3952, fcr: 1.786 },
+  { age: 55, weight: 4011, fcr: 1.810 },
+  { age: 56, weight: 4067, fcr: 1.834 },
+];
+
+// Linearly interpolate the Ross 308 FF As-Hatched standard at any given age (days).
+function getRoss308Standard(ageDays: number): { weight: number; fcr: number } | null {
+  if (ageDays < 0) return null;
+  const lo = Math.floor(ageDays);
+  const hi = lo + 1;
+  const loP = ROSS308FF_DAILY.find(p => p.age === lo);
+  const hiP = ROSS308FF_DAILY.find(p => p.age === hi);
+  if (!loP) return null;
+  if (!hiP || lo === hi) return { weight: loP.weight, fcr: loP.fcr };
+  const t = ageDays - lo;
+  return {
+    weight: Math.round(loP.weight + t * (hiP.weight - loP.weight)),
+    fcr:    parseFloat((loP.fcr + t * (hiP.fcr - loP.fcr)).toFixed(3)),
+  };
+}
+
 const BREED_STANDARDS: Record<string, { name: string; data: BreedPoint[] }> = {
-  ross308: { name: "Ross 308", data: [
-    { age:  7, weight:  175, fcr: 0.85 },
-    { age: 14, weight:  500, fcr: 1.12 },
-    { age: 21, weight: 1020, fcr: 1.28 },
-    { age: 28, weight: 1700, fcr: 1.40 },
-    { age: 35, weight: 2450, fcr: 1.55 },
-    { age: 42, weight: 3150, fcr: 1.70 },
-    { age: 49, weight: 3800, fcr: 1.85 },
-    { age: 56, weight: 4350, fcr: 2.00 },
+  ross308: { name: "Ross 308 FF", data: [
+    { age:  7, weight:  213, fcr: 0.780 },
+    { age: 14, weight:  533, fcr: 1.005 },
+    { age: 21, weight: 1012, fcr: 1.142 },
+    { age: 28, weight: 1616, fcr: 1.269 },
+    { age: 35, weight: 2296, fcr: 1.400 },
+    { age: 42, weight: 3005, fcr: 1.530 },
+    { age: 49, weight: 3612, fcr: 1.673 },
+    { age: 56, weight: 4067, fcr: 1.834 },
   ]},
   cobb500: { name: "Cobb 500", data: [
     { age:  7, weight:  180, fcr: 0.83 },
