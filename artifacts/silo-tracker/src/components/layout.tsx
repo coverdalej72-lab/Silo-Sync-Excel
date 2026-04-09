@@ -1,10 +1,82 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { ClipboardList, History, Truck, Settings, Camera } from "lucide-react";
+import { ClipboardList, History, Truck, Settings, Camera, X, Share, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetTodayProgress, getGetTodayProgressQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { useFarmConfig } from "@/hooks/use-farm-config";
+
+function InstallBanner() {
+  const [show, setShow] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+    if (isStandalone) return;
+
+    const dismissed = sessionStorage.getItem("install-banner-dismissed");
+    if (dismissed) return;
+
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isMobile = ios || /android/i.test(navigator.userAgent);
+    if (!isMobile) return;
+
+    setIsIos(ios);
+
+    if (!ios) {
+      const handler = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        setShow(true);
+      };
+      window.addEventListener("beforeinstallprompt", handler as any);
+      return () => window.removeEventListener("beforeinstallprompt", handler as any);
+    } else {
+      setShow(true);
+    }
+  }, []);
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      setShow(false);
+    }
+  };
+
+  const handleDismiss = () => {
+    sessionStorage.setItem("install-banner-dismissed", "1");
+    setShow(false);
+  };
+
+  if (!show) return null;
+
+  return (
+    <div className="shrink-0 bg-primary text-primary-foreground px-4 py-2.5 flex items-center gap-3">
+      <div className="flex-1 text-sm font-medium leading-snug">
+        {isIos ? (
+          <span>Add to Home Screen — tap <Share className="inline w-4 h-4 mb-0.5" /> then <strong>"Add to Home Screen"</strong></span>
+        ) : (
+          <span>Add Silo Mate to your home screen for quick access</span>
+        )}
+      </div>
+      {!isIos && (
+        <button
+          onClick={handleInstall}
+          className="shrink-0 bg-white text-primary font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1"
+        >
+          <Download className="w-3 h-3" /> Install
+        </button>
+      )}
+      <button onClick={handleDismiss} className="shrink-0 opacity-70 hover:opacity-100">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
 
 const SILO_ICON = (
   <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth={2}>
@@ -98,6 +170,8 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         </div>
       </header>
+
+      <InstallBanner />
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
