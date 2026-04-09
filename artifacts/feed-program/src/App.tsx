@@ -2267,20 +2267,33 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
       {summary && summary.cage > 0 && (() => {
         const std = getRoss308Standard(summary.cage);
         if (!std) return null;
-        const actualWgtKg = summary.aveWeight;   // already in kg from xlsx
+        const actualWgtKg = summary.aveWeight;
         const actualFcr   = summary.fcr;
         const stdWgtKg    = std.weight / 1000;
         const wgtDelta    = actualWgtKg > 0 ? actualWgtKg - stdWgtKg : null;
         const fcrDelta    = actualFcr   > 0 ? actualFcr   - std.fcr  : null;
+        const wgtPct      = wgtDelta !== null ? (wgtDelta / stdWgtKg) * 100 : null;
+        const fcrPct      = fcrDelta !== null ? (fcrDelta / std.fcr)  * 100 : null;
         const isExtrapolated = summary.cage > 33;
-        const fmtDelta = (v: number, decimals: number, lowerIsBetter = false) => {
-          const sign  = v > 0 ? "+" : "";
-          const color = (v > 0) === !lowerIsBetter ? "#27ae60" : "#e74c3c";
-          return <span style={{ color, fontWeight: 700, fontSize: 13 }}>{sign}{v.toFixed(decimals)}</span>;
+
+        const PctBadge = ({ pct, lowerIsBetter = false }: { pct: number; lowerIsBetter?: boolean }) => {
+          const good  = (pct > 0) === !lowerIsBetter;
+          const color = good ? "#27ae60" : "#e74c3c";
+          const bg    = good ? "#e8f8f0" : "#fdecea";
+          const sign  = pct > 0 ? "+" : "";
+          const label = good
+            ? (lowerIsBetter ? "below std" : "above std")
+            : (lowerIsBetter ? "above std" : "below std");
+          return (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: bg, color, fontWeight: 800, fontSize: 14, borderRadius: 6, padding: "3px 9px" }}>
+              {sign}{Math.abs(pct).toFixed(1)}% <span style={{ fontWeight: 500, fontSize: 11 }}>{label}</span>
+            </span>
+          );
         };
+
         return (
           <div style={{ background: "#f0f7f3", border: "1px solid #b2d8c6", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 vs Ross 308 FF Standard
               </div>
@@ -2293,26 +2306,22 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                 </div>
               )}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
               <div>
-                <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 }}>Standard Weight</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#154d2c" }}>{stdWgtKg.toFixed(3)} kg</div>
-                {wgtDelta !== null && (
-                  <div style={{ fontSize: 12, marginTop: 2 }}>
-                    Actual: <strong>{actualWgtKg.toFixed(3)} kg</strong> &nbsp;
-                    {fmtDelta(wgtDelta, 3)}
-                  </div>
-                )}
+                <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>Weight</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "#154d2c" }}>Std: {stdWgtKg.toFixed(3)} kg</span>
+                  {actualWgtKg > 0 && <span style={{ fontSize: 13, color: "#555" }}>Actual: {actualWgtKg.toFixed(3)} kg</span>}
+                </div>
+                {wgtPct !== null && <PctBadge pct={wgtPct} />}
               </div>
               <div>
-                <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 2 }}>Standard FCR</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#154d2c" }}>{std.fcr.toFixed(3)}</div>
-                {fcrDelta !== null && (
-                  <div style={{ fontSize: 12, marginTop: 2 }}>
-                    Actual: <strong>{actualFcr.toFixed(3)}</strong> &nbsp;
-                    {fmtDelta(fcrDelta, 3, true)}
-                  </div>
-                )}
+                <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>FCR</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "#154d2c" }}>Std: {std.fcr.toFixed(3)}</span>
+                  {actualFcr > 0 && <span style={{ fontSize: 13, color: "#555" }}>Actual: {actualFcr.toFixed(3)}</span>}
+                </div>
+                {fcrPct !== null && <PctBadge pct={fcrPct} lowerIsBetter />}
               </div>
             </div>
           </div>
