@@ -2985,16 +2985,17 @@ function BarChart({ entries, getValue, label, format, color }: {
   const vals = entries.map(getValue);
   const max = Math.max(...vals.filter((v): v is number => v !== null), 0.001);
   const W = 56, H = 90, gap = 8;
+  const PAD_TOP = 18;
   const totalW = entries.length * (W + gap) - gap;
   return (
-    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", padding: "14px 16px 10px", minWidth: 200, flex: "1 1 180px" }}>
+    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", padding: "14px 16px 10px", overflow: "hidden" }}>
       <div style={{ fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>{label}</div>
-      <svg width={totalW} height={H + 30} style={{ display: "block", overflow: "visible" }}>
+      <svg width={totalW} height={PAD_TOP + H + 22} style={{ display: "block" }}>
         {vals.map((v, i) => {
           const x = i * (W + gap);
           const pct = v !== null ? v / max : 0;
           const barH = Math.max(pct * H, 2);
-          const barY = H - barH;
+          const barY = PAD_TOP + H - barH;
           const bn = entries[i].batchNum;
           return (
             <g key={i}>
@@ -3003,9 +3004,9 @@ function BarChart({ entries, getValue, label, format, color }: {
                 <text x={x + W / 2} y={barY - 4} textAnchor="middle" fontSize={10} fontWeight={700} fill="#333">{format(v)}</text>
               )}
               {v === null && (
-                <text x={x + W / 2} y={H / 2 + 5} textAnchor="middle" fontSize={10} fill="#aaa">—</text>
+                <text x={x + W / 2} y={PAD_TOP + H / 2 + 5} textAnchor="middle" fontSize={10} fill="#aaa">—</text>
               )}
-              <text x={x + W / 2} y={H + 16} textAnchor="middle" fontSize={10} fill="#666" fontWeight={600}>#{bn || "?"}</text>
+              <text x={x + W / 2} y={PAD_TOP + H + 16} textAnchor="middle" fontSize={10} fill="#666" fontWeight={600}>#{bn || "?"}</text>
             </g>
           );
         })}
@@ -3084,12 +3085,12 @@ function HistoryView() {
       </div>
 
       {/* Charts */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
         <BarChart entries={recent} getValue={e => e.totalBirds || null} label="Birds Placed" format={fmtNum} color="var(--pm-primary)" />
         <BarChart entries={recent} getValue={e => e.totalFeedKg || null} label="Feed Ordered (kg)" format={fmtFeed} color="var(--pm-primary-mid)" />
         <BarChart entries={recent} getValue={e => e.fcr} label="FCR" format={fmtDec} color="#2980b9" />
         <BarChart entries={recent} getValue={e => e.cfcr} label="CFCR" format={fmtDec} color="#8e44ad" />
-        <BarChart entries={recent} getValue={e => e.cage} label="Average Age (days)" format={v => `${v.toFixed(2)} days`} color="#C9A227" />
+        <BarChart entries={recent} getValue={e => e.cage} label="Average Age (days)" format={v => `${v.toFixed(1)}d`} color="#C9A227" />
         <BarChart entries={recent} getValue={e => e.mortalityPct} label="Mortality %" format={fmtMort} color="#c0392b" />
       </div>
     </div>
