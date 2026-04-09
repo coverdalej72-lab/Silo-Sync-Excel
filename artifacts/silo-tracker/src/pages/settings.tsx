@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash, Smartphone, Share2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash, Smartphone, Share2, QrCode } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
@@ -109,6 +110,80 @@ function BatchNumberRow() {
           <span className="text-[10px] text-muted-foreground">✏</span>
         </button>
       )}
+    </div>
+  );
+}
+
+function SendToPhoneSection() {
+  const [show, setShow] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const siloUrl = `${window.location.origin}/silo-tracker/`;
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(siloUrl);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = siloUrl;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div>
+      <SectionLabel title="Send to Phone" />
+      <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+        <button
+          onClick={() => setShow(v => !v)}
+          className="w-full flex items-center gap-3 px-4 py-4 hover:bg-secondary/40 transition-colors text-left"
+        >
+          <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+            <QrCode className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-foreground">Show QR Code</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Scan with your phone camera to open Silo Mate</p>
+          </div>
+          <span className="text-xs text-muted-foreground">{show ? "Hide" : "Show"}</span>
+        </button>
+
+        {show && (
+          <div className="border-t border-border/40 px-4 py-5 flex flex-col items-center gap-4">
+            <div className="p-3 bg-white rounded-2xl shadow-sm">
+              <QRCodeSVG
+                value={siloUrl}
+                size={180}
+                level="M"
+                includeMargin={false}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-center max-w-[220px]">
+              Point your phone camera at the code — no app needed. It will open Silo Mate in your browser.
+            </p>
+            <button
+              onClick={copyLink}
+              className={cn(
+                "flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all",
+                copied
+                  ? "border-primary/60 text-primary bg-primary/10"
+                  : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+              )}
+            >
+              {copied
+                ? <><Check className="w-3.5 h-3.5" /> Link Copied!</>
+                : <><Link2 className="w-3.5 h-3.5" /> Copy Link Instead</>}
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="text-[10px] text-muted-foreground px-1 mt-1.5">
+        After opening on your phone, go to Settings → Add to Home Screen to install the app.
+      </p>
     </div>
   );
 }
@@ -586,6 +661,9 @@ export default function Settings() {
           Paste either link in any browser on PC, Mac, tablet, or phone to open the app.
         </p>
       </div>
+
+      {/* Send to Phone */}
+      <SendToPhoneSection />
 
       {/* Add to Home Screen */}
       <AddToHomeScreenSection />
