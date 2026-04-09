@@ -625,7 +625,7 @@ const PLANS = [
     icon: "🥉",
     color: "#cd7f32",
     tagline: "Perfect for solo growers just getting started.",
-    monthlyPrice: 20,
+    monthlyPrice: 30,
     yearlyPrice: 216,
     features: [
       "Silo Mate mobile app",
@@ -649,7 +649,7 @@ const PLANS = [
     icon: "🥈",
     color: "#94a3b8",
     tagline: "Full batch management for active farms.",
-    monthlyPrice: 50,
+    monthlyPrice: 60,
     yearlyPrice: 540,
     features: [
       "Everything in Bronze",
