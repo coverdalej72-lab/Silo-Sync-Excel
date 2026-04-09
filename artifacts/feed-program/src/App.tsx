@@ -2989,7 +2989,7 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
                       }}>
                         S{s}
                       </td>
-                      {/* Combined M / C cell per day */}
+                      {/* Combined M | C cell per day — side by side */}
                       {days.map((d, di) => {
                         const iso = isoDate(d);
                         const isToday = iso === isoDate(new Date());
@@ -2997,46 +2997,47 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
                         const cVal = cullsLog[iso]?.[s];
                         const isEditM = editCell?.date === iso && editCell?.shed === s && editCell?.type === "m";
                         const isEditC = editCell?.date === iso && editCell?.shed === s && editCell?.type === "c";
-                        const dayBg = isToday ? "#fffde7" : shedBg;
                         return (
-                          <td key={di} style={{ ...TD, background: dayBg, padding: 0, verticalAlign: "top" }}>
-                            {/* M row — top half */}
-                            <div style={{ borderBottom: "1px dashed #e5c5c5", background: isToday ? "#fffde7" : "#fff8f8" }}>
-                              {isEditM ? (
-                                <input type="number" inputMode="numeric" value={editVal} autoFocus
-                                  onChange={e => setEditVal(e.target.value)}
-                                  onBlur={() => saveMorts(iso, s, editVal)}
-                                  onKeyDown={e => { if (e.key === "Enter") saveMorts(iso, s, editVal); if (e.key === "Escape") setEditCell(null); }}
-                                  style={{ width: "100%", border: "2px solid #8b1a1a", borderRadius: 0, padding: "3px 1px", textAlign: "center", fontSize: 12, outline: "none", background: "#fff8f8", fontWeight: 700 }}
-                                />
-                              ) : (
-                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "m" }); setEditVal(mVal !== undefined ? String(mVal) : ""); }}
-                                  style={{ padding: "4px 2px", cursor: "pointer", minHeight: 22, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-                                  <span style={{ fontSize: 9, fontWeight: 700, color: "#c0a0a0", lineHeight: 1 }}>M</span>
-                                  <span style={{ color: mVal ? (mVal > 30 ? "#c0392b" : "#8b1a1a") : "#ddd", fontWeight: mVal ? 700 : 400, fontSize: 12 }}>
-                                    {mVal !== undefined ? mVal : "·"}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            {/* C row — bottom half */}
-                            <div style={{ background: isToday ? "#fffde0" : si % 2 === 0 ? "#fffff8" : "#fafaf0" }}>
-                              {isEditC ? (
-                                <input type="number" inputMode="numeric" value={editVal} autoFocus
-                                  onChange={e => setEditVal(e.target.value)}
-                                  onBlur={() => saveCulls(iso, s, editVal)}
-                                  onKeyDown={e => { if (e.key === "Enter") saveCulls(iso, s, editVal); if (e.key === "Escape") setEditCell(null); }}
-                                  style={{ width: "100%", border: "2px solid #8b8b00", borderRadius: 0, padding: "3px 1px", textAlign: "center", fontSize: 12, outline: "none", background: "#fffff0", fontWeight: 700 }}
-                                />
-                              ) : (
-                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "c" }); setEditVal(cVal !== undefined ? String(cVal) : ""); }}
-                                  style={{ padding: "4px 2px", cursor: "pointer", minHeight: 22, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
-                                  <span style={{ fontSize: 9, fontWeight: 700, color: "#aaa", lineHeight: 1 }}>C</span>
-                                  <span style={{ color: cVal ? "#555" : "#ddd", fontWeight: cVal ? 700 : 400, fontSize: 12 }}>
-                                    {cVal !== undefined ? cVal : "·"}
-                                  </span>
-                                </div>
-                              )}
+                          <td key={di} style={{ ...TD, background: isToday ? "#fffde7" : shedBg, padding: 0 }}>
+                            <div style={{ display: "flex", height: "100%" }}>
+                              {/* M — left half */}
+                              <div style={{ flex: 1, borderRight: "1px dashed #e5c5c5", background: isToday ? "#fffde7" : "#fff8f8" }}>
+                                {isEditM ? (
+                                  <input type="number" inputMode="numeric" value={editVal} autoFocus
+                                    onChange={e => setEditVal(e.target.value)}
+                                    onBlur={() => saveMorts(iso, s, editVal)}
+                                    onKeyDown={e => { if (e.key === "Enter") saveMorts(iso, s, editVal); if (e.key === "Escape") setEditCell(null); }}
+                                    style={{ width: "100%", border: "2px solid #8b1a1a", borderRadius: 0, padding: "5px 1px", textAlign: "center", fontSize: 11, outline: "none", background: "#fff8f8", fontWeight: 700 }}
+                                  />
+                                ) : (
+                                  <div onClick={() => { setEditCell({ date: iso, shed: s, type: "m" }); setEditVal(mVal !== undefined ? String(mVal) : ""); }}
+                                    style={{ padding: "6px 2px", cursor: "pointer", minHeight: 30, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                                    <span style={{ fontSize: 8, fontWeight: 700, color: "#c0a0a0", lineHeight: 1, letterSpacing: 0.3 }}>M</span>
+                                    <span style={{ color: mVal ? (mVal > 30 ? "#c0392b" : "#8b1a1a") : "#ddd", fontWeight: mVal ? 700 : 400, fontSize: 12, lineHeight: 1.2 }}>
+                                      {mVal !== undefined ? mVal : "·"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              {/* C — right half */}
+                              <div style={{ flex: 1, background: isToday ? "#fffde0" : si % 2 === 0 ? "#fffff8" : "#fafaf0" }}>
+                                {isEditC ? (
+                                  <input type="number" inputMode="numeric" value={editVal} autoFocus
+                                    onChange={e => setEditVal(e.target.value)}
+                                    onBlur={() => saveCulls(iso, s, editVal)}
+                                    onKeyDown={e => { if (e.key === "Enter") saveCulls(iso, s, editVal); if (e.key === "Escape") setEditCell(null); }}
+                                    style={{ width: "100%", border: "2px solid #8b8b00", borderRadius: 0, padding: "5px 1px", textAlign: "center", fontSize: 11, outline: "none", background: "#fffff0", fontWeight: 700 }}
+                                  />
+                                ) : (
+                                  <div onClick={() => { setEditCell({ date: iso, shed: s, type: "c" }); setEditVal(cVal !== undefined ? String(cVal) : ""); }}
+                                    style={{ padding: "6px 2px", cursor: "pointer", minHeight: 30, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                                    <span style={{ fontSize: 8, fontWeight: 700, color: "#aaa", lineHeight: 1, letterSpacing: 0.3 }}>C</span>
+                                    <span style={{ color: cVal ? "#555" : "#ddd", fontWeight: cVal ? 700 : 400, fontSize: 12, lineHeight: 1.2 }}>
+                                      {cVal !== undefined ? cVal : "·"}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </td>
                         );
