@@ -1153,7 +1153,7 @@ function computeFeedAlerts(
     shedCount++;
 
     const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-    const groupActive = groupCfg ? groupCfg.active !== false : true;
+    const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
     if (!groupActive) continue;
 
     const getV = (row: number, col: number): number => {
@@ -1399,13 +1399,8 @@ function PredictionBanner({ sheets, edits, farmConfig }: {
     if (!name.includes("SHED") || name.includes("WEEKLY")) continue;
     const shedGroupId = SHED_SHEET_ORDER[shedOrder] ?? (shedOrder + 1);
     const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-    if (groupCfg?.active === false) { shedOrder++; continue; }
-    // Auto-skip sheds with no bird data (empty template sheets)
-    {
-      const b1 = parseFloat(String(sheets[i].cells.get("3,2")?.value ?? 0).replace(/,/g, "")) || 0;
-      const b2 = parseFloat(String(sheets[i].cells.get("4,2")?.value ?? 0).replace(/,/g, "")) || 0;
-      if (b1 === 0 && b2 === 0) { shedOrder++; continue; }
-    }
+    const groupActive = groupCfg ? groupCfg.active !== false : (shedGroupId != null && shedGroupId <= 6);
+    if (!groupActive) { shedOrder++; continue; }
     activeShedIdxs.push(i);
     shedOrder++;
   }
@@ -1579,7 +1574,7 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     if (tabName.includes("SHED")) {
       const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
       const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-      const groupActive = groupCfg ? groupCfg.active !== false : true;
+      const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
       if (groupActive) shedItems.push({ sheetIdx: i, shedGroupId });
       shedCount++;
     }
@@ -3205,7 +3200,8 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
     const sgId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
     shedCount++;
     const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
-    if (grpCfg && grpCfg.active === false) continue;
+    const grpActive = grpCfg ? grpCfg.active !== false : sgId <= 6;
+    if (!grpActive) continue;
 
     const shed1  = gcv(i, 3, 1) || `Shed ${sgId * 2 - 1}`;
     const shed2  = gcv(i, 4, 1) || `Shed ${sgId * 2}`;
@@ -3668,7 +3664,7 @@ export default function App() {
           const richStyles = styleByTrimmed.get(trimmedName);
           const parsed = parseSheet(ws, trimmedName, rawName, tabArgb, richStyles);
 
-          if (trimmedName.toUpperCase().includes("3") && trimmedName.toUpperCase().includes("4")) {
+          if (/^SHED\s+3\s*&\s*4$/i.test(trimmedName.trim())) {
             startIdx = result.length;
           }
           result.push(parsed);
@@ -3926,7 +3922,7 @@ export default function App() {
       if (!name.includes("SHED")) continue;
       const shedGroupId = SHED_SHEET_ORDER[shedCount++] ?? shedCount;
       const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-      const active = groupCfg ? groupCfg.active !== false : true;
+      const active = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
       if (!active) continue;
       totalBirds += getCell(i, 3, 2) + getCell(i, 4, 2);
       for (let r = 12; r <= 71; r++) { const f = getCell(i, r, 4); if (f) totalFeedKg += f; }
@@ -4385,15 +4381,10 @@ export default function App() {
             const shedGroupId = SHED_SHEET_ORDER[shedCount];
             shedCount++;
             const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-            // If config found: use stored active flag. If missing: all groups active by default.
-            const groupActive = groupCfg ? groupCfg.active !== false : true;
+            // If config found: use stored active flag.
+            // If no config: groups 1–6 (sheds 1–12) active by default; 7+ inactive.
+            const groupActive = groupCfg ? groupCfg.active !== false : (shedGroupId != null && shedGroupId <= 6);
             if (!groupActive) return null;
-            // Auto-hide sheds with no bird data and no edits (empty template sheets)
-            {
-              const b1 = parseFloat(String(s.cells.get("3,2")?.value ?? 0).replace(/,/g, "")) || 0;
-              const b2 = parseFloat(String(s.cells.get("4,2")?.value ?? 0).replace(/,/g, "")) || 0;
-              if (b1 === 0 && b2 === 0 && (edits[i]?.size ?? 0) === 0) return null;
-            }
           }
 
           const isActive = i === active;
