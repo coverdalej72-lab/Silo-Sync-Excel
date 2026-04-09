@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { QRCodeSVG } from "qrcode.react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash, Smartphone, Share2, QrCode } from "lucide-react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash, Smartphone, Share2 } from "lucide-react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
@@ -126,63 +125,6 @@ function BatchNumberRow() {
           <span className="text-[10px] text-muted-foreground">✏</span>
         </button>
       )}
-    </div>
-  );
-}
-
-function SendToPhoneSection() {
-  const [copied, setCopied] = useState(false);
-  const siloUrl = `${window.location.origin}/silo-tracker/`;
-
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(siloUrl);
-    } catch {
-      const el = document.createElement("textarea");
-      el.value = siloUrl;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
-
-  return (
-    <div>
-      <SectionLabel title="Send to Phone" />
-      <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
-        <div className="px-4 py-5 flex flex-col items-center gap-4">
-          <div className="p-3 bg-white rounded-2xl shadow-sm">
-            <QRCodeSVG
-              value={siloUrl}
-              size={190}
-              level="M"
-              includeMargin={false}
-            />
-          </div>
-          <div className="text-center space-y-1">
-            <p className="text-sm font-semibold text-foreground">Scan with your phone camera</p>
-            <p className="text-xs text-muted-foreground max-w-[220px]">
-              Opens Silo Mate in your browser — then go to Settings to add it to your home screen.
-            </p>
-          </div>
-          <button
-            onClick={copyLink}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all",
-              copied
-                ? "border-primary/60 text-primary bg-primary/10"
-                : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
-            )}
-          >
-            {copied
-              ? <><Check className="w-3.5 h-3.5" /> Link Copied!</>
-              : <><Link2 className="w-3.5 h-3.5" /> Copy Link Instead</>}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -660,9 +602,6 @@ export default function Settings() {
           Paste either link in any browser on PC, Mac, tablet, or phone to open the app.
         </p>
       </div>
-
-      {/* Send to Phone */}
-      <SendToPhoneSection />
 
       {/* Add to Home Screen */}
       <AddToHomeScreenSection />
