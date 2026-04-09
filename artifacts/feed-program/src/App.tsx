@@ -5009,13 +5009,13 @@ export default function App() {
               {/* Send to Phone — QR Code */}
               <div>
                 <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Send to Phone</label>
-                <p style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>Scan with your phone camera to open Feed Mate in your browser.</p>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>Scan with your phone camera to open Silo Mate on your phone.</p>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
                   <div style={{ padding: 10, background: "#fff", borderRadius: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.10)" }}>
-                    <QRCodeSVG value={`${window.location.origin}/feed-program/`} size={170} level="M" includeMargin={false} />
+                    <QRCodeSVG value={`${window.location.origin}/silo-tracker/`} size={170} level="M" includeMargin={false} />
                   </div>
                   <p style={{ fontSize: 11, color: "#999", textAlign: "center", maxWidth: 200 }}>
-                    After opening on your phone, come back to Settings to add it to your home screen.
+                    After opening on your phone, tap Settings → Add to Home Screen to install it.
                   </p>
                 </div>
               </div>
