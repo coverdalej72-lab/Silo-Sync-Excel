@@ -3142,6 +3142,14 @@ function HistoryView() {
     setHistory([]);
   };
 
+  const deleteEntry = (idx: number) => {
+    const bn = history[idx]?.batchNum;
+    if (!confirm(`Remove Batch #${bn || "?"} from history?`)) return;
+    const updated = history.filter((_, i) => i !== idx);
+    localStorage.setItem(BATCH_HISTORY_KEY, JSON.stringify(updated));
+    setHistory(updated);
+  };
+
   if (recent.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: "center", fontFamily: "Inter,'Segoe UI',sans-serif", color: "#888" }}>
@@ -3170,7 +3178,7 @@ function HistoryView() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 600 }}>
           <thead>
             <tr style={{ background: "var(--pm-primary)", color: "#fff" }}>
-              {["Batch", "Date", "Birds Placed", "Feed (kg)", "FCR", "CFCR", "Ave. Age", "Mortality"].map(h => (
+              {["Batch", "Date", "Birds Placed", "Feed (kg)", "FCR", "CFCR", "Ave. Age", "Mortality", ""].map(h => (
                 <th key={h} style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -3188,6 +3196,14 @@ function HistoryView() {
                   <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cfcr !== null ? e.cfcr.toFixed(3) : "—"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cage !== null ? `${e.cage.toFixed(2)} days` : "—"}</td>
                   <td style={{ padding: "9px 12px", textAlign: "center", color: e.mortalityPct !== null && e.mortalityPct > 5 ? "#c0392b" : "inherit" }}>{e.mortalityPct !== null ? `${e.mortalityPct.toFixed(2)}%` : "—"}</td>
+                  <td style={{ padding: "9px 8px", textAlign: "center" }}>
+                    <button
+                      onClick={() => deleteEntry(i)}
+                      title={`Remove Batch #${e.batchNum || "?"}`}
+                      style={{ background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "2px 7px", cursor: "pointer", color: "#c0392b", fontSize: 13, fontWeight: 700, lineHeight: 1 }}>
+                      ✕
+                    </button>
+                  </td>
                 </tr>
               );
             })}
