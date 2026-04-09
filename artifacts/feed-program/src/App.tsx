@@ -2928,7 +2928,7 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
 
   const TH: React.CSSProperties = { background: "#8b1a1a", color: "#fff", padding: "7px 5px", textAlign: "center", whiteSpace: "nowrap", position: "sticky", top: 0, zIndex: 2, fontSize: 11, borderRight: "1px solid rgba(255,255,255,0.2)" };
   const TH_STICKY: React.CSSProperties = { ...TH, left: 0, zIndex: 3, minWidth: 54 };
-  const TD: React.CSSProperties = { borderRight: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", padding: "0", textAlign: "center" };
+  const TD: React.CSSProperties = { borderRight: "1px solid #e5e7eb", borderBottom: "2px solid #e0c0c0", padding: "0", textAlign: "center" };
   const TD_STICKY: React.CSSProperties = { ...TD, position: "sticky", left: 0, zIndex: 1, background: "var(--pm-primary-soft)", minWidth: 54, padding: "6px 4px", fontSize: 11, fontWeight: 700 };
 
   const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -2952,21 +2952,20 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
           <div style={{ display: "flex", gap: 14, padding: "4px 12px", background: "#fff", borderBottom: "1px solid #f0e0e0", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#8b1a1a" }}><div style={{ width: 10, height: 10, background: "#fff8f8", border: "1px solid #e5c5c5", borderRadius: 2 }} /><b>M</b> Morts</div>
             <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#555" }}><div style={{ width: 10, height: 10, background: "#fffff0", border: "1px solid #d5d5a0", borderRadius: 2 }} /><b>C</b> Culls</div>
-            <div style={{ marginLeft: "auto", fontSize: 10, color: "#aaa" }}>Tap a cell to edit</div>
+            <div style={{ marginLeft: "auto", fontSize: 10, color: "#aaa" }}>Tap M or C half of a cell to edit</div>
           </div>
 
-          {/* Scrollable table — Sheds as rows, Days as columns */}
+          {/* Scrollable table — Sheds as rows, Days as columns, M+C combined per cell */}
           <div style={{ flex: 1, overflowX: "auto", overflowY: "auto" }}>
             <table style={{ borderCollapse: "collapse", fontSize: 11, minWidth: "max-content", width: "100%" }}>
               <thead>
                 <tr>
-                  {/* Shed col + M/C col — both sticky */}
-                  <th colSpan={2} style={{ ...TH_STICKY, minWidth: 68, verticalAlign: "middle", borderRight: "2px solid rgba(255,255,255,0.4)" }}>Shed</th>
+                  <th style={{ ...TH_STICKY, minWidth: 60, verticalAlign: "middle", borderRight: "2px solid rgba(255,255,255,0.4)" }}>Shed</th>
                   {days.map((d, i) => {
                     const dayNum = getDayNum(d);
                     const isToday = isoDate(d) === isoDate(new Date());
                     return (
-                      <th key={i} style={{ ...TH, minWidth: 52, background: isToday ? "#b8640a" : "#8b1a1a" }}>
+                      <th key={i} style={{ ...TH, minWidth: 64, background: isToday ? "#b8640a" : "#8b1a1a" }}>
                         {DAY_LABELS[i]}
                         <div style={{ fontSize: 9, fontWeight: 400, opacity: 0.85 }}>
                           {d.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}
@@ -2981,78 +2980,68 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
                 {shedNums.map((s, si) => {
                   const shedBg = si % 2 === 0 ? "#fff" : "#fcfcfc";
                   return (
-                    <React.Fragment key={s}>
-                      {/* Morts row */}
-                      <tr>
-                        <td rowSpan={2} style={{
-                          ...TD_STICKY, width: 44, background: "#f8e8e8", color: "#8b1a1a",
-                          fontWeight: 800, fontSize: 13, verticalAlign: "middle",
-                          borderRight: "none", borderBottom: "2px solid #e0c0c0",
-                        }}>
-                          S{s}
-                        </td>
-                        <td style={{
-                          ...TD_STICKY, left: 44, width: 24, background: "#fff8f8", color: "#8b1a1a",
-                          fontWeight: 700, fontSize: 10, verticalAlign: "middle",
-                          borderLeft: "none", borderRight: "2px solid #e5c5c5",
-                        }}>M</td>
-                        {days.map((d, di) => {
-                          const iso = isoDate(d);
-                          const isToday = iso === isoDate(new Date());
-                          const val = mortsLog[iso]?.[s];
-                          const isEditing = editCell?.date === iso && editCell?.shed === s && editCell?.type === "m";
-                          return (
-                            <td key={di} style={{ ...TD, background: isToday ? "#fffde7" : shedBg }}>
-                              {isEditing ? (
+                    <tr key={s}>
+                      {/* Sticky shed label */}
+                      <td style={{
+                        ...TD_STICKY, background: "#f8e8e8", color: "#8b1a1a",
+                        fontWeight: 800, fontSize: 13, verticalAlign: "middle",
+                        borderRight: "2px solid #e0c0c0",
+                      }}>
+                        S{s}
+                      </td>
+                      {/* Combined M / C cell per day */}
+                      {days.map((d, di) => {
+                        const iso = isoDate(d);
+                        const isToday = iso === isoDate(new Date());
+                        const mVal = mortsLog[iso]?.[s];
+                        const cVal = cullsLog[iso]?.[s];
+                        const isEditM = editCell?.date === iso && editCell?.shed === s && editCell?.type === "m";
+                        const isEditC = editCell?.date === iso && editCell?.shed === s && editCell?.type === "c";
+                        const dayBg = isToday ? "#fffde7" : shedBg;
+                        return (
+                          <td key={di} style={{ ...TD, background: dayBg, padding: 0, verticalAlign: "top" }}>
+                            {/* M row — top half */}
+                            <div style={{ borderBottom: "1px dashed #e5c5c5", background: isToday ? "#fffde7" : "#fff8f8" }}>
+                              {isEditM ? (
                                 <input type="number" inputMode="numeric" value={editVal} autoFocus
                                   onChange={e => setEditVal(e.target.value)}
                                   onBlur={() => saveMorts(iso, s, editVal)}
                                   onKeyDown={e => { if (e.key === "Enter") saveMorts(iso, s, editVal); if (e.key === "Escape") setEditCell(null); }}
-                                  style={{ width: "100%", border: "2px solid #8b1a1a", borderRadius: 2, padding: "4px 1px", textAlign: "center", fontSize: 12, outline: "none", background: "#fff8f8", fontWeight: 700 }}
+                                  style={{ width: "100%", border: "2px solid #8b1a1a", borderRadius: 0, padding: "3px 1px", textAlign: "center", fontSize: 12, outline: "none", background: "#fff8f8", fontWeight: 700 }}
                                 />
                               ) : (
-                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "m" }); setEditVal(val !== undefined ? String(val) : ""); }}
-                                  style={{ padding: "7px 3px", cursor: "pointer", minHeight: 28, textAlign: "center", color: val ? (val > 30 ? "#c0392b" : "#8b1a1a") : "#ddd", fontWeight: val ? 700 : 400 }}>
-                                  {val !== undefined ? val : "·"}
+                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "m" }); setEditVal(mVal !== undefined ? String(mVal) : ""); }}
+                                  style={{ padding: "4px 2px", cursor: "pointer", minHeight: 22, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                                  <span style={{ fontSize: 9, fontWeight: 700, color: "#c0a0a0", lineHeight: 1 }}>M</span>
+                                  <span style={{ color: mVal ? (mVal > 30 ? "#c0392b" : "#8b1a1a") : "#ddd", fontWeight: mVal ? 700 : 400, fontSize: 12 }}>
+                                    {mVal !== undefined ? mVal : "·"}
+                                  </span>
                                 </div>
                               )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                      {/* Culls row */}
-                      <tr>
-                        <td style={{
-                          ...TD_STICKY, left: 44, width: 24, background: "#fffff0", color: "#666",
-                          fontWeight: 700, fontSize: 10, verticalAlign: "middle",
-                          borderLeft: "none", borderRight: "2px solid #e5c5c5", borderBottom: "2px solid #e0c0c0",
-                        }}>C</td>
-                        {days.map((d, di) => {
-                          const iso = isoDate(d);
-                          const isToday = iso === isoDate(new Date());
-                          const val = cullsLog[iso]?.[s];
-                          const isEditing = editCell?.date === iso && editCell?.shed === s && editCell?.type === "c";
-                          const bg = isToday ? "#fffde0" : si % 2 === 0 ? "#fffff8" : "#fafaf0";
-                          return (
-                            <td key={di} style={{ ...TD, background: bg, borderBottom: "2px solid #e0c0c0" }}>
-                              {isEditing ? (
+                            </div>
+                            {/* C row — bottom half */}
+                            <div style={{ background: isToday ? "#fffde0" : si % 2 === 0 ? "#fffff8" : "#fafaf0" }}>
+                              {isEditC ? (
                                 <input type="number" inputMode="numeric" value={editVal} autoFocus
                                   onChange={e => setEditVal(e.target.value)}
                                   onBlur={() => saveCulls(iso, s, editVal)}
                                   onKeyDown={e => { if (e.key === "Enter") saveCulls(iso, s, editVal); if (e.key === "Escape") setEditCell(null); }}
-                                  style={{ width: "100%", border: "2px solid #8b8b00", borderRadius: 2, padding: "4px 1px", textAlign: "center", fontSize: 12, outline: "none", background: "#fffff0", fontWeight: 700 }}
+                                  style={{ width: "100%", border: "2px solid #8b8b00", borderRadius: 0, padding: "3px 1px", textAlign: "center", fontSize: 12, outline: "none", background: "#fffff0", fontWeight: 700 }}
                                 />
                               ) : (
-                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "c" }); setEditVal(val !== undefined ? String(val) : ""); }}
-                                  style={{ padding: "7px 3px", cursor: "pointer", minHeight: 28, textAlign: "center", color: val ? "#666" : "#ddd", fontWeight: val ? 700 : 400 }}>
-                                  {val !== undefined ? val : "·"}
+                                <div onClick={() => { setEditCell({ date: iso, shed: s, type: "c" }); setEditVal(cVal !== undefined ? String(cVal) : ""); }}
+                                  style={{ padding: "4px 2px", cursor: "pointer", minHeight: 22, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+                                  <span style={{ fontSize: 9, fontWeight: 700, color: "#aaa", lineHeight: 1 }}>C</span>
+                                  <span style={{ color: cVal ? "#555" : "#ddd", fontWeight: cVal ? 700 : 400, fontSize: 12 }}>
+                                    {cVal !== undefined ? cVal : "·"}
+                                  </span>
                                 </div>
                               )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    </React.Fragment>
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
                   );
                 })}
               </tbody>
