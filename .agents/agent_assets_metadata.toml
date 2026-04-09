@@ -24,6 +24,24 @@ uri = "file://attached_assets/generated_images/hero-banner.png"
 type = "image"
 title = "poultry farm hero banner"
 
+[[generated]]
+id = "XvRonzXgN6DNJv1vBfJka"
+uri = "file://attached_assets/icon-option-1.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "KBbFXdTnkHCP5xsb8c2xL"
+uri = "file://attached_assets/icon-option-2.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "jZ7thAgNrBb6q9nedSxyJ"
+uri = "file://attached_assets/icon-option-3.png"
+type = "image"
+title = "generated_image"
+
 [[outputs]]
 id = "BjxMPq3OLSZYscXJ3BSpp"
 uri = "file://attached_assets/generated_images/poultry-mate-logo-horizontal.png"
@@ -41,3 +59,21 @@ id = "3GbQLOpmk1ZEtBbzEwceu"
 uri = "file://attached_assets/generated_images/poultry-mate-logo-icon.png"
 type = "image"
 title = "Poultry Mate Logo — Icon only (square, for app icon/favicon)"
+
+[[outputs]]
+id = "LlUY4N4uPFjOilDwwaRDh"
+uri = "file://attached_assets/icon-option-1.png"
+type = "image"
+title = "Option 1 — Orange background, flat style"
+
+[[outputs]]
+id = "uPwVw5mrDnRxYsncNzR5d"
+uri = "file://attached_assets/icon-option-2.png"
+type = "image"
+title = "Option 2 — Navy blue, vector style"
+
+[[outputs]]
+id = "QMYZuoVh_5aQD26urjLFt"
+uri = "file://attached_assets/icon-option-3.png"
+type = "image"
+title = "Option 3 — Golden badge style"
