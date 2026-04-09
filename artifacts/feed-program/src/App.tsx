@@ -4360,16 +4360,15 @@ export default function App() {
       </div>
 
       {/* Sheet tabs */}
-      <div className="flex items-end gap-0.5 px-3 pt-2 bg-gray-200 dark:bg-zinc-800 overflow-x-auto shrink-0">
+      <div className="flex items-end gap-0.5 px-3 pt-2 overflow-x-auto shrink-0" style={{ background: "#154d2c" }}>
         {/* Summary tab */}
         <button
           onClick={() => setActiveView("summary")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
           style={{
-            backgroundColor: activeView === "summary" ? "var(--pm-primary)" : "var(--pm-primary-dim)",
-            color: "#fff",
-            borderColor: "var(--pm-primary)",
-            opacity: activeView === "summary" ? 1 : 0.72,
+            backgroundColor: activeView === "summary" ? "#fff" : "#2d9e5f",
+            color: activeView === "summary" ? "var(--pm-primary)" : "#fff",
+            borderColor: activeView === "summary" ? "#ccc" : "#27885200",
             transform: activeView === "summary" ? "translateY(1px)" : "translateY(3px)",
             marginRight: 4,
           }}
@@ -4394,8 +4393,6 @@ export default function App() {
           }
 
           const isActive = i === active;
-          const bg = "#C9A227";
-          const fg = contrastColor(bg);
           const hasEdits = edits[i]?.size > 0;
           const tabAlert = feedAlerts.find(a => a.sheetIdx === i);
           const alertDotColor = tabAlert?.urgency === "critical" ? "#c0392b" : tabAlert?.urgency === "warning" ? "#e67e22" : tabAlert ? "#f39c12" : null;
@@ -4405,11 +4402,10 @@ export default function App() {
               onClick={() => { setActive(i); setActiveView(null); }}
               className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
               style={{
-                backgroundColor: isActive ? bg : `${bg}aa`,
-                color: isActive ? fg : fg,
-                borderColor: alertDotColor ?? bg,
+                backgroundColor: isActive ? "#fff" : "#C9A227",
+                color: isActive ? "#7a5b00" : "#2a1f00",
+                borderColor: isActive ? "#ccc" : alertDotColor ?? "#a88020",
                 borderWidth: alertDotColor ? 2 : 1,
-                opacity: isActive ? 1 : 0.72,
                 transform: isActive ? "translateY(1px)" : "translateY(3px)",
               }}
             >
@@ -4423,12 +4419,12 @@ export default function App() {
         {(farmConfig.farmType ?? "broiler") === "broiler" && (<>
           <button onClick={() => setActiveView("batchResults")}
             className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "batchResults" ? "var(--pm-primary)" : "var(--pm-primary-dim)", color: "#fff", borderColor: "var(--pm-primary)", opacity: activeView === "batchResults" ? 1 : 0.72, transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            style={{ backgroundColor: activeView === "batchResults" ? "#fff" : "#2d9e5f", color: activeView === "batchResults" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "batchResults" ? "#ccc" : "#27885200", transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             📊 Batch Results
           </button>
           <button onClick={() => setActiveView("flockForecast")}
             className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "flockForecast" ? "#4e1a6e" : "#4e1a6e88", color: "#fff", borderColor: "#4e1a6e", opacity: activeView === "flockForecast" ? 1 : 0.72, transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            style={{ backgroundColor: activeView === "flockForecast" ? "#fff" : "#8b3fc8", color: activeView === "flockForecast" ? "#4e1a6e" : "#fff", borderColor: activeView === "flockForecast" ? "#ccc" : "#6a2faa00", transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             🔮 Flock Forecast
           </button>
         </>)}
@@ -4437,12 +4433,12 @@ export default function App() {
         {(farmConfig.farmType ?? "broiler") === "breeder" && (<>
           <button onClick={() => setActiveView("eggProduction")}
             className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "eggProduction" ? "#b8860b" : "#b8860b88", color: "#fff", borderColor: "#b8860b", opacity: activeView === "eggProduction" ? 1 : 0.72, transform: activeView === "eggProduction" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            style={{ backgroundColor: activeView === "eggProduction" ? "#fff" : "#c9950e", color: activeView === "eggProduction" ? "#7a5500" : "#fff", borderColor: activeView === "eggProduction" ? "#ccc" : "#a8780000", transform: activeView === "eggProduction" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             🥚 Egg Production
           </button>
           <button onClick={() => setActiveView("bodyWeight")}
             className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "bodyWeight" ? "#5a3e7a" : "#5a3e7a88", color: "#fff", borderColor: "#5a3e7a", opacity: activeView === "bodyWeight" ? 1 : 0.72, transform: activeView === "bodyWeight" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            style={{ backgroundColor: activeView === "bodyWeight" ? "#fff" : "#7a52aa", color: activeView === "bodyWeight" ? "#4a2880" : "#fff", borderColor: activeView === "bodyWeight" ? "#ccc" : "#5a3e7a00", transform: activeView === "bodyWeight" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             ⚖️ Body Weight
           </button>
         </>)}
@@ -4450,12 +4446,12 @@ export default function App() {
         {/* ── Shared tabs ── */}
         <button onClick={() => setActiveView("morts")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{ backgroundColor: activeView === "morts" ? "#8b1a1a" : "#8b1a1a88", color: "#fff", borderColor: "#8b1a1a", opacity: activeView === "morts" ? 1 : 0.72, transform: activeView === "morts" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+          style={{ backgroundColor: activeView === "morts" ? "#fff" : "#d93025", color: activeView === "morts" ? "#8b1a1a" : "#fff", borderColor: activeView === "morts" ? "#ccc" : "#b0201800", transform: activeView === "morts" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
           💀 Morts
         </button>
         <button onClick={() => setActiveView("history")}
           className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{ backgroundColor: activeView === "history" ? "var(--pm-primary)" : "var(--pm-primary-dim)", color: "#fff", borderColor: "var(--pm-primary)", opacity: activeView === "history" ? 1 : 0.72, transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+          style={{ backgroundColor: activeView === "history" ? "#fff" : "#2d9e5f", color: activeView === "history" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "history" ? "#ccc" : "#27885200", transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
           📈 History
         </button>
       </div>
