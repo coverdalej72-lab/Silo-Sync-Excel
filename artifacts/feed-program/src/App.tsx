@@ -930,14 +930,20 @@ function SheetView({
                 const birdsLeft = (isShedData && c === 14 && birdsLeftByRow.has(r))
                   ? birdsLeftByRow.get(r)!
                   : null;
+                const fmtNum = (v: string) => {
+                  const n = parseFloat(String(v).replace(/,/g, ""));
+                  return isNaN(n) ? v : Math.round(n).toLocaleString();
+                };
+                const isNumericShedCol = isShedData && (
+                  c === COL_G || c === COL_H || c === COL_I ||
+                  c === COL_J || c === COL_K || c === COL_L || c === COL_M ||
+                  c === 13 || c === 14
+                );
                 const displayVal = (isAnyHeader && info.isDateCell) ? ""
                   : (isShedData && c === 14 && birdsLeft !== null)
                     ? birdsLeft.toLocaleString()
                   : (isShedData && c === 13 && (rawVal === "" || rawVal === "0")) ? "—"
-                  : (isShedData && (c === COL_G || c === COL_H || c === COL_I) && rawVal !== "") ? (() => {
-                      const n = parseFloat(String(rawVal).replace(/,/g, ""));
-                      return isNaN(n) ? rawVal : Math.round(n).toLocaleString();
-                    })()
+                  : (isNumericShedCol && rawVal !== "") ? fmtNum(rawVal)
                   : rawVal;
                 const fs = isShedHeader ? (info.fontSize ?? 11) : (info.fontSize ?? 11);
 
