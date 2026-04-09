@@ -4364,7 +4364,7 @@ export default function App() {
         {/* Summary tab */}
         <button
           onClick={() => setActiveView("summary")}
-          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
           style={{
             backgroundColor: activeView === "summary" ? "#fff" : "#2d9e5f",
             color: activeView === "summary" ? "var(--pm-primary)" : "#fff",
@@ -4400,7 +4400,7 @@ export default function App() {
             <button
               key={i}
               onClick={() => { setActive(i); setActiveView(null); }}
-              className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+              className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
               style={{
                 backgroundColor: isActive ? "#fff" : "#C9A227",
                 color: isActive ? "#7a5b00" : "#2a1f00",
@@ -4418,12 +4418,12 @@ export default function App() {
         {/* ── Broiler-only tabs ── */}
         {(farmConfig.farmType ?? "broiler") === "broiler" && (<>
           <button onClick={() => setActiveView("batchResults")}
-            className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
             style={{ backgroundColor: activeView === "batchResults" ? "#fff" : "#2d9e5f", color: activeView === "batchResults" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "batchResults" ? "#ccc" : "#27885200", transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             📊 Batch Results
           </button>
           <button onClick={() => setActiveView("flockForecast")}
-            className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
             style={{ backgroundColor: activeView === "flockForecast" ? "#fff" : "#8b3fc8", color: activeView === "flockForecast" ? "#4e1a6e" : "#fff", borderColor: activeView === "flockForecast" ? "#ccc" : "#6a2faa00", transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             🔮 Flock Forecast
           </button>
@@ -4432,12 +4432,12 @@ export default function App() {
         {/* ── Breeder-only tabs ── */}
         {(farmConfig.farmType ?? "broiler") === "breeder" && (<>
           <button onClick={() => setActiveView("eggProduction")}
-            className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
             style={{ backgroundColor: activeView === "eggProduction" ? "#fff" : "#c9950e", color: activeView === "eggProduction" ? "#7a5500" : "#fff", borderColor: activeView === "eggProduction" ? "#ccc" : "#a8780000", transform: activeView === "eggProduction" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             🥚 Egg Production
           </button>
           <button onClick={() => setActiveView("bodyWeight")}
-            className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
             style={{ backgroundColor: activeView === "bodyWeight" ? "#fff" : "#7a52aa", color: activeView === "bodyWeight" ? "#4a2880" : "#fff", borderColor: activeView === "bodyWeight" ? "#ccc" : "#5a3e7a00", transform: activeView === "bodyWeight" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             ⚖️ Body Weight
           </button>
@@ -4445,12 +4445,12 @@ export default function App() {
 
         {/* ── Shared tabs ── */}
         <button onClick={() => setActiveView("morts")}
-          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
           style={{ backgroundColor: activeView === "morts" ? "#fff" : "#d93025", color: activeView === "morts" ? "#8b1a1a" : "#fff", borderColor: activeView === "morts" ? "#ccc" : "#b0201800", transform: activeView === "morts" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
           💀 Morts
         </button>
         <button onClick={() => setActiveView("history")}
-          className="px-3 py-1.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
           style={{ backgroundColor: activeView === "history" ? "#fff" : "#2d9e5f", color: activeView === "history" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "history" ? "#ccc" : "#27885200", transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
           📈 History
         </button>
