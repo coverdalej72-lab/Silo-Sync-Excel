@@ -1399,7 +1399,14 @@ function PredictionBanner({ sheets, edits, farmConfig }: {
     if (!name.includes("SHED") || name.includes("WEEKLY")) continue;
     const shedGroupId = SHED_SHEET_ORDER[shedOrder] ?? (shedOrder + 1);
     const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-    if (groupCfg?.active !== false) activeShedIdxs.push(i);
+    if (groupCfg?.active === false) { shedOrder++; continue; }
+    // Auto-skip sheds with no bird data (empty template sheets)
+    {
+      const b1 = parseFloat(String(sheets[i].cells.get("3,2")?.value ?? 0).replace(/,/g, "")) || 0;
+      const b2 = parseFloat(String(sheets[i].cells.get("4,2")?.value ?? 0).replace(/,/g, "")) || 0;
+      if (b1 === 0 && b2 === 0) { shedOrder++; continue; }
+    }
+    activeShedIdxs.push(i);
     shedOrder++;
   }
 
@@ -4381,6 +4388,12 @@ export default function App() {
             // If config found: use stored active flag. If missing: all groups active by default.
             const groupActive = groupCfg ? groupCfg.active !== false : true;
             if (!groupActive) return null;
+            // Auto-hide sheds with no bird data and no edits (empty template sheets)
+            {
+              const b1 = parseFloat(String(s.cells.get("3,2")?.value ?? 0).replace(/,/g, "")) || 0;
+              const b2 = parseFloat(String(s.cells.get("4,2")?.value ?? 0).replace(/,/g, "")) || 0;
+              if (b1 === 0 && b2 === 0 && (edits[i]?.size ?? 0) === 0) return null;
+            }
           }
 
           const isActive = i === active;

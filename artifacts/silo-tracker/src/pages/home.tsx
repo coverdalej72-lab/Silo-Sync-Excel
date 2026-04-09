@@ -118,7 +118,8 @@ export default function Home() {
   if (!progress) return <div className="p-4 text-muted-foreground">Failed to load.</div>;
 
   return (
-    <div className="px-3 py-3 space-y-3 pb-8">
+    <div className="px-3 py-3 pb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {progress.sheds.filter(shed => isShedActive(shed.shedGroupId)).map(shed => {
         const activeLetters = getActiveSiloLetters(shed.shedGroupId);
         const visibleSilos = shed.silos.filter(s => activeLetters.includes(s.letter));
@@ -199,6 +200,7 @@ export default function Home() {
           </div>
         );
       })}
+      </div>
 
       {/* Save all floating button — only if any active shed has unsaved silos */}
       {progress.sheds

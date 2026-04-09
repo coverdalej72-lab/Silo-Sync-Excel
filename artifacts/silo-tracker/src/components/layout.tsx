@@ -35,10 +35,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const allDone = totalCount > 0 && savedCount === totalCount;
 
   return (
-    <div className="flex flex-col h-[100dvh] max-w-md mx-auto bg-background shadow-xl overflow-hidden relative">
+    <div className="flex flex-col h-[100dvh] w-full bg-background overflow-hidden relative">
 
       {/* Header */}
-      <header className="shrink-0 px-4 pt-5 pb-0 bg-background z-10">
+      <header className="shrink-0 px-4 pt-5 pb-0 bg-background z-10 border-b border-border/40">
+        <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shrink-0">
@@ -95,10 +96,13 @@ export function Layout({ children }: { children: ReactNode }) {
             );
           })}
         </div>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto">
-        {children}
+        <div className="max-w-7xl mx-auto">
+          {children}
+        </div>
       </main>
     </div>
   );
