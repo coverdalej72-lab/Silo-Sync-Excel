@@ -64,19 +64,19 @@ title = "Poultry Mate Logo — Icon only (square, for app icon/favicon)"
 id = "LlUY4N4uPFjOilDwwaRDh"
 uri = "file://attached_assets/icon-option-1.png"
 type = "image"
-title = "Option 1 — Orange background, flat style"
+title = "Logo Option 1"
 
 [[outputs]]
 id = "uPwVw5mrDnRxYsncNzR5d"
 uri = "file://attached_assets/icon-option-2.png"
 type = "image"
-title = "Option 2 — Navy blue, vector style"
+title = "Logo Option 2"
 
 [[outputs]]
 id = "QMYZuoVh_5aQD26urjLFt"
 uri = "file://attached_assets/icon-option-3.png"
 type = "image"
-title = "Option 3 — Golden badge style"
+title = "Logo Option 3"
 
 [[outputs]]
 id = "Kc4bcunVRbDQNIcG9-hPc"
