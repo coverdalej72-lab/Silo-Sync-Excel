@@ -3758,7 +3758,7 @@ export default function App() {
   const [siloSyncLoading, setSiloSyncLoading] = useState(false);
   const [siloSyncError, setSiloSyncError] = useState("");
   const [siloSyncMode, setSiloSyncMode] = useState<"next" | "correct">("next");
-  const [siloSyncUnitOverride, setSiloSyncUnitOverride] = useState<"as-saved" | "t">("as-saved");
+  const [siloSyncUnitOverride, setSiloSyncUnitOverride] = useState<"as-saved" | "t">("t");
   const [pendingScrollRow, setPendingScrollRow] = useState<number | null>(null);
   const [autoSync, setAutoSync] = useState(() => localStorage.getItem("silo-auto-sync") !== "off");
   const [lastAutoSyncTs, setLastAutoSyncTs] = useState<number | null>(() => { const v = localStorage.getItem("silo-fp-last-sync"); return v ? parseInt(v, 10) : null; });
