@@ -3934,6 +3934,7 @@ export default function App() {
   // ── Auto-sync effect (polls every 2 minutes) ─────────────────────────────
   useEffect(() => {
     if (!autoSync) return;
+    const todayStr = () => new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
     const run = async () => {
       try {
         const res = await fetch(`${window.location.origin}/api/readings/today`);
@@ -3948,11 +3949,17 @@ export default function App() {
         if (!anySaved || hash === lastSyncHashRef.current) return; // nothing new
         lastSyncHashRef.current = hash;
         localStorage.setItem("silo-fp-sync-hash", hash);
-        const day = detectNextSyncDay(sheetsRef.current, editsRef.current);
+        // If we already synced today → overwrite same row (correction); otherwise new row
+        const lastSyncDate = localStorage.getItem("silo-fp-last-sync-date");
+        const isCorrection = lastSyncDate === todayStr();
+        const day = isCorrection
+          ? detectCurrentSyncDay(sheetsRef.current, editsRef.current)
+          : detectNextSyncDay(sheetsRef.current, editsRef.current);
         const nextEdits = doApplyReadings(sheds, day, sheetsRef.current, editsRef.current);
         setEdits(nextEdits);
         const now = Date.now();
         localStorage.setItem("silo-fp-last-sync", String(now));
+        localStorage.setItem("silo-fp-last-sync-date", todayStr());
         setLastAutoSyncTs(now);
         setHasChanges(true);
       } catch { /* network unavailable — silently skip */ }
