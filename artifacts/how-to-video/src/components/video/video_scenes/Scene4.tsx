@@ -7,98 +7,76 @@ export function Scene4() {
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 800),
-      setTimeout(() => setPhase(2), 2000),
-      setTimeout(() => setPhase(3), 4500),
+      setTimeout(() => setPhase(1), 500),
+      setTimeout(() => setPhase(2), 1500), // Laser scan starts
+      setTimeout(() => setPhase(3), 2500), // Value snaps
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
   return (
-    <motion.div className="absolute inset-0 flex flex-col items-center justify-center p-12 overflow-hidden"
-      {...sceneTransitions.zoomThrough}>
-      
-      <motion.h2 
-        className="absolute top-20 text-[4vw] font-bold text-white tracking-tight z-30"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-      >
-        <span className="text-emerald-400">Instant</span> sync.
-      </motion.h2>
-
-      <div className="flex items-center justify-center w-full h-full gap-20 mt-10">
-        
-        {/* Mobile Device (Left) */}
-        <motion.div 
-          className="w-[18vw] h-[36vw] bg-slate-900 rounded-3xl border-4 border-slate-800 relative shadow-2xl z-10"
-          initial={{ x: -100, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ type: "spring", damping: 20 }}
-        >
-          <div className="absolute inset-0 flex items-center justify-center">
-            <motion.div 
-              className="w-16 h-16 bg-emerald-500 rounded-full"
-              animate={phase >= 1 ? { scale: [1, 1.2, 1], opacity: [1, 0.8, 1] } : {}}
-              transition={{ duration: 1, repeat: Infinity }}
-            />
-          </div>
-        </motion.div>
-
-        {/* Sync Animation */}
-        <div className="relative w-40 h-20 flex items-center justify-center z-0">
-          {phase >= 1 && (
-            <motion.div 
-              className="h-1 bg-emerald-400 absolute left-0 shadow-[0_0_15px_#34d399]"
-              initial={{ width: 0 }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 0.8, ease: "easeInOut" }}
-            />
-          )}
-          {phase >= 2 && (
-            <motion.div 
-              className="w-4 h-4 bg-white rounded-full absolute left-0 shadow-[0_0_20px_white]"
-              initial={{ x: 0 }}
-              animate={{ x: 160 }}
-              transition={{ duration: 0.8, ease: "linear", repeat: Infinity }}
-            />
-          )}
-        </div>
-
-        {/* Desktop Device (Right) */}
-        <motion.div 
-          className="w-[36vw] h-[24vw] bg-slate-900 rounded-xl border-4 border-slate-800 relative shadow-2xl z-10 overflow-hidden"
-          initial={{ x: 100, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ type: "spring", damping: 20, delay: 0.2 }}
-        >
-          <div className="h-8 bg-slate-800 flex items-center px-4">
-            <div className="flex gap-2"><div className="w-2 h-2 rounded-full bg-slate-600"/><div className="w-2 h-2 rounded-full bg-slate-600"/><div className="w-2 h-2 rounded-full bg-slate-600"/></div>
-          </div>
-          <div className="p-4 grid gap-2">
-            {[1, 2, 3, 4].map((row, i) => (
-              <div key={row} className="flex gap-2">
-                <div className="h-6 flex-1 bg-slate-800 rounded"></div>
-                <div className="h-6 flex-1 bg-slate-800 rounded"></div>
-                <motion.div 
-                  className="h-6 flex-1 bg-slate-800 rounded relative overflow-hidden"
-                >
-                  {phase >= 2 && i === 1 && (
-                    <motion.div 
-                      className="absolute inset-0 bg-emerald-500"
-                      initial={{ x: "-100%" }}
-                      animate={{ x: 0 }}
-                      transition={{ duration: 0.5 }}
-                    />
-                  )}
-                </motion.div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
+    <motion.div 
+      className="absolute inset-0 flex items-center justify-center overflow-hidden"
+      {...sceneTransitions.zoomThrough}
+    >
+      <div className="absolute inset-0 opacity-40 mix-blend-screen">
+        <img 
+          src={`${import.meta.env.BASE_URL}data-bg.png`} 
+          alt="Data Background" 
+          className="w-full h-full object-cover" 
+        />
       </div>
 
+      <div className="w-1/2 h-full flex flex-col justify-center pl-20 z-20">
+        <motion.h2 
+          className="text-[6vw] font-display text-white uppercase tracking-widest leading-none"
+          initial={{ opacity: 0, x: -50 }}
+          animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: -50 }}
+          transition={{ duration: 0.8 }}
+        >
+          Record silos right from the shed.
+        </motion.h2>
+        <motion.p
+          className="text-[2.5vw] font-body text-[var(--color-text-muted)] mt-6"
+          initial={{ opacity: 0 }}
+          animate={phase >= 1 ? { opacity: 1 } : { opacity: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+        >
+          No app store. Just add to home screen.
+        </motion.p>
+      </div>
+
+      <div className="w-1/2 h-full flex items-center justify-center z-20">
+        <motion.div 
+          className="relative w-[22vw] h-[45vw] bg-black rounded-[3vw] border-[8px] border-gray-800 overflow-hidden shadow-2xl"
+          initial={{ y: '100%', rotateZ: 10 }}
+          animate={{ y: 0, rotateZ: -5 }}
+          transition={{ type: 'spring', damping: 20 }}
+        >
+          <img src={`${import.meta.env.BASE_URL}screenshot-silo-mate.jpg`} className="w-full h-full object-cover" />
+          
+          {/* Laser Scan Line */}
+          {phase >= 2 && phase < 3 && (
+            <motion.div 
+              className="absolute left-0 right-0 h-1 bg-[var(--color-accent)] shadow-[0_0_15px_var(--color-accent)]"
+              initial={{ top: '20%' }}
+              animate={{ top: '80%' }}
+              transition={{ duration: 1, ease: 'linear' }}
+            />
+          )}
+
+          {/* Reading Snaps In */}
+          <motion.div 
+            className="absolute bottom-1/4 left-1/2 -translate-x-1/2 bg-[var(--color-secondary)]/95 backdrop-blur border border-[var(--color-accent)] px-6 py-4 rounded-xl flex flex-col items-center shadow-2xl"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={phase >= 3 ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+          >
+            <span className="text-[var(--color-accent)] text-sm font-bold uppercase">Silo 1 Recorded</span>
+            <span className="text-white text-4xl font-display mt-1">12.4t</span>
+          </motion.div>
+        </motion.div>
+      </div>
     </motion.div>
   );
 }

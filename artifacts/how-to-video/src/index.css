@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --color-primary: #064E3B; /* Dark Green */
-  --color-secondary: #047857; /* Emerald Green */
-  --color-accent: #EAB308; /* Yellow/Gold */
+  --color-primary: #0f3d24; /* Deep green */
+  --color-secondary: #1a5c36; /* Primary green */
+  --color-accent: #C9A227; /* Gold */
 
   --color-bg-light: #F8FAFC;
-  --color-bg-dark: #022C22;
-  --color-bg-muted: #F1F5F9;
+  --color-bg-dark: #0f3d24;
+  --color-bg-muted: #1a5c36;
 
-  --color-text-primary: #0F172A;
-  --color-text-secondary: #475569;
-  --color-text-muted: #94A3B8;
-  --color-text-inverse: #FFFFFF;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #C9A227;
+  --color-text-muted: #a7d0b8;
+  --color-text-inverse: #0f3d24;
 
   --color-success: #10B981;
-  --color-warning: #F59E0B;
+  --color-warning: #C9A227;
   --color-error: #EF4444;
 
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -46,4 +46,8 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.text-shadow-heavy {
+  text-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }

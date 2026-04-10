@@ -42,6 +42,24 @@ uri = "file://attached_assets/icon-option-3.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "WULczvAo0Pv7KacIRLqmE"
+uri = "file://artifacts/how-to-video/public/shed-interior.png"
+type = "image"
+title = "australian broiler shed interior"
+
+[[generated]]
+id = "CitpTA8E7IT7DikSqdxnO"
+uri = "file://artifacts/how-to-video/public/shed-bg.png"
+type = "image"
+title = "broiler shed interior"
+
+[[generated]]
+id = "1Y46fJatbrC_--G2Gz7Uv"
+uri = "file://artifacts/how-to-video/public/data-bg.png"
+type = "image"
+title = "abstract data nodes"
+
 [[outputs]]
 id = "BjxMPq3OLSZYscXJ3BSpp"
 uri = "file://attached_assets/generated_images/poultry-mate-logo-horizontal.png"
