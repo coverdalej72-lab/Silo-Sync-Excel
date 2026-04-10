@@ -68,7 +68,7 @@ function SavedValue({ value, unit, saved }: { value: string; unit: string; saved
   return (
     <div className="text-center mt-1.5">
       <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Saved</p>
-      <p className="text-xs font-bold text-primary">{display}</p>
+      <p className="text-xs font-bold text-primary">{display} <span className="font-normal text-muted-foreground">{unit}</span></p>
     </div>
   );
 }
@@ -210,21 +210,33 @@ export default function Home() {
                       <span className="text-xs font-semibold text-muted-foreground truncate">{silo.name}</span>
                     </div>
 
-                    {/* Input */}
-                    <div className="relative">
+                    {/* Input + unit toggle */}
+                    <div className="flex gap-1">
                       <input
                         type="number"
                         inputMode="numeric"
-                        placeholder="kg"
+                        placeholder="0"
                         value={state?.amountRemaining ?? ""}
                         onChange={e => handleChange(shed.shedGroupId, silo.siloId, "amountRemaining", e.target.value)}
                         className={cn(
-                          "w-full bg-secondary border border-border/50 rounded-xl px-3 py-3",
+                          "min-w-0 flex-1 bg-secondary border border-border/50 rounded-xl px-2 py-3",
                           "text-lg font-bold text-foreground placeholder:text-muted-foreground/50",
                           "focus:outline-none focus:ring-2 focus:ring-primary/50 text-center",
                           "transition-all"
                         )}
                       />
+                      <button
+                        type="button"
+                        onClick={() => handleChange(shed.shedGroupId, silo.siloId, "unit", (state?.unit ?? "kg") === "kg" ? "t" : "kg")}
+                        className={cn(
+                          "shrink-0 w-10 rounded-xl border text-xs font-extrabold transition-all",
+                          (state?.unit ?? "kg") === "t"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-secondary border-border/50 text-muted-foreground"
+                        )}
+                      >
+                        {(state?.unit ?? "kg") === "t" ? "t" : "kg"}
+                      </button>
                     </div>
 
                     {/* Saved indicator */}
