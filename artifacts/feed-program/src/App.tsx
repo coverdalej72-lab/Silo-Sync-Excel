@@ -3780,6 +3780,11 @@ export default function App() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
+  const [showSiloSync, setShowSiloSync] = useState(false);
+  const [siloSyncReadings, setSiloSyncReadings] = useState<{ shedGroupId: number; shedGroupName: string; allSaved: boolean; silos: { letter: string; amountRemaining: number | null; saved: boolean }[] }[]>([]);
+  const [siloSyncDay, setSiloSyncDay] = useState("");
+  const [siloSyncLoading, setSiloSyncLoading] = useState(false);
+  const [siloSyncError, setSiloSyncError] = useState("");
   const [autoSaveFlash, setAutoSaveFlash] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
   const [settingsBatchNum, setSettingsBatchNum] = useState("");
@@ -3815,6 +3820,85 @@ export default function App() {
 
   // Feed alert computation (recalculates whenever sheets/edits/farmConfig change)
   const feedAlerts = useMemo(() => computeFeedAlerts(sheets, edits, farmConfig), [sheets, edits, farmConfig]);
+
+  // ── Silo Mate sync ──────────────────────────────────────────────────────────
+  const openSiloSync = async () => {
+    setSiloSyncError("");
+    setSiloSyncLoading(true);
+    setShowSiloSync(true);
+    try {
+      const res = await fetch(`${window.location.origin}/api/readings/today`);
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+      setSiloSyncReadings(data.sheds ?? []);
+      // Auto-detect current batch day from the last row that has any silo data
+      let detectedDay = 1;
+      let shedCount = 0;
+      for (let i = 0; i < sheets.length; i++) {
+        const tab = sheets[i].name.trim().toUpperCase();
+        if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
+        if (!tab.includes("SHED")) continue;
+        const cells = sheets[i].cells;
+        let startRow = 12;
+        for (let r = 9; r <= 16; r++) {
+          const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
+          const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
+          if (v0 === "1" || v1 === "1") { startRow = r; break; }
+        }
+        const sheetEdits = edits[i];
+        for (let r = startRow; r < startRow + 60; r++) {
+          const hasK = sheetEdits?.has(`${r},${COL_K}`) || cells.has(`${r},${COL_K}`);
+          const hasL = sheetEdits?.has(`${r},${COL_L}`) || cells.has(`${r},${COL_L}`);
+          const hasM = sheetEdits?.has(`${r},${COL_M}`) || cells.has(`${r},${COL_M}`);
+          if (hasK || hasL || hasM) detectedDay = r - startRow + 1;
+        }
+        shedCount++;
+        if (shedCount >= 1) break;
+      }
+      setSiloSyncDay(String(detectedDay));
+    } catch (e: any) {
+      setSiloSyncError("Could not reach Silo Mate. Make sure you're connected.");
+    } finally {
+      setSiloSyncLoading(false);
+    }
+  };
+
+  const applySiloSync = () => {
+    const day = parseInt(siloSyncDay, 10);
+    if (!day || day < 1 || day > 60) { setSiloSyncError("Please enter a valid batch day (1–60)."); return; }
+    setEdits(prev => {
+      const next = [...prev];
+      let shedCount = 0;
+      for (let i = 0; i < sheets.length; i++) {
+        const tab = sheets[i].name.trim().toUpperCase();
+        if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
+        if (!tab.includes("SHED")) continue;
+        const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
+        shedCount++;
+        const shedData = siloSyncReadings.find(s => s.shedGroupId === shedGroupId);
+        if (!shedData) continue;
+        const cells = sheets[i].cells;
+        let startRow = 12;
+        for (let r = 9; r <= 16; r++) {
+          const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
+          const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
+          if (v0 === "1" || v1 === "1") { startRow = r; break; }
+        }
+        const targetRow = startRow + (day - 1);
+        const sheetEdits = new Map(next[i] ?? []);
+        const siloA = shedData.silos.find(s => s.letter === "A");
+        const siloB = shedData.silos.find(s => s.letter === "B");
+        const siloC = shedData.silos.find(s => s.letter === "C");
+        if (siloA?.saved && siloA.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_K}`, String(siloA.amountRemaining));
+        if (siloB?.saved && siloB.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_L}`, String(siloB.amountRemaining));
+        if (siloC?.saved && siloC.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_M}`, String(siloC.amountRemaining));
+        next[i] = recalculate(cells, sheetEdits, targetRow, COL_K, sheets[i].maxRow);
+      }
+      return next;
+    });
+    setHasChanges(true);
+    setShowSiloSync(false);
+  };
 
   // Initialize and sync dark-mode class with Silo Tracker
   useEffect(() => {
@@ -4525,6 +4609,13 @@ export default function App() {
             );
           })()}
           <button
+            onClick={openSiloSync}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
+            title="Sync today's silo readings from Silo Mate"
+          >
+            🔄 Sync Silo Mate
+          </button>
+          <button
             onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setSettingsBatchNum(localStorage.getItem("silo-batch-num") ?? ""); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
             title={t("settings")}
@@ -4759,6 +4850,86 @@ export default function App() {
         style={{ display: "none" }}
         onChange={e => { const f = e.target.files?.[0]; if (f) importSpreadsheet(f); }}
       />
+
+      {/* ── Silo Mate Sync Modal ── */}
+      {showSiloSync && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSiloSync(false); }}
+        >
+          <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 8px 40px rgba(0,0,0,0.28)", width: 420, maxWidth: "94vw", overflow: "hidden" }}>
+            {/* Header */}
+            <div style={{ background: "var(--pm-primary)", color: "#fff", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 800, fontSize: 16 }}>🔄 Sync from Silo Mate</span>
+              <button onClick={() => setShowSiloSync(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ padding: "18px 20px 20px", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
+              {siloSyncLoading ? (
+                <div style={{ textAlign: "center", padding: "24px 0", color: "#666", fontSize: 14 }}>Loading today's readings…</div>
+              ) : siloSyncError && siloSyncReadings.length === 0 ? (
+                <div style={{ color: "#dc2626", fontSize: 14, padding: "12px 0" }}>{siloSyncError}</div>
+              ) : (
+                <>
+                  <p style={{ fontSize: 13, color: "#555", marginBottom: 14 }}>
+                    Today's Silo Mate readings ready to sync. Confirm the batch day and tap Apply.
+                  </p>
+
+                  {/* Readings grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px 8px", marginBottom: 16, fontSize: 12 }}>
+                    <div style={{ fontWeight: 700, color: "#888", textTransform: "uppercase", fontSize: 11 }}>Shed</div>
+                    <div style={{ fontWeight: 700, color: "#FF3C00", textAlign: "center" }}>Silo A</div>
+                    <div style={{ fontWeight: 700, color: "#3b82f6", textAlign: "center" }}>Silo B</div>
+                    <div style={{ fontWeight: 700, color: "#f59e0b", textAlign: "center" }}>Silo C</div>
+                    {siloSyncReadings.filter(s => {
+                      const farmCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === s.shedGroupId);
+                      return farmCfg ? farmCfg.active !== false : s.shedGroupId <= 6;
+                    }).map(shed => {
+                      const a = shed.silos.find(s => s.letter === "A");
+                      const b = shed.silos.find(s => s.letter === "B");
+                      const c = shed.silos.find(s => s.letter === "C");
+                      const fmt = (v: number | null, saved: boolean) =>
+                        saved && v != null ? `${v} kg` : <span style={{ color: "#ccc" }}>—</span>;
+                      return (
+                        <>
+                          <div style={{ fontWeight: 600, color: "#333", fontSize: 12 }}>{shed.shedGroupName}</div>
+                          <div style={{ textAlign: "center", color: a?.saved ? "#111" : "#ccc" }}>{fmt(a?.amountRemaining ?? null, a?.saved ?? false)}</div>
+                          <div style={{ textAlign: "center", color: b?.saved ? "#111" : "#ccc" }}>{fmt(b?.amountRemaining ?? null, b?.saved ?? false)}</div>
+                          <div style={{ textAlign: "center", color: c?.saved ? "#111" : "#ccc" }}>{fmt(c?.amountRemaining ?? null, c?.saved ?? false)}</div>
+                        </>
+                      );
+                    })}
+                  </div>
+
+                  {/* Batch day input */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <label style={{ fontSize: 13, fontWeight: 600, color: "#333", whiteSpace: "nowrap" }}>Batch Day:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={siloSyncDay}
+                      onChange={e => { setSiloSyncDay(e.target.value); setSiloSyncError(""); }}
+                      style={{ width: 70, border: "1.5px solid #ccc", borderRadius: 6, padding: "5px 8px", fontSize: 14, fontWeight: 700, textAlign: "center" }}
+                    />
+                    <span style={{ fontSize: 12, color: "#888" }}>Which day of the batch is today?</span>
+                  </div>
+
+                  {siloSyncError && <div style={{ color: "#dc2626", fontSize: 13, marginBottom: 10 }}>{siloSyncError}</div>}
+
+                  <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                    <button onClick={() => setShowSiloSync(false)} style={{ padding: "8px 18px", borderRadius: 7, border: "1.5px solid #ddd", background: "#f5f5f5", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      Cancel
+                    </button>
+                    <button onClick={applySiloSync} style={{ padding: "8px 22px", borderRadius: 7, border: "none", background: "var(--pm-primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      Apply to Spreadsheet
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Feed Alert Modal ── */}
       {showFeedAlert && (
