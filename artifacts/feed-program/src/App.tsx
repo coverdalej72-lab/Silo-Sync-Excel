@@ -4030,7 +4030,7 @@ export default function App() {
     if (pendingScrollRow === null) return;
     const raf = requestAnimationFrame(() => {
       const tr = document.querySelector<HTMLElement>(`tr[data-row="${pendingScrollRow}"]`);
-      if (tr) tr.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (tr) tr.scrollIntoView({ behavior: "smooth", block: "start" });
       setPendingScrollRow(null);
     });
     return () => cancelAnimationFrame(raf);
