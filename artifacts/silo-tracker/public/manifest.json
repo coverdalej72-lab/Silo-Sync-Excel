@@ -1,12 +1,12 @@
 {
   "name": "Silo Mate",
   "short_name": "Silo Mate",
-  "description": "Real-time silo feed tracking for poultry farms",
+  "description": "Poultry farm silo feed tracker",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FF3C00",
+  "background_color": "#ffffff",
   "theme_color": "#FF3C00",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -19,12 +19,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }

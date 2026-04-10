@@ -109,8 +109,8 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col h-[100dvh] w-full bg-background overflow-hidden relative">
 
-      {/* Header */}
-      <header className="shrink-0 px-4 pt-5 pb-0 bg-background z-10 border-b border-border/40">
+      {/* Header — safe-top pushes content below the iPhone notch */}
+      <header className="shrink-0 safe-top px-4 pt-5 pb-0 bg-background z-10 border-b border-border/40">
         <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
@@ -173,7 +173,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <InstallBanner />
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto safe-bottom">
         <div className="max-w-7xl mx-auto">
           {children}
         </div>
