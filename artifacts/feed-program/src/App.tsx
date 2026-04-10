@@ -3785,6 +3785,7 @@ export default function App() {
   const [siloSyncDay, setSiloSyncDay] = useState("");
   const [siloSyncLoading, setSiloSyncLoading] = useState(false);
   const [siloSyncError, setSiloSyncError] = useState("");
+  const [siloSyncMode, setSiloSyncMode] = useState<"next" | "correct">("next");
   const [autoSync, setAutoSync] = useState(() => localStorage.getItem("silo-auto-sync") !== "off");
   const [lastAutoSyncTs, setLastAutoSyncTs] = useState<number | null>(() => { const v = localStorage.getItem("silo-fp-last-sync"); return v ? parseInt(v, 10) : null; });
   const lastSyncHashRef = useRef(localStorage.getItem("silo-fp-sync-hash") ?? "");
@@ -3833,6 +3834,35 @@ export default function App() {
     const u = unit.trim().toLowerCase();
     if (u === "t" || u === "tonne" || u === "tonnes" || u === "ton" || u === "tons") return amount * 1000;
     return amount;
+  };
+
+  // Detect the CURRENT day (last row that already has silo data — for corrections/overwrites)
+  const detectCurrentSyncDay = (currentSheets: typeof sheets, currentEdits: typeof edits): number => {
+    let lastSiloRow = -1;
+    let startRowFound = 12;
+    for (let i = 0; i < currentSheets.length; i++) {
+      const tab = currentSheets[i].name.trim().toUpperCase();
+      if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
+      if (!tab.includes("SHED")) continue;
+      const cells = currentSheets[i].cells;
+      let startRow = 12;
+      for (let r = 9; r <= 16; r++) {
+        const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
+        const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
+        if (v0 === "1" || v1 === "1") { startRow = r; break; }
+      }
+      startRowFound = startRow;
+      const sheetEdits = currentEdits[i];
+      for (let r = startRow; r < startRow + 60; r++) {
+        const hasK = sheetEdits?.has(`${r},${COL_K}`) || cells.has(`${r},${COL_K}`);
+        const hasL = sheetEdits?.has(`${r},${COL_L}`) || cells.has(`${r},${COL_L}`);
+        const hasM = sheetEdits?.has(`${r},${COL_M}`) || cells.has(`${r},${COL_M}`);
+        if (hasK || hasL || hasM) lastSiloRow = r;
+      }
+      break;
+    }
+    if (lastSiloRow < 0) return 1;
+    return lastSiloRow - startRowFound + 1; // Same row — overwrite
   };
 
   // Detect which batch day to target (last row with silo data + 1, or 1 if none yet)
@@ -3937,6 +3967,9 @@ export default function App() {
     setSiloSyncError("");
     setSiloSyncLoading(true);
     setShowSiloSync(true);
+    // Default: "correct" if a previous sync exists (most likely correcting), else "next"
+    const hasPriorSync = detectCurrentSyncDay(sheets, edits) >= 1 && lastAutoSyncTs !== null;
+    setSiloSyncMode(hasPriorSync ? "correct" : "next");
     try {
       const res = await fetch(`${window.location.origin}/api/readings/today`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -3950,7 +3983,9 @@ export default function App() {
   };
 
   const applySiloSync = () => {
-    const day = detectNextSyncDay(sheets, edits);
+    const day = siloSyncMode === "correct"
+      ? detectCurrentSyncDay(sheets, edits)
+      : detectNextSyncDay(sheets, edits);
     const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, edits);
     setEdits(nextEdits);
     const hash = siloSyncReadings.map(s =>
@@ -4989,12 +5024,33 @@ export default function App() {
 
                   {siloSyncError && <div style={{ color: "#dc2626", fontSize: 13, marginBottom: 10 }}>{siloSyncError}</div>}
 
+                  {/* Mode selector */}
+                  <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1.5px solid #e0e0e0", marginBottom: 14 }}>
+                    <button
+                      onClick={() => setSiloSyncMode("correct")}
+                      style={{ flex: 1, padding: "8px 10px", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: siloSyncMode === "correct" ? "#dc2626" : "#f5f5f5", color: siloSyncMode === "correct" ? "#fff" : "#666", transition: "all 0.15s" }}
+                    >
+                      ✏ Correct today's entry
+                    </button>
+                    <button
+                      onClick={() => setSiloSyncMode("next")}
+                      style={{ flex: 1, padding: "8px 10px", border: "none", borderLeft: "1.5px solid #e0e0e0", fontSize: 12, fontWeight: 700, cursor: "pointer", background: siloSyncMode === "next" ? "var(--pm-primary)" : "#f5f5f5", color: siloSyncMode === "next" ? "#fff" : "#666", transition: "all 0.15s" }}
+                    >
+                      ➕ Add as new day
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 11, color: "#888", marginBottom: 12, marginTop: -8 }}>
+                    {siloSyncMode === "correct"
+                      ? "Overwrites today's silo kg values (use this to fix a mistake)"
+                      : "Writes to the next empty row in the spreadsheet"}
+                  </p>
+
                   <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                     <button onClick={() => setShowSiloSync(false)} style={{ padding: "8px 18px", borderRadius: 7, border: "1.5px solid #ddd", background: "#f5f5f5", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                       Cancel
                     </button>
-                    <button onClick={applySiloSync} style={{ padding: "8px 22px", borderRadius: 7, border: "none", background: "var(--pm-primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                      Apply to Spreadsheet
+                    <button onClick={applySiloSync} style={{ padding: "8px 22px", borderRadius: 7, border: "none", background: siloSyncMode === "correct" ? "#dc2626" : "var(--pm-primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                      {siloSyncMode === "correct" ? "Overwrite & Correct" : "Apply to Spreadsheet"}
                     </button>
                   </div>
                 </>
