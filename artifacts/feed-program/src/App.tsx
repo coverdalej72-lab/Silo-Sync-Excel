@@ -3781,7 +3781,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
   const [showSiloSync, setShowSiloSync] = useState(false);
-  const [siloSyncReadings, setSiloSyncReadings] = useState<{ shedGroupId: number; shedGroupName: string; allSaved: boolean; silos: { letter: string; amountRemaining: number | null; saved: boolean }[] }[]>([]);
+  const [siloSyncReadings, setSiloSyncReadings] = useState<{ shedGroupId: number; shedGroupName: string; allSaved: boolean; silos: { letter: string; amountRemaining: number | null; saved: boolean; unit: string }[] }[]>([]);
   const [siloSyncDay, setSiloSyncDay] = useState("");
   const [siloSyncLoading, setSiloSyncLoading] = useState(false);
   const [siloSyncError, setSiloSyncError] = useState("");
@@ -3822,6 +3822,12 @@ export default function App() {
   const feedAlerts = useMemo(() => computeFeedAlerts(sheets, edits, farmConfig), [sheets, edits, farmConfig]);
 
   // ── Silo Mate sync ──────────────────────────────────────────────────────────
+  const toKg = (amount: number, unit: string): number => {
+    const u = unit.trim().toLowerCase();
+    if (u === "t" || u === "tonne" || u === "tonnes" || u === "ton" || u === "tons") return amount * 1000;
+    return amount;
+  };
+
   const openSiloSync = async () => {
     setSiloSyncError("");
     setSiloSyncLoading(true);
@@ -3889,9 +3895,9 @@ export default function App() {
         const siloA = shedData.silos.find(s => s.letter === "A");
         const siloB = shedData.silos.find(s => s.letter === "B");
         const siloC = shedData.silos.find(s => s.letter === "C");
-        if (siloA?.saved && siloA.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_K}`, String(siloA.amountRemaining));
-        if (siloB?.saved && siloB.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_L}`, String(siloB.amountRemaining));
-        if (siloC?.saved && siloC.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_M}`, String(siloC.amountRemaining));
+        if (siloA?.saved && siloA.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_K}`, String(toKg(siloA.amountRemaining, siloA.unit)));
+        if (siloB?.saved && siloB.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_L}`, String(toKg(siloB.amountRemaining, siloB.unit)));
+        if (siloC?.saved && siloC.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_M}`, String(toKg(siloC.amountRemaining, siloC.unit)));
         next[i] = recalculate(cells, sheetEdits, targetRow, COL_K, sheets[i].maxRow);
       }
       return next;
@@ -4888,14 +4894,18 @@ export default function App() {
                       const a = shed.silos.find(s => s.letter === "A");
                       const b = shed.silos.find(s => s.letter === "B");
                       const c = shed.silos.find(s => s.letter === "C");
-                      const fmt = (v: number | null, saved: boolean) =>
-                        saved && v != null ? `${v} kg` : <span style={{ color: "#ccc" }}>—</span>;
+                      const fmt = (silo: typeof a) => {
+                        if (!silo?.saved || silo.amountRemaining == null) return <span style={{ color: "#ccc" }}>—</span>;
+                        const kg = toKg(silo.amountRemaining, silo.unit);
+                        const isTonne = silo.unit.trim().toLowerCase() !== "kg";
+                        return <span>{kg.toLocaleString()} kg{isTonne && <span style={{ color: "#888", fontSize: 10 }}> ({silo.amountRemaining}t)</span>}</span>;
+                      };
                       return (
                         <>
                           <div style={{ fontWeight: 600, color: "#333", fontSize: 12 }}>{shed.shedGroupName}</div>
-                          <div style={{ textAlign: "center", color: a?.saved ? "#111" : "#ccc" }}>{fmt(a?.amountRemaining ?? null, a?.saved ?? false)}</div>
-                          <div style={{ textAlign: "center", color: b?.saved ? "#111" : "#ccc" }}>{fmt(b?.amountRemaining ?? null, b?.saved ?? false)}</div>
-                          <div style={{ textAlign: "center", color: c?.saved ? "#111" : "#ccc" }}>{fmt(c?.amountRemaining ?? null, c?.saved ?? false)}</div>
+                          <div style={{ textAlign: "center", color: a?.saved ? "#111" : "#ccc" }}>{fmt(a)}</div>
+                          <div style={{ textAlign: "center", color: b?.saved ? "#111" : "#ccc" }}>{fmt(b)}</div>
+                          <div style={{ textAlign: "center", color: c?.saved ? "#111" : "#ccc" }}>{fmt(c)}</div>
                         </>
                       );
                     })}
