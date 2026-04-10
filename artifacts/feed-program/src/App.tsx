@@ -849,6 +849,13 @@ function SheetView({
     return 12; // fallback
   }, [isShedSheet, cells]);
 
+  // Clip shed rendering: 60 data rows + 5 rows for summary (Total Morts, Total Birds Caught)
+  // Hides junk formula rows that extend past the template's useful area
+  const shedDisplayEndRow = useMemo(() => {
+    if (!isShedSheet) return maxRow;
+    return Math.min(maxRow, shedDataStartRow + 64);
+  }, [isShedSheet, shedDataStartRow, maxRow]);
+
   // Compute worst FOH status across all data rows — used to colour the FEED ON HAND column header
   const worstFohStatus = useMemo<'critical' | 'warning' | 'caution' | null>(() => {
     if (!isShedSheet) return null;
@@ -889,7 +896,7 @@ function SheetView({
         })}
       </colgroup>
       <tbody>
-        {Array.from({ length: maxRow - effectiveStart + 1 }, (_, ri) => {
+        {Array.from({ length: (isShedSheet ? shedDisplayEndRow : maxRow) - effectiveStart + 1 }, (_, ri) => {
           const r = effectiveStart + ri;
 
           // Determine row-level background
