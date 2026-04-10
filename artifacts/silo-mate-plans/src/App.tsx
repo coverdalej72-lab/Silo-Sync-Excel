@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { HowItWorksVideo } from "./HowItWorksVideo";
 
 const GREEN = "#1a5c36";
 const GOLD = "#C9A227";
@@ -1580,27 +1581,22 @@ export default function App() {
         </div>
       </section>
 
-      {/* SEE IT IN ACTION */}
+      {/* HOW IT WORKS VIDEO */}
       <section style={{ background: "#f9fafb", padding: "80px 24px 88px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <HowItWorksVideo />
+        </div>
+      </section>
 
-          {/* Heading */}
-          <div style={{ textAlign: "center", marginBottom: 56 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 999, padding: "5px 18px", marginBottom: 16 }}>
-              <span style={{ fontSize: 16 }}>✅</span>
-              <span style={{ color: "#065f46", fontWeight: 700, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>Designed for the shed</span>
-            </div>
-            <h2 style={{ fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 900, color: "#111827", margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
-              Simple enough to use<br />
-              <span style={{ color: "#1a5c36" }}>on day one.</span>
-            </h2>
-            <p style={{ fontSize: 17, color: "#6b7280", maxWidth: 560, margin: "0 auto", lineHeight: 1.7 }}>
-              No training courses. No IT support. Just open it on your laptop or phone and start tracking. Built by people who understand poultry, for people who grow it.
-            </p>
+      {/* SCREENSHOTS */}
+      <section style={{ background: "#fff", padding: "64px 24px 72px", borderTop: "1px solid #e5e7eb" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <h2 style={{ fontSize: "clamp(22px, 3.5vw, 34px)", fontWeight: 900, color: "#111827", margin: "0 0 12px", letterSpacing: "-0.03em" }}>See the real apps</h2>
+            <p style={{ fontSize: 16, color: "#6b7280", margin: 0 }}>Your actual tools — browser-based and mobile-ready</p>
           </div>
-
           {/* Screenshot cards */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 32, justifyContent: "center", alignItems: "flex-start", marginBottom: 60 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 32, justifyContent: "center", alignItems: "flex-start" }}>
 
             {/* Feed Program screenshot */}
             <div style={{ flex: "1 1 520px", maxWidth: 640 }}>
@@ -1659,30 +1655,6 @@ export default function App() {
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* How it works steps */}
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "36px 40px" }}>
-            <div style={{ textAlign: "center", marginBottom: 32 }}>
-              <span style={{ fontWeight: 800, fontSize: 20, color: "#111827" }}>How it works — 3 simple steps</span>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "center" }}>
-              {[
-                { step: "1", icon: "📤", title: "Upload your spreadsheet", desc: "Drop your existing Excel feed program in and it loads instantly. All your sheds, formulas, and history carry over." },
-                { step: "2", icon: "📱", title: "Record silos from the shed", desc: "Walk the shed, tap in silo readings (or scan the docket QR), hit Save. The Feed Program updates automatically." },
-                { step: "3", icon: "📊", title: "Track, review & export", desc: "View live feed-on-hand, get low-feed alerts, and export your end-of-batch results in one click." },
-              ].map(({ step, icon, title, desc }) => (
-                <div key={step} style={{ flex: "1 1 240px", maxWidth: 300, display: "flex", gap: 16, alignItems: "flex-start" }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: "#1a5c36", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
-                    {icon}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: "#111827", marginBottom: 6 }}>{title}</div>
-                    <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>{desc}</div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
