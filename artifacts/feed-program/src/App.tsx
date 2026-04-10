@@ -3786,6 +3786,7 @@ export default function App() {
   const [siloSyncLoading, setSiloSyncLoading] = useState(false);
   const [siloSyncError, setSiloSyncError] = useState("");
   const [siloSyncMode, setSiloSyncMode] = useState<"next" | "correct">("next");
+  const [siloSyncUnitOverride, setSiloSyncUnitOverride] = useState<"as-saved" | "t">("as-saved");
   const [autoSync, setAutoSync] = useState(() => localStorage.getItem("silo-auto-sync") !== "off");
   const [lastAutoSyncTs, setLastAutoSyncTs] = useState<number | null>(() => { const v = localStorage.getItem("silo-fp-last-sync"); return v ? parseInt(v, 10) : null; });
   const lastSyncHashRef = useRef(localStorage.getItem("silo-fp-sync-hash") ?? "");
@@ -3896,12 +3897,16 @@ export default function App() {
   };
 
   // Core apply: writes sheds data into edits for a given batch day
+  // unitOverride "t" → treat ALL reading values as tonnes regardless of stored unit
   const doApplyReadings = (
     sheds: typeof siloSyncReadings,
     day: number,
     currentSheets: typeof sheets,
-    currentEdits: typeof edits
+    currentEdits: typeof edits,
+    unitOverride?: "t" | null
   ): typeof edits => {
+    const effectiveUnit = (silo: { unit: string | null | undefined }) =>
+      unitOverride === "t" ? "t" : (silo.unit ?? "kg");
     const next = [...currentEdits];
     let shedCount = 0;
     for (let i = 0; i < currentSheets.length; i++) {
@@ -3924,9 +3929,9 @@ export default function App() {
       const siloA = shedData.silos.find(s => s.letter === "A");
       const siloB = shedData.silos.find(s => s.letter === "B");
       const siloC = shedData.silos.find(s => s.letter === "C");
-      if (siloA?.saved && siloA.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_K}`, String(toKg(siloA.amountRemaining, siloA.unit)));
-      if (siloB?.saved && siloB.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_L}`, String(toKg(siloB.amountRemaining, siloB.unit)));
-      if (siloC?.saved && siloC.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_M}`, String(toKg(siloC.amountRemaining, siloC.unit)));
+      if (siloA?.saved && siloA.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_K}`, String(toKg(siloA.amountRemaining, effectiveUnit(siloA))));
+      if (siloB?.saved && siloB.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_L}`, String(toKg(siloB.amountRemaining, effectiveUnit(siloB))));
+      if (siloC?.saved && siloC.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_M}`, String(toKg(siloC.amountRemaining, effectiveUnit(siloC))));
       next[i] = recalculate(cells, sheetEdits, targetRow, COL_K, currentSheets[i].maxRow);
     }
     return next;
@@ -3978,6 +3983,9 @@ export default function App() {
     // Default: "correct" if a previous sync exists (most likely correcting), else "next"
     const hasPriorSync = detectCurrentSyncDay(sheets, edits) >= 1 && lastAutoSyncTs !== null;
     setSiloSyncMode(hasPriorSync ? "correct" : "next");
+    // Default unit override: "t" if user's default recording unit is tonnes
+    const defUnit = localStorage.getItem("silo-default-unit") || "kg";
+    setSiloSyncUnitOverride(defUnit === "t" ? "t" : "as-saved");
     try {
       const res = await fetch(`${window.location.origin}/api/readings/today`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -3994,7 +4002,7 @@ export default function App() {
     const day = siloSyncMode === "correct"
       ? detectCurrentSyncDay(sheets, edits)
       : detectNextSyncDay(sheets, edits);
-    const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, edits);
+    const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, edits, siloSyncUnitOverride === "t" ? "t" : null);
     setEdits(nextEdits);
     const hash = siloSyncReadings.map(s =>
       s.silos.filter(x => x.saved).map(x => `${x.letter}:${x.amountRemaining}:${x.unit}`).join(",")
@@ -4996,8 +5004,25 @@ export default function App() {
                 <div style={{ color: "#dc2626", fontSize: 14, padding: "12px 0" }}>{siloSyncError}</div>
               ) : (
                 <>
-                  <p style={{ fontSize: 13, color: "#555", marginBottom: 14 }}>
-                    Today's readings from Silo Mate. Tap <strong>Apply</strong> to sync kg values into the Feed Program spreadsheet.
+                  {/* Unit interpretation toggle */}
+                  <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1.5px solid #e0e0e0", marginBottom: 14 }}>
+                    <button
+                      onClick={() => setSiloSyncUnitOverride("as-saved")}
+                      style={{ flex: 1, padding: "7px 8px", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: siloSyncUnitOverride === "as-saved" ? "var(--pm-primary)" : "#f5f5f5", color: siloSyncUnitOverride === "as-saved" ? "#fff" : "#666", transition: "all 0.15s" }}
+                    >
+                      As saved
+                    </button>
+                    <button
+                      onClick={() => setSiloSyncUnitOverride("t")}
+                      style={{ flex: 1, padding: "7px 8px", border: "none", borderLeft: "1.5px solid #e0e0e0", fontSize: 12, fontWeight: 700, cursor: "pointer", background: siloSyncUnitOverride === "t" ? "var(--pm-primary)" : "#f5f5f5", color: siloSyncUnitOverride === "t" ? "#fff" : "#666", transition: "all 0.15s" }}
+                    >
+                      Treat as tonnes (×1000)
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 11, color: "#888", marginBottom: 14, marginTop: -8 }}>
+                    {siloSyncUnitOverride === "t"
+                      ? "All values treated as tonnes — will be multiplied ×1000 when written to the spreadsheet."
+                      : "Values written using their stored unit (kg stays kg, t is converted to kg)."}
                   </p>
 
                   {/* Readings grid */}
@@ -5015,8 +5040,9 @@ export default function App() {
                       const c = shed.silos.find(s => s.letter === "C");
                       const fmt = (silo: typeof a) => {
                         if (!silo?.saved || silo.amountRemaining == null) return <span style={{ color: "#ccc" }}>—</span>;
-                        const kg = toKg(silo.amountRemaining, silo.unit);
-                        const isTonne = silo.unit.trim().toLowerCase() !== "kg";
+                        const eu = siloSyncUnitOverride === "t" ? "t" : (silo.unit ?? "kg");
+                        const kg = toKg(silo.amountRemaining, eu);
+                        const isTonne = eu.trim().toLowerCase() !== "kg";
                         return <span>{kg.toLocaleString()} kg{isTonne && <span style={{ color: "#888", fontSize: 10 }}> ({silo.amountRemaining}t)</span>}</span>;
                       };
                       return (
