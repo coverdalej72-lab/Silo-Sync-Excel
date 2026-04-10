@@ -3751,6 +3751,7 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem(BATCH_CATCHES_KEY) || "{}"); } catch { return {}; }
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [newBatchLocked, setNewBatchLocked] = useState(true);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
   const [showSiloSync, setShowSiloSync] = useState(false);
   const [siloSyncReadings, setSiloSyncReadings] = useState<{ shedGroupId: number; shedGroupName: string; allSaved: boolean; silos: { letter: string; amountRemaining: number | null; saved: boolean; unit: string }[] }[]>([]);
@@ -4825,7 +4826,7 @@ export default function App() {
             </button>
           </div>
           <button
-            onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setSettingsBatchNum(localStorage.getItem("silo-batch-num") ?? ""); setSettingsDefaultUnit((localStorage.getItem("silo-default-unit") as "kg"|"t") || "kg"); setShowSettings(true); }}
+            onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setSettingsBatchNum(localStorage.getItem("silo-batch-num") ?? ""); setSettingsDefaultUnit((localStorage.getItem("silo-default-unit") as "kg"|"t") || "kg"); setNewBatchLocked(true); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
             title={t("settings")}
           >
@@ -5513,13 +5514,29 @@ export default function App() {
 
               {/* New Batch */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("startNewBatch")}</label>
-                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Clears all delivery and silo records and resets the spreadsheet to its base state. This cannot be undone.</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <label style={{ fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>{t("startNewBatch")}</label>
+                  <button
+                    onClick={() => setNewBatchLocked(l => !l)}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 20, border: "1.5px solid", fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
+                      background: newBatchLocked ? "#fff3cd" : "#d4edda",
+                      color: newBatchLocked ? "#856404" : "#155724",
+                      borderColor: newBatchLocked ? "#ffc107" : "#28a745" }}
+                  >
+                    {newBatchLocked ? "🔒 Locked" : "🔓 Unlocked"}
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>
+                  {newBatchLocked
+                    ? "Unlock to enable starting a new batch. Clears all delivery and silo records — cannot be undone."
+                    : "⚠️ Batch lock is OFF. Button below is now active — use with care."}
+                </p>
                 <button
-                  onClick={() => { setShowSettings(false); resetForNewBatch(); }}
-                  style={{ width: "100%", background: "#c0392b", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                  onClick={() => { if (!newBatchLocked) { setShowSettings(false); resetForNewBatch(); } }}
+                  disabled={newBatchLocked}
+                  style={{ width: "100%", background: newBatchLocked ? "#e0e0e0" : "#c0392b", color: newBatchLocked ? "#999" : "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: newBatchLocked ? "not-allowed" : "pointer", transition: "all 0.2s" }}
                 >
-                  {t("newBatchBtn")}
+                  {newBatchLocked ? "🔒 " : ""}{t("newBatchBtn")}
                 </button>
               </div>
             </div>
