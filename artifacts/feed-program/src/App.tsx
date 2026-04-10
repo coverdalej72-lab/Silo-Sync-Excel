@@ -3785,6 +3785,9 @@ export default function App() {
   const [siloSyncDay, setSiloSyncDay] = useState("");
   const [siloSyncLoading, setSiloSyncLoading] = useState(false);
   const [siloSyncError, setSiloSyncError] = useState("");
+  const [autoSync, setAutoSync] = useState(() => localStorage.getItem("silo-auto-sync") !== "off");
+  const [lastAutoSyncTs, setLastAutoSyncTs] = useState<number | null>(() => { const v = localStorage.getItem("silo-fp-last-sync"); return v ? parseInt(v, 10) : null; });
+  const lastSyncHashRef = useRef(localStorage.getItem("silo-fp-sync-hash") ?? "");
   const [autoSaveFlash, setAutoSaveFlash] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
   const [settingsBatchNum, setSettingsBatchNum] = useState("");
@@ -3795,6 +3798,10 @@ export default function App() {
   const deliverySeedDoneRef = useRef(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
+  const sheetsRef = useRef(sheets);
+  const editsRef = useRef(edits);
+  sheetsRef.current = sheets;
+  editsRef.current = edits;
 
   // Map shedNum → current placement count (live from shed sheet edits)
   const shedPlacement = useMemo<Map<number, number>>(() => {
@@ -3828,6 +3835,104 @@ export default function App() {
     return amount;
   };
 
+  // Detect which batch day to target (last row with silo data + 1, or 1 if none yet)
+  const detectNextSyncDay = (currentSheets: typeof sheets, currentEdits: typeof edits): number => {
+    let lastSiloRow = -1;
+    let startRowFound = 12;
+    for (let i = 0; i < currentSheets.length; i++) {
+      const tab = currentSheets[i].name.trim().toUpperCase();
+      if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
+      if (!tab.includes("SHED")) continue;
+      const cells = currentSheets[i].cells;
+      let startRow = 12;
+      for (let r = 9; r <= 16; r++) {
+        const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
+        const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
+        if (v0 === "1" || v1 === "1") { startRow = r; break; }
+      }
+      startRowFound = startRow;
+      const sheetEdits = currentEdits[i];
+      for (let r = startRow; r < startRow + 60; r++) {
+        const hasK = sheetEdits?.has(`${r},${COL_K}`) || cells.has(`${r},${COL_K}`);
+        const hasL = sheetEdits?.has(`${r},${COL_L}`) || cells.has(`${r},${COL_L}`);
+        const hasM = sheetEdits?.has(`${r},${COL_M}`) || cells.has(`${r},${COL_M}`);
+        if (hasK || hasL || hasM) lastSiloRow = r;
+      }
+      break; // Only need to check first shed sheet
+    }
+    if (lastSiloRow < 0) return 1; // No silo data yet → start at day 1
+    return lastSiloRow - startRowFound + 2; // Day after last synced row
+  };
+
+  // Core apply: writes sheds data into edits for a given batch day
+  const doApplyReadings = (
+    sheds: typeof siloSyncReadings,
+    day: number,
+    currentSheets: typeof sheets,
+    currentEdits: typeof edits
+  ): typeof edits => {
+    const next = [...currentEdits];
+    let shedCount = 0;
+    for (let i = 0; i < currentSheets.length; i++) {
+      const tab = currentSheets[i].name.trim().toUpperCase();
+      if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
+      if (!tab.includes("SHED")) continue;
+      const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
+      shedCount++;
+      const shedData = sheds.find(s => s.shedGroupId === shedGroupId);
+      if (!shedData) continue;
+      const cells = currentSheets[i].cells;
+      let startRow = 12;
+      for (let r = 9; r <= 16; r++) {
+        const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
+        const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
+        if (v0 === "1" || v1 === "1") { startRow = r; break; }
+      }
+      const targetRow = startRow + (day - 1);
+      const sheetEdits = new Map(next[i] ?? []);
+      const siloA = shedData.silos.find(s => s.letter === "A");
+      const siloB = shedData.silos.find(s => s.letter === "B");
+      const siloC = shedData.silos.find(s => s.letter === "C");
+      if (siloA?.saved && siloA.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_K}`, String(toKg(siloA.amountRemaining, siloA.unit)));
+      if (siloB?.saved && siloB.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_L}`, String(toKg(siloB.amountRemaining, siloB.unit)));
+      if (siloC?.saved && siloC.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_M}`, String(toKg(siloC.amountRemaining, siloC.unit)));
+      next[i] = recalculate(cells, sheetEdits, targetRow, COL_K, currentSheets[i].maxRow);
+    }
+    return next;
+  };
+
+  // ── Auto-sync effect (polls every 2 minutes) ─────────────────────────────
+  useEffect(() => {
+    if (!autoSync) return;
+    const run = async () => {
+      try {
+        const res = await fetch(`${window.location.origin}/api/readings/today`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const sheds: typeof siloSyncReadings = data.sheds ?? [];
+        // Build change hash from saved readings
+        const hash = sheds.map(s =>
+          s.silos.filter(x => x.saved).map(x => `${x.letter}:${x.amountRemaining}:${x.unit}`).join(",")
+        ).join("|");
+        const anySaved = sheds.some(s => s.silos.some(x => x.saved));
+        if (!anySaved || hash === lastSyncHashRef.current) return; // nothing new
+        lastSyncHashRef.current = hash;
+        localStorage.setItem("silo-fp-sync-hash", hash);
+        const day = detectNextSyncDay(sheetsRef.current, editsRef.current);
+        const nextEdits = doApplyReadings(sheds, day, sheetsRef.current, editsRef.current);
+        setEdits(nextEdits);
+        const now = Date.now();
+        localStorage.setItem("silo-fp-last-sync", String(now));
+        setLastAutoSyncTs(now);
+        setHasChanges(true);
+      } catch { /* network unavailable — silently skip */ }
+    };
+    run(); // immediate first run
+    const id = setInterval(run, 2 * 60 * 1000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSync]);
+
   const openSiloSync = async () => {
     setSiloSyncError("");
     setSiloSyncLoading(true);
@@ -3837,32 +3942,9 @@ export default function App() {
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
       setSiloSyncReadings(data.sheds ?? []);
-      // Auto-detect current batch day from the last row that has any silo data
-      let detectedDay = 1;
-      let shedCount = 0;
-      for (let i = 0; i < sheets.length; i++) {
-        const tab = sheets[i].name.trim().toUpperCase();
-        if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
-        if (!tab.includes("SHED")) continue;
-        const cells = sheets[i].cells;
-        let startRow = 12;
-        for (let r = 9; r <= 16; r++) {
-          const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
-          const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
-          if (v0 === "1" || v1 === "1") { startRow = r; break; }
-        }
-        const sheetEdits = edits[i];
-        for (let r = startRow; r < startRow + 60; r++) {
-          const hasK = sheetEdits?.has(`${r},${COL_K}`) || cells.has(`${r},${COL_K}`);
-          const hasL = sheetEdits?.has(`${r},${COL_L}`) || cells.has(`${r},${COL_L}`);
-          const hasM = sheetEdits?.has(`${r},${COL_M}`) || cells.has(`${r},${COL_M}`);
-          if (hasK || hasL || hasM) detectedDay = r - startRow + 1;
-        }
-        shedCount++;
-        if (shedCount >= 1) break;
-      }
-      setSiloSyncDay(String(detectedDay));
-    } catch (e: any) {
+      const detected = detectNextSyncDay(sheets, edits);
+      setSiloSyncDay(String(Math.max(1, detected)));
+    } catch {
       setSiloSyncError("Could not reach Silo Mate. Make sure you're connected.");
     } finally {
       setSiloSyncLoading(false);
@@ -3872,37 +3954,16 @@ export default function App() {
   const applySiloSync = () => {
     const day = parseInt(siloSyncDay, 10);
     if (!day || day < 1 || day > 60) { setSiloSyncError("Please enter a valid batch day (1–60)."); return; }
-    setEdits(prev => {
-      const next = [...prev];
-      let shedCount = 0;
-      for (let i = 0; i < sheets.length; i++) {
-        const tab = sheets[i].name.trim().toUpperCase();
-        if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
-        if (!tab.includes("SHED")) continue;
-        const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
-        shedCount++;
-        const shedData = siloSyncReadings.find(s => s.shedGroupId === shedGroupId);
-        if (!shedData) continue;
-        const cells = sheets[i].cells;
-        let startRow = 12;
-        for (let r = 9; r <= 16; r++) {
-          const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
-          const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
-          if (v0 === "1" || v1 === "1") { startRow = r; break; }
-        }
-        const targetRow = startRow + (day - 1);
-        const sheetEdits = new Map(next[i] ?? []);
-        const siloA = shedData.silos.find(s => s.letter === "A");
-        const siloB = shedData.silos.find(s => s.letter === "B");
-        const siloC = shedData.silos.find(s => s.letter === "C");
-        if (siloA?.saved && siloA.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_K}`, String(toKg(siloA.amountRemaining, siloA.unit)));
-        if (siloB?.saved && siloB.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_L}`, String(toKg(siloB.amountRemaining, siloB.unit)));
-        if (siloC?.saved && siloC.amountRemaining != null) sheetEdits.set(`${targetRow},${COL_M}`, String(toKg(siloC.amountRemaining, siloC.unit)));
-        next[i] = recalculate(cells, sheetEdits, targetRow, COL_K, sheets[i].maxRow);
-      }
-      return next;
-    });
-    localStorage.setItem("silo-fp-last-sync", Date.now().toString());
+    const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, edits);
+    setEdits(nextEdits);
+    const hash = siloSyncReadings.map(s =>
+      s.silos.filter(x => x.saved).map(x => `${x.letter}:${x.amountRemaining}:${x.unit}`).join(",")
+    ).join("|");
+    lastSyncHashRef.current = hash;
+    localStorage.setItem("silo-fp-sync-hash", hash);
+    const now = Date.now();
+    localStorage.setItem("silo-fp-last-sync", String(now));
+    setLastAutoSyncTs(now);
     setHasChanges(true);
     setShowSiloSync(false);
   };
@@ -4615,13 +4676,28 @@ export default function App() {
               </button>
             );
           })()}
-          <button
-            onClick={openSiloSync}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
-            title="Sync today's silo readings from Silo Mate"
-          >
-            🔄 Sync Silo Mate
-          </button>
+          {/* Silo Mate auto-sync indicator + toggle */}
+          <div className="flex items-center gap-1 rounded border border-white/30 overflow-hidden" style={{ fontSize: 12 }}>
+            <button
+              onClick={openSiloSync}
+              title="Manually sync Silo Mate readings now"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-white/10 hover:bg-white/20 transition-colors text-white font-semibold"
+            >
+              🔄
+              {lastAutoSyncTs
+                ? <span>{(() => { const d = Math.floor((Date.now() - lastAutoSyncTs) / 1000); return d < 60 ? "just now" : d < 3600 ? `${Math.floor(d/60)}m ago` : `${Math.floor(d/3600)}h ago`; })()}</span>
+                : <span>Sync Silo Mate</span>
+              }
+            </button>
+            <button
+              onClick={() => setAutoSync(v => { const next = !v; localStorage.setItem("silo-auto-sync", next ? "on" : "off"); return next; })}
+              title={autoSync ? "Auto-sync ON — click to disable" : "Auto-sync OFF — click to enable"}
+              className="flex items-center px-2 py-1.5 transition-colors font-bold"
+              style={{ background: autoSync ? "#16a34a" : "rgba(255,255,255,0.08)", color: autoSync ? "#fff" : "rgba(255,255,255,0.5)" }}
+            >
+              {autoSync ? "AUTO" : "OFF"}
+            </button>
+          </div>
           <button
             onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setSettingsBatchNum(localStorage.getItem("silo-batch-num") ?? ""); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
