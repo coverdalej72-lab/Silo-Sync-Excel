@@ -627,7 +627,9 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
     return isNaN(n) || v === "" ? "—" : n.toLocaleString();
   };
 
-  const batchNum       = g(1, 2);
+  const _batchNumSheet = g(1, 2);
+  const _batchNumLS    = localStorage.getItem("silo-batch-num");
+  const batchNum       = _batchNumLS ? _batchNumLS : _batchNumSheet;
   const totalPurchased = g(11, 18);
   const feedUsed       = g(18, 18);
   const feedLeft       = g(15, 18);
@@ -1592,7 +1594,9 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     }
   }
 
-  const batchNum = eobIdx >= 0 ? (parseFloat(getCell(eobIdx, 1, 2)) || null) : null;
+  const _batchNumSheet2 = eobIdx >= 0 ? (parseFloat(getCell(eobIdx, 1, 2)) || null) : null;
+  const _batchNumLS2    = localStorage.getItem("silo-batch-num");
+  const batchNum = _batchNumLS2 ? (parseInt(_batchNumLS2, 10) || null) : _batchNumSheet2;
 
   let grandBirds = 0, grandFeed = 0;
   for (const { sheetIdx } of shedItems) {
