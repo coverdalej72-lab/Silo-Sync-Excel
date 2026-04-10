@@ -39,10 +39,20 @@ function parseDocketQr(raw: string): DocketData {
     if (raw.includes(delim)) {
       const parts = raw.split(delim).map((s) => s.trim());
       for (const part of parts) {
-        const n = parseFloat(part.replace(/[^\d.]/g, ""));
-        if (!isNaN(n) && n > 1000 && !result.amountKg) result.amountKg = n;
+        // Check for date FIRST — a date like "10/04/2026" also parses as a huge number if stripped
         const dateMatch = part.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
-        if (dateMatch && !result.deliveryDate) result.deliveryDate = parseDate(dateMatch[1]);
+        if (dateMatch && !result.deliveryDate) {
+          result.deliveryDate = parseDate(dateMatch[1]);
+          continue;
+        }
+        const n = parseFloat(part.replace(/[^\d.]/g, ""));
+        if (!isNaN(n) && n > 500 && !result.amountKg) {
+          result.amountKg = n;
+          continue;
+        }
+        // Anything left with 3+ characters is treated as doc/ticket number
+        const clean = part.replace(/[^a-zA-Z0-9]/g, "");
+        if (clean.length >= 3 && !result.docNumber) result.docNumber = part.trim();
       }
       return result;
     }
@@ -161,12 +171,12 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
       {scanned && (
         <div className="flex-1 flex flex-col justify-center p-6 gap-4">
           <div className="bg-white rounded-xl p-5 space-y-4">
-            <h2 className="font-bold text-lg">Docket Scanned</h2>
+            <h2 className="font-bold text-lg text-gray-900">Docket Scanned</h2>
             <Row label="Date" value={scanned.deliveryDate ?? "—"} />
             <Row label="Doc Number" value={scanned.docNumber ?? "—"} />
             <Row label="Kilograms" value={scanned.amountKg != null ? `${scanned.amountKg.toLocaleString()} kg` : "—"} />
             {!scanned.deliveryDate && !scanned.docNumber && scanned.amountKg == null && (
-              <div className="text-xs text-gray-400 break-all pt-1">
+              <div className="text-xs text-gray-500 break-all pt-1">
                 Raw: {scanned.rawText}
               </div>
             )}
@@ -185,9 +195,9 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-sm border-b pb-3 last:border-0 last:pb-0">
+    <div className="flex justify-between text-sm border-b border-gray-200 pb-3 last:border-0 last:pb-0">
       <span className="text-gray-500">{label}</span>
-      <span className="font-bold text-right">{value}</span>
+      <span className="font-bold text-right text-gray-900">{value}</span>
     </div>
   );
 }
