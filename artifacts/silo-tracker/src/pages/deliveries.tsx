@@ -65,9 +65,10 @@ export default function Deliveries() {
   const handleScanResult = (data: DocketData) => {
     setShowScanner(false);
     setShowForm(true);
-    if (data.amountKg != null) form.setValue("amount", data.amountKg);
-    if (data.deliveryDate) form.setValue("deliveryDate", data.deliveryDate);
-    if (data.docNumber) form.setValue("notes", `Doc: ${data.docNumber}`);
+    if (data.amountKg != null)  form.setValue("amount", data.amountKg);
+    if (data.deliveryDate)       form.setValue("deliveryDate", data.deliveryDate);
+    if (data.feedType)           form.setValue("feedType", data.feedType);
+    if (data.docNumber)          form.setValue("notes", `Doc: ${data.docNumber}`);
     toast({ title: "Docket scanned" });
   };
 

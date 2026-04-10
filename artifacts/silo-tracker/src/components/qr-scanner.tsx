@@ -7,50 +7,89 @@ export interface DocketData {
   amountKg?: number;
   deliveryDate?: string;
   docNumber?: string;
+  feedType?: string;
   rawText: string;
+}
+
+// Parse a quoted-CSV string (handles "field1","field2",... format)
+function parseCsv(raw: string): string[] {
+  const fields: string[] = [];
+  let i = 0;
+  while (i < raw.length) {
+    if (raw[i] === '"') {
+      i++;
+      let field = "";
+      while (i < raw.length) {
+        if (raw[i] === '"' && raw[i + 1] === '"') { field += '"'; i += 2; }
+        else if (raw[i] === '"') { i++; break; }
+        else field += raw[i++];
+      }
+      fields.push(field);
+    } else {
+      let field = "";
+      while (i < raw.length && raw[i] !== ",") field += raw[i++];
+      fields.push(field.trim());
+    }
+    if (i < raw.length && raw[i] === ",") i++;
+  }
+  return fields;
 }
 
 function parseDocketQr(raw: string): DocketData {
   const result: DocketData = { rawText: raw };
 
+  // ── BPL Adelaide / Australian mill quoted-CSV format ──────────────────────
+  // "Supplier","TicketNo","Date","LoadTime","DelivTime","Ref","ProdCode",
+  // "FeedType","OrderNo","Farm","Rego","Driver","Ref2","GrossKg","TareKg","NetKg"
+  if (raw.trimStart().startsWith('"')) {
+    const fields = parseCsv(raw);
+    if (fields.length >= 14) {
+      result.docNumber   = fields[1] || undefined;
+      if (fields[2]) result.deliveryDate = parseDate(fields[2]);
+      result.feedType    = fields[7] || undefined;
+      // Net weight is last field (gross - tare = net)
+      const netIdx = fields.length - 1;
+      const net = parseFloat(fields[netIdx].replace(/[^\d.]/g, ""));
+      if (!isNaN(net) && net > 0) result.amountKg = net;
+      return result;
+    }
+  }
+
+  // ── URL query-string format ────────────────────────────────────────────────
   try {
     const url = new URL(raw);
     const p = url.searchParams;
     const net = p.get("net") ?? p.get("netWeight") ?? p.get("weight");
     if (net) result.amountKg = parseFloat(net.replace(/[^\d.]/g, ""));
     result.docNumber = p.get("ticket") ?? p.get("ticketNo") ?? p.get("dispatch") ?? p.get("dispatchNo") ?? undefined;
+    result.feedType  = p.get("feedType") ?? p.get("feed") ?? undefined;
     const d = p.get("date") ?? p.get("deliveryDate");
     if (d) result.deliveryDate = parseDate(d);
     return result;
   } catch {}
 
+  // ── JSON object format ─────────────────────────────────────────────────────
   try {
     const obj = JSON.parse(raw);
     const net = obj.netWeight ?? obj.net ?? obj.weight;
     if (net) result.amountKg = parseFloat(String(net).replace(/[^\d.]/g, ""));
     result.docNumber = obj.ticketNo ?? obj.ticket ?? obj.dispatchNo ?? obj.dispatch ?? undefined;
+    result.feedType  = obj.feedType ?? obj.feed ?? undefined;
     const d = obj.deliveryDate ?? obj.date;
     if (d) result.deliveryDate = parseDate(d);
     return result;
   } catch {}
 
-  const delimiters = ["|", ",", ";", "\t"];
+  // ── Delimited (pipe / comma / semicolon / tab) format ─────────────────────
+  const delimiters = ["|", ";", "\t"];
   for (const delim of delimiters) {
     if (raw.includes(delim)) {
       const parts = raw.split(delim).map((s) => s.trim());
       for (const part of parts) {
-        // Check for date FIRST — a date like "10/04/2026" also parses as a huge number if stripped
         const dateMatch = part.match(/(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/);
-        if (dateMatch && !result.deliveryDate) {
-          result.deliveryDate = parseDate(dateMatch[1]);
-          continue;
-        }
+        if (dateMatch && !result.deliveryDate) { result.deliveryDate = parseDate(dateMatch[1]); continue; }
         const n = parseFloat(part.replace(/[^\d.]/g, ""));
-        if (!isNaN(n) && n > 500 && !result.amountKg) {
-          result.amountKg = n;
-          continue;
-        }
-        // Anything left with 3+ characters is treated as doc/ticket number
+        if (!isNaN(n) && n > 500 && !result.amountKg) { result.amountKg = n; continue; }
         const clean = part.replace(/[^a-zA-Z0-9]/g, "");
         if (clean.length >= 3 && !result.docNumber) result.docNumber = part.trim();
       }
@@ -58,6 +97,7 @@ function parseDocketQr(raw: string): DocketData {
     }
   }
 
+  // ── Plain-text keyword fallback ────────────────────────────────────────────
   const netMatch = raw.match(/net[:\s]*([0-9,]+\.?[0-9]*)\s*(kg)?/i);
   if (netMatch) result.amountKg = parseFloat(netMatch[1].replace(/,/g, ""));
 
@@ -99,11 +139,7 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
 
   const stopScanner = async () => {
     if (scannerRef.current && isRunningRef.current) {
-      try {
-        await scannerRef.current.stop();
-      } catch {
-        // already stopped — safe to ignore
-      }
+      try { await scannerRef.current.stop(); } catch {}
       isRunningRef.current = false;
     }
   };
@@ -112,20 +148,14 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
     setError(null);
     const scanner = new Html5Qrcode(containerId);
     scannerRef.current = scanner;
-
     scanner
       .start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 260, height: 260 } },
-        async (text) => {
-          await stopScanner();
-          setScanned(parseDocketQr(text));
-        },
+        async (text) => { await stopScanner(); setScanned(parseDocketQr(text)); },
         () => {}
       )
-      .then(() => {
-        isRunningRef.current = true;
-      })
+      .then(() => { isRunningRef.current = true; })
       .catch(() => {
         isRunningRef.current = false;
         setError("Camera access denied. Please allow camera permissions and try again.");
@@ -134,14 +164,11 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
 
   useEffect(() => {
     startScanner();
-    return () => {
-      stopScanner();
-    };
+    return () => { stopScanner(); };
   }, []);
 
   const handleScanAgain = async () => {
     setScanned(null);
-    // Small delay to let the DOM re-render the container before restarting
     setTimeout(() => startScanner(), 100);
   };
 
@@ -159,9 +186,7 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
           <div className="flex-1 flex items-center justify-center">
             <div id={containerId} className="w-full max-w-sm" />
           </div>
-          {error && (
-            <div className="p-4 text-center text-red-400 text-sm">{error}</div>
-          )}
+          {error && <div className="p-4 text-center text-red-400 text-sm">{error}</div>}
           <div className="p-4 text-center text-white/60 text-sm pb-10">
             Point the camera at the QR code on the delivery docket
           </div>
@@ -172,19 +197,18 @@ export function QrScanner({ onResult, onClose }: QrScannerProps) {
         <div className="flex-1 flex flex-col justify-center p-6 gap-4">
           <div className="bg-white rounded-xl p-5 space-y-4">
             <h2 className="font-bold text-lg text-gray-900">Docket Scanned</h2>
-            <Row label="Date" value={scanned.deliveryDate ?? "—"} />
-            <Row label="Doc Number" value={scanned.docNumber ?? "—"} />
-            <Row label="Kilograms" value={scanned.amountKg != null ? `${scanned.amountKg.toLocaleString()} kg` : "—"} />
+            <Row label="Ticket No" value={scanned.docNumber ?? "—"} />
+            <Row label="Date"      value={scanned.deliveryDate ?? "—"} />
+            <Row label="Feed Type" value={scanned.feedType ?? "—"} />
+            <Row label="Net Weight" value={scanned.amountKg != null ? `${scanned.amountKg.toLocaleString()} kg` : "—"} />
             {!scanned.deliveryDate && !scanned.docNumber && scanned.amountKg == null && (
-              <div className="text-xs text-gray-500 break-all pt-1">
-                Raw: {scanned.rawText}
-              </div>
+              <div className="text-xs text-gray-500 break-all pt-1">Raw: {scanned.rawText}</div>
             )}
           </div>
           <Button className="w-full h-14 text-base font-bold" onClick={() => onResult(scanned)}>
             Use This Data
           </Button>
-          <Button variant="outline" className="w-full h-12 bg-white" onClick={handleScanAgain}>
+          <Button variant="outline" className="w-full h-12 bg-white text-gray-900" onClick={handleScanAgain}>
             Scan Again
           </Button>
         </div>
