@@ -4076,12 +4076,11 @@ export default function App() {
     }
   };
 
-  // Scroll to synced row after modal closes
+  // Scroll to top (header) after sync so the column headers are visible
   useEffect(() => {
     if (pendingScrollRow === null) return;
     const raf = requestAnimationFrame(() => {
-      const tr = document.querySelector<HTMLElement>(`tr[data-row="${pendingScrollRow}"]`);
-      if (tr) tr.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
       setPendingScrollRow(null);
     });
     return () => cancelAnimationFrame(raf);
