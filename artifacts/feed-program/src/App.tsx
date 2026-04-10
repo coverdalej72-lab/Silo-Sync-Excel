@@ -4013,9 +4013,9 @@ export default function App() {
     setSiloSyncError("");
     setSiloSyncLoading(true);
     setShowSiloSync(true);
-    // Default: "correct" if a previous sync exists (most likely correcting), else "next"
-    const hasPriorSync = detectCurrentSyncDay(sheets, edits) >= 1 && lastAutoSyncTs !== null;
-    setSiloSyncMode(hasPriorSync ? "correct" : "next");
+    // Default: "correct" if today's date exists in the spreadsheet, else "next"
+    const todayInSheet = detectDayByDate(new Date(), sheets) !== null;
+    setSiloSyncMode(todayInSheet ? "correct" : "next");
     // Default unit override: "t" if user's default recording unit is tonnes
     const defUnit = localStorage.getItem("silo-default-unit") || "kg";
     setSiloSyncUnitOverride(defUnit === "t" ? "t" : "as-saved");
