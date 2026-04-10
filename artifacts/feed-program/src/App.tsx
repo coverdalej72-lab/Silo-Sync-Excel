@@ -883,7 +883,8 @@ function SheetView({
           const c = minCol + i;
           if (isShedSheet && c === 3) return null;
           // DATE column (c=2) on shed sheets: no fixed width so it absorbs leftover space
-          const colW = (isShedSheet && c === 2) ? undefined : (colWidths[c] ?? 80);
+          const rawW = colWidths[c] ?? 80;
+          const colW = (isShedSheet && c === 2) ? undefined : (isShedSheet && c === 0) ? Math.max(rawW, 40) : rawW;
           return <col key={c} style={{ width: colW, minWidth: c === 2 ? 80 : 24 }} />;
         })}
       </colgroup>
@@ -1034,8 +1035,8 @@ function SheetView({
                       textAlign: (info.hAlign as any) ?? "left",
                       verticalAlign: info.vAlign === "center" ? "middle" : info.vAlign === "bottom" ? "bottom" : "top",
                       whiteSpace: info.wrapText ? "pre-wrap" : "nowrap",
-                      overflow: "hidden",
-                      textOverflow: isEditing ? "clip" : "ellipsis",
+                      overflow: isAnyHeader ? "visible" : "hidden",
+                      textOverflow: (isAnyHeader || isEditing) ? "clip" : "ellipsis",
                       padding: isEditing ? 0 : isAnyHeader ? "2px 5px" : "1px 3px",
                       borderTop: isAnyHeader ? "none" : (info.borderTop ?? borderStyle),
                       borderBottom: isAnyHeader ? "none" : (info.borderBottom ?? borderStyle),
