@@ -3760,6 +3760,8 @@ export default function App() {
   const [siloSyncError, setSiloSyncError] = useState("");
   const [siloSyncMode, setSiloSyncMode] = useState<"next" | "correct">("next");
   const [siloSyncUnitOverride, setSiloSyncUnitOverride] = useState<"as-saved" | "t">("t");
+  const [deliverySyncLoading, setDeliverySyncLoading] = useState(false);
+  const [deliverySyncResult, setDeliverySyncResult] = useState<number | null>(null);
   const [pendingScrollRow, setPendingScrollRow] = useState<number | null>(null);
   const [autoSync, setAutoSync] = useState(() => localStorage.getItem("silo-auto-sync") !== "off");
   const [lastAutoSyncTs, setLastAutoSyncTs] = useState<number | null>(() => { const v = localStorage.getItem("silo-fp-last-sync"); return v ? parseInt(v, 10) : null; });
@@ -3986,6 +3988,7 @@ export default function App() {
   const openSiloSync = async () => {
     setSiloSyncError("");
     setSiloSyncLoading(true);
+    setDeliverySyncResult(null);
     setShowSiloSync(true);
     // Default: "correct" if today's date exists in the spreadsheet, else "next"
     const todayInSheet = detectDayByDate(new Date(), sheets) !== null;
@@ -4021,6 +4024,118 @@ export default function App() {
     return next;
   };
 
+  // ── Seed deliveries from Silo Mate (callable any time) ───────────────────
+  const DELIVERY_FEED_COLS: Record<string, { date: number; docket: number; tonnes: number }> = {
+    starter:    { date: 1,  docket: 2,  tonnes: 3  },
+    grower:     { date: 6,  docket: 7,  tonnes: 8  },
+    finisher:   { date: 10, docket: 11, tonnes: 12 },
+    withdrawl:  { date: 14, docket: 15, tonnes: 16 },
+    withdrawal: { date: 14, docket: 15, tonnes: 16 },
+    wdw:        { date: 14, docket: 15, tonnes: 16 },
+  };
+  const getDeliveryCols = (feedType: string) => {
+    const ft = feedType.toLowerCase().trim();
+    if (DELIVERY_FEED_COLS[ft]) return DELIVERY_FEED_COLS[ft];
+    if (ft.includes("start")) return DELIVERY_FEED_COLS.starter;
+    if (ft.includes("grow"))  return DELIVERY_FEED_COLS.grower;
+    if (ft.includes("fin"))   return DELIVERY_FEED_COLS.finisher;
+    if (ft.includes("with") || ft.includes("wdw")) return DELIVERY_FEED_COLS.withdrawl;
+    return null;
+  };
+
+  const doSeedDeliveries = async (): Promise<number> => {
+    const currentSheets = sheetsRef.current;
+    const currentEdits  = editsRef.current;
+    if (currentSheets.length === 0) return 0;
+
+    const eobIdx = currentSheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
+    if (eobIdx === -1) return 0;
+    const eobSheet = currentSheets[eobIdx];
+    const eobEdits  = currentEdits[eobIdx];
+    const DATA_START_ROW = 6;
+
+    try {
+      const r = await fetch("/api/deliveries");
+      if (!r.ok) return 0;
+      const deliveries: Array<{ feedType: string; amount: number; unit: string | null; notes: string | null; deliveryDate: string }> = await r.json();
+      if (!deliveries?.length) return 0;
+
+      // Collect existing dockets from BOTH original cells AND current edits
+      const existingDockets = new Set<string>();
+      const docketCols = new Set([2, 7, 11, 15]);
+      for (const [key, cell] of eobSheet.cells.entries()) {
+        if (docketCols.has(parseInt(key.split(",")[1])) && cell.value)
+          existingDockets.add(String(cell.value).trim());
+      }
+      if (eobEdits) {
+        for (const [key, val] of eobEdits.entries()) {
+          if (docketCols.has(parseInt(key.split(",")[1])) && val)
+            existingDockets.add(val.trim());
+        }
+      }
+
+      // Last occupied row for a column (checking both cells and edits)
+      const findLastRow = (dateCol: number): number => {
+        let last = DATA_START_ROW - 1;
+        for (const key of eobSheet.cells.keys()) {
+          const parts = key.split(",");
+          if (parseInt(parts[1]) === dateCol) { const rv = parseInt(parts[0]); if (rv > last) last = rv; }
+        }
+        if (eobEdits) {
+          for (const key of eobEdits.keys()) {
+            const parts = key.split(",");
+            if (parseInt(parts[1]) === dateCol) { const rv = parseInt(parts[0]); if (rv > last) last = rv; }
+          }
+        }
+        return last;
+      };
+
+      const pairs = new Map<string, string>();
+      const sectionNextRow: Record<number, number> = {};
+      let added = 0;
+
+      const sorted = [...deliveries].sort((a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime());
+
+      for (const delivery of sorted) {
+        const cols = getDeliveryCols(delivery.feedType);
+        if (!cols) continue;
+
+        const docket = delivery.notes ? delivery.notes.replace(/^Doc:\s*/i, "").trim() : "";
+        if (docket && existingDockets.has(docket)) continue;
+
+        if (!(cols.date in sectionNextRow)) sectionNextRow[cols.date] = findLastRow(cols.date) + 1;
+        const row = sectionNextRow[cols.date];
+
+        const dateStr = new Date(delivery.deliveryDate).toLocaleDateString("en-AU", {
+          weekday: "long", year: "numeric", month: "long", day: "numeric",
+        });
+        // Convert to tonnes: API stores kg when coming from QR scanner
+        const u = (delivery.unit ?? "t").toLowerCase().trim();
+        const tonnes = u === "kg" ? +(delivery.amount / 1000).toFixed(3) : delivery.amount;
+
+        pairs.set(`${row},${cols.date}`, dateStr);
+        if (docket) pairs.set(`${row},${cols.docket}`, docket);
+        pairs.set(`${row},${cols.tonnes}`, String(tonnes));
+
+        sectionNextRow[cols.date]++;
+        if (docket) existingDockets.add(docket);
+        added++;
+      }
+
+      if (pairs.size === 0) return 0;
+
+      setEdits(prev => {
+        const next = [...prev];
+        const m = new Map(next[eobIdx] ?? []);
+        pairs.forEach((val, key) => m.set(key, val));
+        next[eobIdx] = m;
+        return next;
+      });
+      setHasChanges(true);
+      return added;
+    } catch { return 0; }
+  };
+
   const clearAndResync = () => {
     const day = detectCurrentSyncDay(sheets, edits);
     const cleared = clearAllSiloEdits(edits);
@@ -4036,6 +4151,7 @@ export default function App() {
     setLastAutoSyncTs(now);
     setHasChanges(true);
     setShowSiloSync(false);
+    doSeedDeliveries(); // pull latest deliveries into EOB sheet
     const firstShed = sheets.find(s => s.name.trim().toUpperCase().includes("SHED"));
     if (firstShed) {
       let startRow = 12;
@@ -4064,6 +4180,7 @@ export default function App() {
     setLastAutoSyncTs(now);
     setHasChanges(true);
     setShowSiloSync(false);
+    doSeedDeliveries(); // pull latest deliveries into EOB sheet
     // Compute the target row so we can scroll to it after render
     const firstShed = sheets.find(s => s.name.trim().toUpperCase().includes("SHED"));
     if (firstShed) {
@@ -4272,114 +4389,12 @@ export default function App() {
       .catch(() => { /* silently ignore — app works fine without API readings */ });
   }, [sheets]);
 
-  // ── Seed deliveries from Silo Mate into "end of batch" sheet ────────────────
+  // ── Seed deliveries from Silo Mate into "end of batch" sheet on load ────────
   useEffect(() => {
     if (sheets.length === 0 || deliverySeedDoneRef.current) return;
     deliverySeedDoneRef.current = true;
-
-    // Section column mapping (0-based): date | docket | tonnes
-    const FEED_COLS: Record<string, { date: number; docket: number; tonnes: number }> = {
-      starter:    { date: 1,  docket: 2,  tonnes: 3  },
-      grower:     { date: 6,  docket: 7,  tonnes: 8  },
-      finisher:   { date: 10, docket: 11, tonnes: 12 },
-      withdrawl:  { date: 14, docket: 15, tonnes: 16 },
-      withdrawal: { date: 14, docket: 15, tonnes: 16 },
-      wdw:        { date: 14, docket: 15, tonnes: 16 },
-    };
-
-    const getCols = (feedType: string) => {
-      const ft = feedType.toLowerCase().trim();
-      if (FEED_COLS[ft]) return FEED_COLS[ft];
-      if (ft.includes("start")) return FEED_COLS.starter;
-      if (ft.includes("grow"))  return FEED_COLS.grower;
-      if (ft.includes("fin"))   return FEED_COLS.finisher;
-      if (ft.includes("with") || ft.includes("wdw")) return FEED_COLS.withdrawl;
-      return null;
-    };
-
-    fetch("/api/deliveries")
-      .then(r => r.ok ? r.json() : null)
-      .then((deliveries: Array<{
-        feedType: string; amount: number; notes: string | null; deliveryDate: string;
-      }> | null) => {
-        if (!deliveries || deliveries.length === 0) return;
-
-        const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
-        if (eobIdx === -1) return;
-        const eobSheet = sheets[eobIdx];
-
-        const DATA_START_ROW = 6; // 0-based → Excel row 7
-
-        // Collect existing docket numbers so we don't duplicate
-        const existingDockets = new Set<string>();
-        for (const [key, cell] of eobSheet.cells.entries()) {
-          const col = parseInt(key.split(",")[1]);
-          if ([2, 7, 11, 15].includes(col) && cell.value) {
-            existingDockets.add(String(cell.value).trim());
-          }
-        }
-
-        // Find the last occupied row for a given date column
-        const findLastRow = (dateCol: number): number => {
-          let last = DATA_START_ROW - 1;
-          for (const key of eobSheet.cells.keys()) {
-            const parts = key.split(",");
-            if (parseInt(parts[1]) === dateCol) {
-              const r = parseInt(parts[0]);
-              if (r > last) last = r;
-            }
-          }
-          return last;
-        };
-
-        const pairs = new Map<string, string>();
-        const sectionNextRow: Record<number, number> = {};
-
-        // Sort deliveries oldest-first so they appear in date order
-        const sorted = [...deliveries].sort(
-          (a, b) => new Date(a.deliveryDate).getTime() - new Date(b.deliveryDate).getTime()
-        );
-
-        for (const delivery of sorted) {
-          const cols = getCols(delivery.feedType);
-          if (!cols) continue;
-
-          const docket = delivery.notes
-            ? delivery.notes.replace(/^Doc:\s*/i, "").trim()
-            : "";
-
-          // Skip if this docket is already in the spreadsheet
-          if (docket && existingDockets.has(docket)) continue;
-
-          // Initialise next-row pointer for this section
-          if (!(cols.date in sectionNextRow)) {
-            sectionNextRow[cols.date] = findLastRow(cols.date) + 1;
-          }
-          const row = sectionNextRow[cols.date];
-
-          const dateStr = new Date(delivery.deliveryDate).toLocaleDateString("en-AU", {
-            weekday: "long", year: "numeric", month: "long", day: "numeric",
-          });
-
-          pairs.set(`${row},${cols.date}`, dateStr);
-          if (docket) pairs.set(`${row},${cols.docket}`, docket);
-          pairs.set(`${row},${cols.tonnes}`, String(delivery.amount));
-
-          sectionNextRow[cols.date]++;
-        }
-
-        if (pairs.size === 0) return;
-
-        setEdits(prev => {
-          const next = [...prev];
-          const m = new Map(next[eobIdx] ?? []);
-          pairs.forEach((val, key) => m.set(key, val));
-          next[eobIdx] = m;
-          return next;
-        });
-      })
-      .catch(() => { /* silently ignore */ });
-  }, [sheets]);
+    doSeedDeliveries();
+  }, [sheets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEdit = useCallback((sheetIdx: number, key: string, value: string) => {
     setEdits((prev) => {
@@ -5177,6 +5192,32 @@ export default function App() {
                     >
                       🧹 Clear All Silo Readings & Sync Today Only
                     </button>
+                  </div>
+
+                  {/* Sync Deliveries */}
+                  <div style={{ background: "#f0f9ff", border: "1.5px solid #bae6fd", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0369a1", marginBottom: 4 }}>📦 QR Deliveries → End of Batch</div>
+                    <div style={{ fontSize: 11, color: "#555", marginBottom: 8 }}>Pulls any new deliveries scanned in Silo Mate and records them into the End of Batch sheet (deduplicated by docket number).</div>
+                    <button
+                      disabled={deliverySyncLoading}
+                      onClick={async () => {
+                        setDeliverySyncLoading(true);
+                        setDeliverySyncResult(null);
+                        const n = await doSeedDeliveries();
+                        setDeliverySyncResult(n);
+                        setDeliverySyncLoading(false);
+                      }}
+                      style={{ width: "100%", padding: "8px", borderRadius: 7, border: "none", background: "#0284c7", color: "#fff", fontSize: 12, fontWeight: 700, cursor: deliverySyncLoading ? "not-allowed" : "pointer", opacity: deliverySyncLoading ? 0.7 : 1 }}
+                    >
+                      {deliverySyncLoading ? "Syncing…" : "📦 Sync Deliveries to End of Batch"}
+                    </button>
+                    {deliverySyncResult !== null && (
+                      <div style={{ marginTop: 7, fontSize: 11, fontWeight: 600, color: deliverySyncResult > 0 ? "#15803d" : "#555" }}>
+                        {deliverySyncResult > 0
+                          ? `✓ ${deliverySyncResult} new deliver${deliverySyncResult === 1 ? "y" : "ies"} added to End of Batch`
+                          : "✓ No new deliveries — End of Batch is already up to date"}
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
