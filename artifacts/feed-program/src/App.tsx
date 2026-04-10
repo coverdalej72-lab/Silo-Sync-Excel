@@ -4792,8 +4792,8 @@ export default function App() {
           --pm-primary-dim: ${appTheme.dim};
         }
       `}</style>
-      {/* Header */}
-      <div className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)" }}>
+      {/* Header — paddingTop accounts for iPhone notch */}
+      <div className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — {(farmConfig.farmType ?? "broiler") === "breeder" ? "Breeder Program" : "Feed Program"}</span>
         <div className="ml-auto flex items-center gap-2">
           {autoSaveFlash
@@ -4992,31 +4992,31 @@ export default function App() {
       {/* Spreadsheet / Summary */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2" style={{ borderColor: "var(--pm-primary-mid)" }}>
         {activeView === "eggProduction" ? (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto safe-bottom">
             <EggProductionView farmConfig={farmConfig} shedPlacement={shedPlacement} />
           </div>
         ) : activeView === "bodyWeight" ? (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto safe-bottom">
             <BodyWeightView farmConfig={farmConfig} shedPlacement={shedPlacement} />
           </div>
         ) : activeView === "flockForecast" ? (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto safe-bottom">
             <FlockForecastView sheets={sheets} edits={edits} farmConfig={farmConfig} catchMap={catchMap} />
           </div>
         ) : activeView === "history" ? (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto safe-bottom">
             <HistoryView />
           </div>
         ) : activeView === "summary" ? (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto safe-bottom">
             <SummaryView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} />
           </div>
         ) : activeView === "morts" ? (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto safe-bottom">
             <MortsView sheets={sheets} edits={edits} handleEdit={handleEdit} farmConfig={farmConfig} mortsLog={mortsLog} setMortsLog={setMortsLog} cullsLog={cullsLog} setCullsLog={setCullsLog} />
           </div>
         ) : activeView === "batchResults" ? (
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto safe-bottom">
             <BatchResultsView
               key={batchKey}
               sheets={sheets}
@@ -5047,7 +5047,7 @@ export default function App() {
             <>
               {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} />}
               {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
-              <div className="flex-1 overflow-auto">
+              <div className="flex-1 overflow-auto safe-bottom">
                 {isEob ? (
                   <EndOfBatchContent
                     sheet={current}

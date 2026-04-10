@@ -1,0 +1,24 @@
+{
+  "name": "Poultry Mate — Plans",
+  "short_name": "Poultry Mate",
+  "description": "Poultry Mate plans and pricing",
+  "start_url": "/plans/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e6b3a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/plans/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/plans/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
