@@ -1338,6 +1338,19 @@ export default function App() {
   const [showSponsorReceipt, setShowSponsorReceipt] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(false);
+
+  useEffect(() => {
+    if (!showDemoModal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShowDemoModal(false); };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [showDemoModal]);
+
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [checkoutPlan, setCheckoutPlan] = useState<typeof PLANS[0] | null>(null);
   const [showManagePortal, setShowManagePortal] = useState(false);
@@ -1519,8 +1532,8 @@ export default function App() {
             >
               See Plans & Pricing
             </a>
-            <a
-              href="mailto:coverdalej72@gmail.com"
+            <button
+              onClick={() => setShowDemoModal(true)}
               style={{
                 background: "rgba(255,255,255,0.15)",
                 color: "#fff",
@@ -1528,12 +1541,12 @@ export default function App() {
                 fontSize: 16,
                 padding: "14px 32px",
                 borderRadius: 10,
-                textDecoration: "none",
                 border: "2px solid rgba(255,255,255,0.3)",
+                cursor: "pointer",
               }}
             >
-              Book a Demo
-            </a>
+              ▶ Watch Demo
+            </button>
           </div>
         </div>
       </section>
@@ -2527,6 +2540,113 @@ export default function App() {
           </a>
         </div>
       </section>
+
+      {/* DEMO VIDEO MODAL */}
+      {showDemoModal && (
+        <div
+          onClick={() => setShowDemoModal(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9000,
+            background: "rgba(0,0,0,0.82)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "20px 16px",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 940,
+              background: "#fff",
+              borderRadius: 20,
+              overflow: "hidden",
+              boxShadow: "0 32px 100px rgba(0,0,0,0.5)",
+              display: "flex", flexDirection: "column",
+              maxHeight: "92vh",
+            }}
+          >
+            {/* Modal header */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "18px 24px",
+              borderBottom: "1px solid #e5e7eb",
+              background: "#f9fafb",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 34, height: 34, borderRadius: 9,
+                  background: "#1a5c36",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16,
+                }}>▶</div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: "#111827" }}>How Poultry Mate works</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>A walkthrough of the Feed Program & Silo Mate</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDemoModal(false)}
+                style={{
+                  width: 36, height: 36, borderRadius: "50%",
+                  border: "none",
+                  background: "#e5e7eb",
+                  fontSize: 18, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#374151", fontWeight: 700, lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Video content */}
+            <div style={{ padding: "32px 28px 36px", overflowY: "auto" }}>
+              <HowItWorksVideo />
+            </div>
+
+            {/* Modal footer CTA */}
+            <div style={{
+              padding: "18px 28px",
+              borderTop: "1px solid #e5e7eb",
+              background: "#f9fafb",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              flexWrap: "wrap", gap: 12,
+            }}>
+              <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>
+                Ready to get started? Plans from <strong style={{ color: "#111827" }}>$75/month</strong>.
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <a
+                  href="mailto:coverdalej72@gmail.com"
+                  style={{
+                    padding: "9px 20px", borderRadius: 8,
+                    border: "1.5px solid #d1d5db",
+                    color: "#374151", fontWeight: 600, fontSize: 14,
+                    textDecoration: "none", background: "#fff",
+                  }}
+                >
+                  Ask a question
+                </a>
+                <button
+                  onClick={() => {
+                    setShowDemoModal(false);
+                    document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  style={{
+                    padding: "9px 20px", borderRadius: 8,
+                    border: "none",
+                    background: "#1a5c36",
+                    color: "#fff", fontWeight: 700, fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  See Plans & Pricing →
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* FOOTER */}
       <footer style={{
