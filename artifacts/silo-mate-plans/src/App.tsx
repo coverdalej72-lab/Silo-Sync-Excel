@@ -1580,6 +1580,115 @@ export default function App() {
         </div>
       </section>
 
+      {/* SEE IT IN ACTION */}
+      <section style={{ background: "#f9fafb", padding: "80px 24px 88px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+
+          {/* Heading */}
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: 999, padding: "5px 18px", marginBottom: 16 }}>
+              <span style={{ fontSize: 16 }}>✅</span>
+              <span style={{ color: "#065f46", fontWeight: 700, fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase" }}>Designed for the shed</span>
+            </div>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 42px)", fontWeight: 900, color: "#111827", margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+              Simple enough to use<br />
+              <span style={{ color: "#1a5c36" }}>on day one.</span>
+            </h2>
+            <p style={{ fontSize: 17, color: "#6b7280", maxWidth: 560, margin: "0 auto", lineHeight: 1.7 }}>
+              No training courses. No IT support. Just open it on your laptop or phone and start tracking. Built by people who understand poultry, for people who grow it.
+            </p>
+          </div>
+
+          {/* Screenshot cards */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 32, justifyContent: "center", alignItems: "flex-start", marginBottom: 60 }}>
+
+            {/* Feed Program screenshot */}
+            <div style={{ flex: "1 1 520px", maxWidth: 640 }}>
+              <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 4px 6px rgba(0,0,0,0.05), 0 20px 60px rgba(0,0,0,0.12)", overflow: "hidden", border: "1px solid #e5e7eb" }}>
+                {/* Browser chrome bar */}
+                <div style={{ background: "#f3f4f6", borderBottom: "1px solid #e5e7eb", padding: "10px 16px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#fc5c65", display: "inline-block" }} />
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#fed330", display: "inline-block" }} />
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: "#26de81", display: "inline-block" }} />
+                  <span style={{ flex: 1, background: "#e5e7eb", borderRadius: 6, height: 22, marginLeft: 8 }} />
+                </div>
+                <img
+                  src="/plans/screenshot-feed-program.jpg"
+                  alt="Feed Program spreadsheet showing shed tracking data"
+                  style={{ width: "100%", display: "block" }}
+                />
+              </div>
+              <div style={{ marginTop: 20, paddingLeft: 4 }}>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>🖥️ Feed Program — Desktop & Tablet</div>
+                <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+                  Your complete feed tracking spreadsheet in the browser. All sheds, all days, with automatic feed-on-hand calculations, silo readings, and end-of-batch reporting — no Excel install required.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 12 }}>
+                  {["Auto feed-on-hand calc", "Multi-shed tabs", "Silo sync", "One-click export"].map(f => (
+                    <span key={f} style={{ fontSize: 13, color: "#059669", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ fontSize: 10 }}>✓</span> {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Silo Mate mobile screenshot */}
+            <div style={{ flex: "1 1 220px", maxWidth: 300 }}>
+              <div style={{ background: "#1f2937", borderRadius: 40, boxShadow: "0 4px 6px rgba(0,0,0,0.1), 0 25px 70px rgba(0,0,0,0.2)", overflow: "hidden", border: "6px solid #374151", padding: "12px 6px 6px" }}>
+                {/* Phone notch */}
+                <div style={{ width: 80, height: 20, background: "#1f2937", borderRadius: 10, margin: "0 auto 4px", position: "relative", zIndex: 1 }} />
+                <div style={{ borderRadius: 28, overflow: "hidden" }}>
+                  <img
+                    src="/plans/screenshot-silo-mate.jpg"
+                    alt="Silo Mate mobile app showing silo readings entry"
+                    style={{ width: "100%", display: "block" }}
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: 20, paddingLeft: 4 }}>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>📱 Silo Mate — iPhone & Android</div>
+                <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+                  Record silo readings and scan delivery dockets right from the shed — no paper, no re-keying. Syncs instantly to the Feed Program.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 12 }}>
+                  {["QR docket scanning", "Instant sync", "Works offline", "Add to home screen"].map(f => (
+                    <span key={f} style={{ fontSize: 13, color: "#059669", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ fontSize: 10 }}>✓</span> {f}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* How it works steps */}
+          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "36px 40px" }}>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <span style={{ fontWeight: 800, fontSize: 20, color: "#111827" }}>How it works — 3 simple steps</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "center" }}>
+              {[
+                { step: "1", icon: "📤", title: "Upload your spreadsheet", desc: "Drop your existing Excel feed program in and it loads instantly. All your sheds, formulas, and history carry over." },
+                { step: "2", icon: "📱", title: "Record silos from the shed", desc: "Walk the shed, tap in silo readings (or scan the docket QR), hit Save. The Feed Program updates automatically." },
+                { step: "3", icon: "📊", title: "Track, review & export", desc: "View live feed-on-hand, get low-feed alerts, and export your end-of-batch results in one click." },
+              ].map(({ step, icon, title, desc }) => (
+                <div key={step} style={{ flex: "1 1 240px", maxWidth: 300, display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: "#1a5c36", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                    {icon}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: "#111827", marginBottom: 6 }}>{title}</div>
+                    <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.6 }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      </section>
+
       {/* BATCH HISTORY FEATURE */}
       <section style={{ background: "linear-gradient(135deg, #0f3d24 0%, #1a5c36 60%, #217346 100%)", padding: "72px 24px", color: "#fff" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
