@@ -917,7 +917,7 @@ function SheetView({
           const eobStickyTop = 0;
 
           return (
-            <tr key={r} style={{ height: rowH, background: rowBg }}>
+            <tr key={r} data-row={r} style={{ height: rowH, background: rowBg }}>
               {Array.from({ length: displayMaxCol - minCol + 1 }, (_, ci) => {
                 const c = minCol + ci;
                 if (isShedSheet && c === 3) return null;
@@ -3751,6 +3751,7 @@ export default function App() {
   const [siloSyncError, setSiloSyncError] = useState("");
   const [siloSyncMode, setSiloSyncMode] = useState<"next" | "correct">("next");
   const [siloSyncUnitOverride, setSiloSyncUnitOverride] = useState<"as-saved" | "t">("as-saved");
+  const [pendingScrollRow, setPendingScrollRow] = useState<number | null>(null);
   const [autoSync, setAutoSync] = useState(() => localStorage.getItem("silo-auto-sync") !== "off");
   const [lastAutoSyncTs, setLastAutoSyncTs] = useState<number | null>(() => { const v = localStorage.getItem("silo-fp-last-sync"); return v ? parseInt(v, 10) : null; });
   const lastSyncHashRef = useRef(localStorage.getItem("silo-fp-sync-hash") ?? "");
@@ -4011,7 +4012,29 @@ export default function App() {
     setLastAutoSyncTs(now);
     setHasChanges(true);
     setShowSiloSync(false);
+    // Compute the target row so we can scroll to it after render
+    const firstShed = sheets.find(s => s.name.trim().toUpperCase().includes("SHED"));
+    if (firstShed) {
+      let startRow = 12;
+      for (let r = 9; r <= 16; r++) {
+        const v0 = String(firstShed.cells.get(`${r},0`)?.value ?? "").trim();
+        const v1 = String(firstShed.cells.get(`${r},1`)?.value ?? "").trim();
+        if (v0 === "1" || v1 === "1") { startRow = r; break; }
+      }
+      setPendingScrollRow(startRow + (day - 1));
+    }
   };
+
+  // Scroll to synced row after modal closes
+  useEffect(() => {
+    if (pendingScrollRow === null) return;
+    const raf = requestAnimationFrame(() => {
+      const tr = document.querySelector<HTMLElement>(`tr[data-row="${pendingScrollRow}"]`);
+      if (tr) tr.scrollIntoView({ behavior: "smooth", block: "center" });
+      setPendingScrollRow(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [pendingScrollRow]);
 
   // Initialize and sync dark-mode class with Silo Tracker
   useEffect(() => {
