@@ -3831,8 +3831,8 @@ export default function App() {
   const feedAlerts = useMemo(() => computeFeedAlerts(sheets, edits, farmConfig), [sheets, edits, farmConfig]);
 
   // ── Silo Mate sync ──────────────────────────────────────────────────────────
-  const toKg = (amount: number, unit: string): number => {
-    const u = unit.trim().toLowerCase();
+  const toKg = (amount: number, unit: string | null | undefined): number => {
+    const u = (unit ?? "kg").trim().toLowerCase();
     if (u === "t" || u === "tonne" || u === "tonnes" || u === "ton" || u === "tons") return amount * 1000;
     return amount;
   };
@@ -4122,7 +4122,7 @@ export default function App() {
 
         for (const shed of data.sheds as Array<{
           shedGroupName: string;
-          silos: Array<{ letter: string; saved: boolean; amountRemaining: number | null }>;
+          silos: Array<{ letter: string; saved: boolean; amountRemaining: number | null; unit: string | null }>;
         }>) {
           const nums = shed.shedGroupName.match(/\d+/g) ?? [];
 
@@ -4153,7 +4153,7 @@ export default function App() {
             if (!silo.saved || silo.amountRemaining === null) continue;
             const col = letterToCol[silo.letter];
             if (col === undefined) continue;
-            pairs.set(`${dateRow},${col}`, String(silo.amountRemaining));
+            pairs.set(`${dateRow},${col}`, String(toKg(silo.amountRemaining, silo.unit)));
           }
 
           if (pairs.size > 0) seedMap.set(sheetIdx, pairs);
