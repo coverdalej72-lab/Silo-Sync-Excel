@@ -3896,6 +3896,7 @@ export default function App() {
       }
       return next;
     });
+    localStorage.setItem("silo-fp-last-sync", Date.now().toString());
     setHasChanges(true);
     setShowSiloSync(false);
   };

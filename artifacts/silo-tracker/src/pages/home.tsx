@@ -10,6 +10,35 @@ import { useToast } from "@/hooks/use-toast";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { cn } from "@/lib/utils";
 
+const SYNC_KEY = "silo-fp-last-sync";
+
+function useLastFpSync() {
+  const [ts, setTs] = useState<number | null>(() => {
+    const v = localStorage.getItem(SYNC_KEY);
+    return v ? parseInt(v, 10) : null;
+  });
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SYNC_KEY) setTs(e.newValue ? parseInt(e.newValue, 10) : null);
+    };
+    window.addEventListener("storage", onStorage);
+    const interval = setInterval(() => {
+      const v = localStorage.getItem(SYNC_KEY);
+      setTs(v ? parseInt(v, 10) : null);
+    }, 30_000);
+    return () => { window.removeEventListener("storage", onStorage); clearInterval(interval); };
+  }, []);
+  return ts;
+}
+
+function formatRelative(ts: number): string {
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
 type SiloFormState = {
   amountRemaining: string;
   unit: string;
@@ -49,6 +78,7 @@ export default function Home() {
   const queryClient = useQueryClient();
   const batchCreate = useBatchCreateReadings();
   const { getShedName, isShedActive, getActiveSiloLetters } = useFarmConfig();
+  const lastSync = useLastFpSync();
 
   const { data: progress, isLoading } = useGetTodayProgress({
     query: { queryKey: getGetTodayProgressQueryKey() }
@@ -119,6 +149,12 @@ export default function Home() {
 
   return (
     <div className="px-3 py-3 pb-8">
+      {lastSync && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-semibold">
+          <span className="text-base">✅</span>
+          <span>Synced to Feed Program <span className="opacity-70 font-medium">{formatRelative(lastSync)}</span></span>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {progress.sheds.filter(shed => isShedActive(shed.shedGroupId)).map(shed => {
         const activeLetters = getActiveSiloLetters(shed.shedGroupId);
