@@ -3838,10 +3838,8 @@ export default function App() {
     return amount;
   };
 
-  // Detect the CURRENT day (last row that already has silo data — for corrections/overwrites)
-  const detectCurrentSyncDay = (currentSheets: typeof sheets, currentEdits: typeof edits): number => {
-    let lastSiloRow = -1;
-    let startRowFound = 12;
+  // ── Shared helper: find the first SHED sheet's start row ──────────────────
+  const findShedStartRow = (currentSheets: typeof sheets): { sheetIdx: number; startRow: number } => {
     for (let i = 0; i < currentSheets.length; i++) {
       const tab = currentSheets[i].name.trim().toUpperCase();
       if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
@@ -3853,47 +3851,82 @@ export default function App() {
         const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
         if (v0 === "1" || v1 === "1") { startRow = r; break; }
       }
-      startRowFound = startRow;
-      const sheetEdits = currentEdits[i];
-      for (let r = startRow; r < startRow + 60; r++) {
-        const hasK = sheetEdits?.has(`${r},${COL_K}`) || cells.has(`${r},${COL_K}`);
-        const hasL = sheetEdits?.has(`${r},${COL_L}`) || cells.has(`${r},${COL_L}`);
-        const hasM = sheetEdits?.has(`${r},${COL_M}`) || cells.has(`${r},${COL_M}`);
-        if (hasK || hasL || hasM) lastSiloRow = r;
-      }
-      break;
+      return { sheetIdx: i, startRow };
     }
-    if (lastSiloRow < 0) return 1;
-    return lastSiloRow - startRowFound + 1; // Same row — overwrite
+    return { sheetIdx: -1, startRow: 12 };
   };
 
-  // Detect which batch day to target (last row with silo data + 1, or 1 if none yet)
-  const detectNextSyncDay = (currentSheets: typeof sheets, currentEdits: typeof edits): number => {
-    let lastSiloRow = -1;
-    let startRowFound = 12;
-    for (let i = 0; i < currentSheets.length; i++) {
-      const tab = currentSheets[i].name.trim().toUpperCase();
-      if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
-      if (!tab.includes("SHED")) continue;
-      const cells = currentSheets[i].cells;
-      let startRow = 12;
-      for (let r = 9; r <= 16; r++) {
-        const v0 = String(cells.get(`${r},0`)?.value ?? "").trim();
-        const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
-        if (v0 === "1" || v1 === "1") { startRow = r; break; }
+  // ── Find the batch day number by matching today's date in the spreadsheet ──
+  // Compares the formatted date cell (col 1) against today using multiple formats.
+  // Returns 1-based day number, or null if no match found.
+  const detectDayByDate = (
+    targetDate: Date,
+    currentSheets: typeof sheets
+  ): number | null => {
+    const { sheetIdx, startRow } = findShedStartRow(currentSheets);
+    if (sheetIdx === -1) return null;
+    const cells = currentSheets[sheetIdx].cells;
+    // Build candidate strings for today
+    const targetIso = targetDate.toISOString().slice(0, 10); // "2026-04-10"
+    const targetEnAU = targetDate.toLocaleDateString("en-AU", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+    }); // "Thursday, 10 April 2026"
+    const targetShort = targetDate.toLocaleDateString("en-AU"); // "10/04/2026"
+
+    const isSameDay = (cellVal: string): boolean => {
+      const v = cellVal.trim();
+      if (!v) return false;
+      if (v === targetEnAU || v === targetIso || v === targetShort) return true;
+      // Try parsing the cell value as a date and compare
+      const parsed = parseDateInput(v);
+      if (parsed) {
+        return parsed.getFullYear() === targetDate.getFullYear() &&
+               parsed.getMonth() === targetDate.getMonth() &&
+               parsed.getDate() === targetDate.getDate();
       }
-      startRowFound = startRow;
-      const sheetEdits = currentEdits[i];
-      for (let r = startRow; r < startRow + 60; r++) {
-        const hasK = sheetEdits?.has(`${r},${COL_K}`) || cells.has(`${r},${COL_K}`);
-        const hasL = sheetEdits?.has(`${r},${COL_L}`) || cells.has(`${r},${COL_L}`);
-        const hasM = sheetEdits?.has(`${r},${COL_M}`) || cells.has(`${r},${COL_M}`);
-        if (hasK || hasL || hasM) lastSiloRow = r;
-      }
-      break; // Only need to check first shed sheet
+      return false;
+    };
+
+    for (let r = startRow; r < startRow + 65; r++) {
+      const dateVal = String(cells.get(`${r},1`)?.value ?? "");
+      if (isSameDay(dateVal)) return r - startRow + 1;
     }
-    if (lastSiloRow < 0) return 1; // No silo data yet → start at day 1
-    return lastSiloRow - startRowFound + 2; // Day after last synced row
+    return null;
+  };
+
+  // Detect the CURRENT day (today's row by date, fallback: last row with real silo data)
+  const detectCurrentSyncDay = (currentSheets: typeof sheets, currentEdits: typeof edits): number => {
+    const byDate = detectDayByDate(new Date(), currentSheets);
+    if (byDate !== null) return byDate;
+    // Fallback: last row with a non-empty silo edit
+    const { sheetIdx, startRow } = findShedStartRow(currentSheets);
+    if (sheetIdx === -1) return 1;
+    const cells = currentSheets[sheetIdx].cells;
+    const sheetEdits = currentEdits[sheetIdx];
+    let lastSiloRow = -1;
+    for (let r = startRow; r < startRow + 65; r++) {
+      const kVal = sheetEdits?.get(`${r},${COL_K}`) ?? "";
+      const lVal = sheetEdits?.get(`${r},${COL_L}`) ?? "";
+      const mVal = sheetEdits?.get(`${r},${COL_M}`) ?? "";
+      const hasReal = [kVal, lVal, mVal].some(v => v !== "" && v !== "0" && !isNaN(Number(v)) && Number(v) > 0);
+      if (hasReal) lastSiloRow = r;
+    }
+    if (lastSiloRow === -1) {
+      // Fallback: check original cells (non-zero values only)
+      for (let r = startRow; r < startRow + 65; r++) {
+        const kRaw = String(cells.get(`${r},${COL_K}`)?.value ?? "");
+        const lRaw = String(cells.get(`${r},${COL_L}`)?.value ?? "");
+        const mRaw = String(cells.get(`${r},${COL_M}`)?.value ?? "");
+        const hasReal = [kRaw, lRaw, mRaw].some(v => v !== "" && v !== "0" && !isNaN(Number(v)) && Number(v) > 0);
+        if (hasReal) lastSiloRow = r;
+      }
+    }
+    return lastSiloRow < 0 ? 1 : lastSiloRow - startRow + 1;
+  };
+
+  // Detect next day (day AFTER today, or first empty row after last real silo data)
+  const detectNextSyncDay = (currentSheets: typeof sheets, currentEdits: typeof edits): number => {
+    return detectCurrentSyncDay(currentSheets, currentEdits) + 1;
   };
 
   // Core apply: writes sheds data into edits for a given batch day
