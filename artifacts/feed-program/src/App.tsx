@@ -4076,11 +4076,19 @@ export default function App() {
     }
   };
 
-  // Scroll to top (header) after sync so the column headers are visible
+  // After sync: scroll so today's row sits just below the sticky column headers
   useEffect(() => {
     if (pendingScrollRow === null) return;
     const raf = requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const tr = document.querySelector<HTMLElement>(`tr[data-row="${pendingScrollRow}"]`);
+      if (tr) {
+        // Offset accounts for fixed top bar (~56px) + tab bar (~44px) + sticky table headers (~80px)
+        const rect = tr.getBoundingClientRect();
+        const target = window.scrollY + rect.top - 180;
+        window.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
       setPendingScrollRow(null);
     });
     return () => cancelAnimationFrame(raf);
