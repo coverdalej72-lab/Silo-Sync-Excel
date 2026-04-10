@@ -4830,7 +4830,11 @@ export default function App() {
                 transform: isActive ? "translateY(1px)" : "translateY(3px)",
               }}
             >
-              {alertDotColor && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: alertDotColor, marginRight: 5, verticalAlign: "middle", animation: tabAlert?.urgency === "critical" ? "pulse 1.2s infinite" : "none" }} />}
+              {tabAlert && (
+                <span style={{ marginRight: 4, fontSize: 12, animation: tabAlert.urgency === "critical" ? "pulse 1.2s infinite" : "none", display: "inline-block" }}>
+                  🔔
+                </span>
+              )}
               {s.name}{hasEdits ? " •" : ""}
             </button>
           );
@@ -4876,11 +4880,6 @@ export default function App() {
           📈 History
         </button>
 
-        {/* Feed alert chips — sit inside the green header, no extra height */}
-        <FeedAlertBanner
-          alerts={feedAlerts}
-          onGoToShed={(sheetIdx) => { setActive(sheetIdx); setActiveView(null); }}
-        />
       </div>
 
       {/* Spreadsheet / Summary */}
