@@ -3792,6 +3792,7 @@ export default function App() {
   const [autoSaveFlash, setAutoSaveFlash] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
   const [settingsBatchNum, setSettingsBatchNum] = useState("");
+  const [settingsDefaultUnit, setSettingsDefaultUnit] = useState<"kg"|"t">("kg");
   const t = useMemo(() => createTranslator(farmConfig.language), [farmConfig.language]);
   const workbookRef = useRef<WorkBook | null>(null);
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
@@ -4738,7 +4739,7 @@ export default function App() {
             </button>
           </div>
           <button
-            onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setSettingsBatchNum(localStorage.getItem("silo-batch-num") ?? ""); setShowSettings(true); }}
+            onClick={() => { setSettingsFarmName(farmConfig.farmName ?? ""); setSettingsBatchNum(localStorage.getItem("silo-batch-num") ?? ""); setSettingsDefaultUnit((localStorage.getItem("silo-default-unit") as "kg"|"t") || "kg"); setShowSettings(true); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/30"
             title={t("settings")}
           >
@@ -5117,7 +5118,10 @@ export default function App() {
             <div style={{ padding: "20px 20px 32px", flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
               {/* Farm Name */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("farmName")}</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>{t("farmName")}</label>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Mate</span>
+                </div>
                 <input
                   value={settingsFarmName}
                   onChange={e => setSettingsFarmName(e.target.value)}
@@ -5128,7 +5132,10 @@ export default function App() {
 
               {/* Batch Number */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Batch Number</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>Batch Number</label>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Mate</span>
+                </div>
                 <input
                   type="number"
                   min="1"
@@ -5137,7 +5144,32 @@ export default function App() {
                   placeholder="e.g. 42"
                   style={{ width: "100%", border: "1.5px solid #c8d8c8", borderRadius: 6, padding: "8px 12px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
                 />
-                <p style={{ fontSize: 12, color: "#666", marginTop: 5 }}>Shown in Batch Results and End of Batch reports. Shared with Silo Mate.</p>
+                <p style={{ fontSize: 12, color: "#666", marginTop: 5 }}>Shown in Batch Results and End of Batch reports.</p>
+              </div>
+
+              {/* Default Recording Unit */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>Default Silo Unit</label>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Mate</span>
+                </div>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Default unit used when recording silo readings in Silo Mate.</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["kg", "t"] as const).map(u => (
+                    <button
+                      key={u}
+                      onClick={() => setSettingsDefaultUnit(u)}
+                      style={{
+                        flex: 1, padding: "9px 0", borderRadius: 7, fontWeight: 700, fontSize: 14, cursor: "pointer",
+                        border: `2px solid ${settingsDefaultUnit === u ? "var(--pm-primary)" : "#ddd"}`,
+                        background: settingsDefaultUnit === u ? "var(--pm-primary-soft)" : "#f9f9f9",
+                        color: settingsDefaultUnit === u ? "var(--pm-primary)" : "#888",
+                      }}
+                    >
+                      {u === "kg" ? "kg  (kilograms)" : "t  (tonnes)"}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Farm Type */}
@@ -5196,11 +5228,14 @@ export default function App() {
 
               {/* Active Sheds */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("activeSheds")}</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>{t("activeSheds")}</label>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Mate</span>
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {SHED_SHEET_ORDER.map(shedGroupId => {
-                    const shedNums = `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
                     const existing = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+                    const shedNums = (existing as any)?.customName || `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
                     const isActive = existing ? existing.active !== false : true;
                     return (
                       <label key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "8px 12px", borderRadius: 7, background: isActive ? "var(--pm-primary-soft)" : "#f5f5f5", border: `1.5px solid ${isActive ? "var(--pm-primary)" : "#ddd"}` }}>
@@ -5256,7 +5291,10 @@ export default function App() {
 
               {/* Theme Picker */}
               <div>
-                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("themeLabel")}</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>{t("themeLabel")}</label>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Mate</span>
+                </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {APP_THEMES.map(t => {
                     const active = (farmConfig.theme ?? "forest") === t.id;
@@ -5374,6 +5412,8 @@ export default function App() {
                   } else {
                     localStorage.removeItem("silo-batch-num");
                   }
+                  localStorage.setItem("silo-default-unit", settingsDefaultUnit);
+                  window.dispatchEvent(new StorageEvent("storage", { key: "silo-default-unit", newValue: settingsDefaultUnit }));
                   setShowSettings(false);
                 }}
                 style={{ flex: 1, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}

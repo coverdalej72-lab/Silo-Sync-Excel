@@ -234,6 +234,13 @@ function AddToHomeScreenSection() {
 
 function DefaultUnitToggle() {
   const [unit, setUnit] = useState(() => localStorage.getItem("silo-default-unit") || "kg");
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === "silo-default-unit" && e.newValue) setUnit(e.newValue);
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
   return (
     <div className="flex rounded-xl overflow-hidden border border-border/50">
       {(["kg", "t"] as const).map(u => (
