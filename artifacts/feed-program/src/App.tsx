@@ -3942,8 +3942,6 @@ export default function App() {
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
       setSiloSyncReadings(data.sheds ?? []);
-      const detected = detectNextSyncDay(sheets, edits);
-      setSiloSyncDay(String(Math.max(1, detected)));
     } catch {
       setSiloSyncError("Could not reach Silo Mate. Make sure you're connected.");
     } finally {
@@ -3952,8 +3950,7 @@ export default function App() {
   };
 
   const applySiloSync = () => {
-    const day = parseInt(siloSyncDay, 10);
-    if (!day || day < 1 || day > 60) { setSiloSyncError("Please enter a valid batch day (1–60)."); return; }
+    const day = detectNextSyncDay(sheets, edits);
     const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, edits);
     setEdits(nextEdits);
     const hash = siloSyncReadings.map(s =>
@@ -4943,7 +4940,10 @@ export default function App() {
           <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 8px 40px rgba(0,0,0,0.28)", width: 420, maxWidth: "94vw", overflow: "hidden" }}>
             {/* Header */}
             <div style={{ background: "var(--pm-primary)", color: "#fff", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 800, fontSize: 16 }}>🔄 Sync from Silo Mate</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>🔄 Sync from Silo Mate</div>
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
+              </div>
               <button onClick={() => setShowSiloSync(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
             </div>
             <div style={{ padding: "18px 20px 20px", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
@@ -4954,7 +4954,7 @@ export default function App() {
               ) : (
                 <>
                   <p style={{ fontSize: 13, color: "#555", marginBottom: 14 }}>
-                    Today's Silo Mate readings ready to sync. Confirm the batch day and tap Apply.
+                    Today's readings from Silo Mate. Tap <strong>Apply</strong> to sync kg values into the Feed Program spreadsheet.
                   </p>
 
                   {/* Readings grid */}
@@ -4985,20 +4985,6 @@ export default function App() {
                         </>
                       );
                     })}
-                  </div>
-
-                  {/* Batch day input */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: "#333", whiteSpace: "nowrap" }}>Batch Day:</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={siloSyncDay}
-                      onChange={e => { setSiloSyncDay(e.target.value); setSiloSyncError(""); }}
-                      style={{ width: 70, border: "1.5px solid #ccc", borderRadius: 6, padding: "5px 8px", fontSize: 14, fontWeight: 700, textAlign: "center" }}
-                    />
-                    <span style={{ fontSize: 12, color: "#888" }}>Which day of the batch is today?</span>
                   </div>
 
                   {siloSyncError && <div style={{ color: "#dc2626", fontSize: 13, marginBottom: 10 }}>{siloSyncError}</div>}
