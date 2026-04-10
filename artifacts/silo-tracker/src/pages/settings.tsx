@@ -232,6 +232,28 @@ function AddToHomeScreenSection() {
   );
 }
 
+function DefaultUnitToggle() {
+  const [unit, setUnit] = useState(() => localStorage.getItem("silo-default-unit") || "kg");
+  return (
+    <div className="flex rounded-xl overflow-hidden border border-border/50">
+      {(["kg", "t"] as const).map(u => (
+        <button
+          key={u}
+          onClick={() => { localStorage.setItem("silo-default-unit", u); setUnit(u); }}
+          className={cn(
+            "px-4 py-2 text-sm font-bold transition-colors",
+            unit === u
+              ? "bg-primary text-primary-foreground"
+              : "bg-secondary text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {u}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function Settings() {
   const { config, updateFarmName, updateShedName, updateSiloTonnage, toggleShedActive, addSilo, removeSilo, toggleSetupLock } = useFarmConfig();
   const { theme, toggle: toggleTheme } = useTheme();
@@ -494,6 +516,25 @@ export default function Settings() {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Recording */}
+      <div>
+        <SectionLabel title="Recording" />
+        <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0 text-base font-extrabold text-primary">
+              t
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-tight">Default Unit</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Unit pre-selected when entering silo readings
+              </p>
+            </div>
+            <DefaultUnitToggle />
+          </div>
         </div>
       </div>
 
