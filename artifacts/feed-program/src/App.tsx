@@ -1221,74 +1221,38 @@ function computeFeedAlerts(
 }
 
 function FeedAlertBanner({ alerts, onGoToShed }: { alerts: FeedAlert[]; onGoToShed: (sheetIdx: number) => void }) {
-  const [expanded, setExpanded] = useState(true);
   if (alerts.length === 0) return null;
-
-  const hasCritical = alerts.some(a => a.urgency === "critical");
-  const hasWarning  = alerts.some(a => a.urgency === "warning");
-  const topUrgency  = hasCritical ? "critical" : hasWarning ? "warning" : "watch";
-
-  const colors = {
-    critical: { bg: "#fff0f0", border: "#f5c6cb", accent: "#c0392b", label: "🚨 FEED CRITICAL — ORDER IMMEDIATELY" },
-    warning:  { bg: "#fff8f0", border: "#ffe0b2", accent: "#e67e22", label: "⚠️ FEED LOW — ORDER NOW (within 7-day lead time)" },
-    watch:    { bg: "#fffde7", border: "#fff3cd", accent: "#f39c12", label: "📋 FEED WATCH — Order soon" },
-  };
-  const c = colors[topUrgency];
-
   return (
-    <div style={{ background: c.bg, borderBottom: `3px solid ${c.accent}`, padding: "0", fontFamily: "Inter,'Segoe UI',sans-serif" }}>
-      {/* Banner header row */}
-      <div
-        style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", cursor: "pointer" }}
-        onClick={() => setExpanded(e => !e)}
-      >
-        <div style={{ fontWeight: 800, fontSize: 12, color: c.accent, flex: 1 }}>{c.label}</div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {alerts.map((a, i) => (
-            <span key={i} style={{
-              background: a.urgency === "critical" ? "#c0392b" : a.urgency === "warning" ? "#e67e22" : "#f39c12",
-              color: "#fff", borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700,
-            }}>
-              {a.shedGroupName} · {a.daysRemaining.toFixed(1)}d
-            </span>
-          ))}
-        </div>
-        <div style={{ fontSize: 12, color: c.accent, fontWeight: 700 }}>{expanded ? "▲" : "▼"}</div>
-      </div>
-
-      {/* Expanded detail cards */}
-      {expanded && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "0 14px 12px" }}>
-          {alerts.map((a, i) => {
-            const urgColor = a.urgency === "critical" ? "#c0392b" : a.urgency === "warning" ? "#e67e22" : "#f39c12";
-            const orderBy = new Date();
-            orderBy.setDate(orderBy.getDate() + Math.max(0, Math.floor(a.daysRemaining) - FEED_ORDER_LEAD_DAYS));
-            const orderByStr = a.daysRemaining <= FEED_ORDER_LEAD_DAYS
-              ? "Order TODAY"
-              : `Order by ${orderBy.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}`;
-            return (
-              <div
-                key={i}
-                onClick={() => onGoToShed(a.sheetIdx)}
-                style={{ background: "#fff", border: `2px solid ${urgColor}`, borderRadius: 10, padding: "10px 14px", minWidth: 180, cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}
-              >
-                <div style={{ fontWeight: 800, fontSize: 13, color: "#333", marginBottom: 4 }}>{a.shedGroupName}</div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: urgColor, lineHeight: 1 }}>{a.daysRemaining.toFixed(1)}</div>
-                <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>days remaining</div>
-                <div style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>
-                  <strong>{Math.round(a.feedOnHand).toLocaleString()} kg</strong> on hand
-                </div>
-                <div style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>
-                  <strong>{Math.round(a.dailyUsage).toLocaleString()} kg</strong> / day
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: urgColor, background: `${urgColor}18`, borderRadius: 5, padding: "3px 8px", textAlign: "center" }}>
-                  {orderByStr}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <div style={{ display: "flex", alignItems: "center", gap: 5, marginLeft: "auto", paddingBottom: 4, flexShrink: 0 }}>
+      {alerts.map((a, i) => {
+        const bg = a.urgency === "critical" ? "#c0392b" : a.urgency === "warning" ? "#e67e22" : "#d4a017";
+        const pulse = a.urgency === "critical";
+        return (
+          <button
+            key={i}
+            onClick={() => onGoToShed(a.sheetIdx)}
+            title={a.urgency === "critical" ? "FEED CRITICAL — click to go to shed" : a.urgency === "warning" ? "Feed low — click to go to shed" : "Feed watch — click to go to shed"}
+            style={{
+              background: bg,
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "3px 8px",
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              animation: pulse ? "pulse 1.2s infinite" : "none",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {a.urgency === "critical" ? "🚨" : a.urgency === "warning" ? "⚠️" : "📋"}
+            {a.shedGroupName} · {a.daysRemaining.toFixed(1)}d
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -4911,13 +4875,13 @@ export default function App() {
           style={{ backgroundColor: activeView === "history" ? "#fff" : "#2d9e5f", color: activeView === "history" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "history" ? "#ccc" : "#27885200", transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
           📈 History
         </button>
-      </div>
 
-      {/* Feed Alert Banner */}
-      <FeedAlertBanner
-        alerts={feedAlerts}
-        onGoToShed={(sheetIdx) => { setActive(sheetIdx); setActiveView(null); }}
-      />
+        {/* Feed alert chips — sit inside the green header, no extra height */}
+        <FeedAlertBanner
+          alerts={feedAlerts}
+          onGoToShed={(sheetIdx) => { setActive(sheetIdx); setActiveView(null); }}
+        />
+      </div>
 
       {/* Spreadsheet / Summary */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2" style={{ borderColor: "var(--pm-primary-mid)" }}>
