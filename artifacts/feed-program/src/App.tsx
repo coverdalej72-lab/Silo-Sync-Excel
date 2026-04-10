@@ -3997,6 +3997,49 @@ export default function App() {
     }
   };
 
+  const clearAllSiloEdits = (currentEdits: typeof edits): typeof edits => {
+    const next = [...currentEdits];
+    for (let i = 0; i < sheets.length; i++) {
+      const tab = sheets[i].name.trim().toUpperCase();
+      if (!tab.includes("SHED")) continue;
+      const sheetEdits = new Map(next[i] ?? []);
+      for (let r = 9; r <= 80; r++) {
+        sheetEdits.delete(`${r},${COL_K}`);
+        sheetEdits.delete(`${r},${COL_L}`);
+        sheetEdits.delete(`${r},${COL_M}`);
+      }
+      next[i] = sheetEdits;
+    }
+    return next;
+  };
+
+  const clearAndResync = () => {
+    const day = detectCurrentSyncDay(sheets, edits);
+    const cleared = clearAllSiloEdits(edits);
+    const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, cleared, siloSyncUnitOverride === "t" ? "t" : null);
+    setEdits(nextEdits);
+    const hash = siloSyncReadings.map(s =>
+      s.silos.filter(x => x.saved).map(x => `${x.letter}:${x.amountRemaining}:${x.unit}`).join(",")
+    ).join("|");
+    lastSyncHashRef.current = hash;
+    localStorage.setItem("silo-fp-sync-hash", hash);
+    const now = Date.now();
+    localStorage.setItem("silo-fp-last-sync", String(now));
+    setLastAutoSyncTs(now);
+    setHasChanges(true);
+    setShowSiloSync(false);
+    const firstShed = sheets.find(s => s.name.trim().toUpperCase().includes("SHED"));
+    if (firstShed) {
+      let startRow = 12;
+      for (let r = 9; r <= 16; r++) {
+        const v0 = String(firstShed.cells.get(`${r},0`)?.value ?? "").trim();
+        const v1 = String(firstShed.cells.get(`${r},1`)?.value ?? "").trim();
+        if (v0 === "1" || v1 === "1") { startRow = r; break; }
+      }
+      setPendingScrollRow(startRow + (day - 1));
+    }
+  };
+
   const applySiloSync = () => {
     const day = siloSyncMode === "correct"
       ? detectCurrentSyncDay(sheets, edits)
@@ -5101,6 +5144,18 @@ export default function App() {
                       ? "Overwrites today's silo kg values (use this to fix a mistake)"
                       : "Writes to the next empty row in the spreadsheet"}
                   </p>
+
+                  {/* Clear & Resync */}
+                  <div style={{ background: "#fff8f0", border: "1.5px solid #f5cba7", borderRadius: 8, padding: "10px 14px", marginBottom: 14 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#b05a00", marginBottom: 4 }}>🧹 Readings scattered across rows?</div>
+                    <div style={{ fontSize: 11, color: "#888", marginBottom: 8 }}>This wipes ALL silo values from the spreadsheet and writes only today's reading to the correct row.</div>
+                    <button
+                      onClick={clearAndResync}
+                      style={{ width: "100%", padding: "8px", borderRadius: 7, border: "none", background: "#e67e22", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      🧹 Clear All Silo Readings & Sync Today Only
+                    </button>
+                  </div>
 
                   <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                     <button onClick={() => setShowSiloSync(false)} style={{ padding: "8px 18px", borderRadius: 7, border: "1.5px solid #ddd", background: "#f5f5f5", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
