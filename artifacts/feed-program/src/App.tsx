@@ -4919,7 +4919,14 @@ export default function App() {
                   </svg>
                 );
               })()}
-              {s.name}{hasEdits ? " •" : ""}
+              {(() => {
+                if (!tabName.includes("SHED")) return s.name;
+                const cellVal = edits[i]?.get("2,2") ?? String(s.cells.get("2,2")?.value ?? "");
+                const pd = parseDateInput(cellVal);
+                if (!pd) return s.name;
+                const dateLabel = pd.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+                return <>{dateLabel} · {s.name}</>;
+              })()}{hasEdits ? " •" : ""}
             </button>
           );
         });
