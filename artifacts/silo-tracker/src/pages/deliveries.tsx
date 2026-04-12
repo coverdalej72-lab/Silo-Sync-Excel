@@ -10,9 +10,20 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { QrScanner, type DocketData } from "@/components/qr-scanner";
 
+const FEED_TYPES = ["Starter", "Grower", "Finisher", "Withdrawal"] as const;
+
+function normalizeFeedType(raw: string): string {
+  const ft = raw.toLowerCase().trim();
+  if (ft.includes("start") || ft.includes("strt") || ft === "b/strt" || ft === "br/strt") return "Starter";
+  if (ft.includes("grow") || ft.includes("grw") || ft === "b/grw" || ft === "br/grw") return "Grower";
+  if (ft.includes("fin") || ft === "b/fin" || ft === "br/fin") return "Finisher";
+  if (ft.includes("with") || ft.includes("wdw") || ft.includes("wdrwl") || ft === "b/wdw") return "Withdrawal";
+  return "Starter";
+}
+
 const deliverySchema = z.object({
   shedGroupId: z.coerce.number().optional(),
-  feedType: z.string().default("Feed"),
+  feedType: z.string().default("Starter"),
   amount: z.coerce.number().min(0.01, "Enter the kg amount"),
   unit: z.string().default("kg"),
   notes: z.string().optional(),
@@ -57,7 +68,7 @@ export default function Deliveries() {
   const form = useForm<DeliveryFormValues>({
     resolver: zodResolver(deliverySchema),
     defaultValues: {
-      amount: 0, unit: "kg", feedType: "Feed", notes: "",
+      amount: 0, unit: "kg", feedType: "Starter", notes: "",
       deliveryDate: new Date().toISOString().split("T")[0],
     },
   });
@@ -67,7 +78,7 @@ export default function Deliveries() {
     setShowForm(true);
     if (data.amountKg != null)  form.setValue("amount", data.amountKg);
     if (data.deliveryDate)       form.setValue("deliveryDate", data.deliveryDate);
-    if (data.feedType)           form.setValue("feedType", data.feedType);
+    if (data.feedType)           form.setValue("feedType", normalizeFeedType(data.feedType));
     if (data.docNumber)          form.setValue("notes", `Doc: ${data.docNumber}`);
     toast({ title: "Docket scanned" });
   };
@@ -147,7 +158,9 @@ export default function Deliveries() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest block mb-1">Feed Type</label>
-                  <input type="text" placeholder="e.g. Starter" className="w-full bg-secondary border border-border/50 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50" {...form.register("feedType")} />
+                  <select className="w-full bg-secondary border border-border/50 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" {...form.register("feedType")}>
+                    {FEED_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
                 </div>
               </div>
               <div>

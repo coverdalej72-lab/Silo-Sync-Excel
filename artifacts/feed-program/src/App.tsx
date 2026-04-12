@@ -4053,10 +4053,16 @@ export default function App() {
   const getDeliveryCols = (feedType: string) => {
     const ft = feedType.toLowerCase().trim();
     if (DELIVERY_FEED_COLS[ft]) return DELIVERY_FEED_COLS[ft];
-    if (ft.includes("start")) return DELIVERY_FEED_COLS.starter;
-    if (ft.includes("grow"))  return DELIVERY_FEED_COLS.grower;
+    // Full word matches first
+    if (ft.includes("start") || ft.includes("strt")) return DELIVERY_FEED_COLS.starter;
+    if (ft.includes("grow")  || ft.includes("grw"))  return DELIVERY_FEED_COLS.grower;
     if (ft.includes("fin"))   return DELIVERY_FEED_COLS.finisher;
-    if (ft.includes("with") || ft.includes("wdw")) return DELIVERY_FEED_COLS.withdrawl;
+    if (ft.includes("with") || ft.includes("wdw") || ft.includes("wdrwl")) return DELIVERY_FEED_COLS.withdrawl;
+    // BPL slash-code patterns e.g. "b/strt", "b/grw", "b/fin", "b/wdw"
+    if (/b\/st|b\/str/.test(ft))  return DELIVERY_FEED_COLS.starter;
+    if (/b\/gr/.test(ft))          return DELIVERY_FEED_COLS.grower;
+    if (/b\/fi/.test(ft))          return DELIVERY_FEED_COLS.finisher;
+    if (/b\/w/.test(ft))           return DELIVERY_FEED_COLS.withdrawl;
     return null;
   };
 
@@ -4091,6 +4097,24 @@ export default function App() {
         }
       }
 
+      // Composite keys for docket-less dedup: "dateCol|dateStr|tonnes"
+      const existingNoDocketKeys = new Set<string>();
+      const readVal = (row: number, col: number): string => {
+        const k = `${row},${col}`;
+        return (eobEdits?.get(k) ?? String(eobSheet.cells.get(k)?.value ?? "")).trim();
+      };
+      // For each section, find all rows that have tonnes + date but no docket
+      for (const [sectionDateCol, sectionDocketCol, sectionTonnesCol] of [
+        [1, 2, 3], [6, 7, 8], [10, 11, 12], [14, 15, 16],
+      ] as [number, number, number][]) {
+        for (let row = DATA_START_ROW; row < DATA_START_ROW + 80; row++) {
+          const t = readVal(row, sectionTonnesCol);
+          const d = readVal(row, sectionDateCol);
+          const doc = readVal(row, sectionDocketCol);
+          if (t && d && !doc) existingNoDocketKeys.add(`${sectionDateCol}|${d}|${t}`);
+        }
+      }
+
       // Last occupied row for a column (checking both cells and edits)
       const findLastRow = (dateCol: number): number => {
         let last = DATA_START_ROW - 1;
@@ -4120,15 +4144,22 @@ export default function App() {
         const docket = delivery.notes ? delivery.notes.replace(/^Doc:\s*/i, "").trim() : "";
         if (docket && existingDockets.has(docket)) continue;
 
-        if (!(cols.date in sectionNextRow)) sectionNextRow[cols.date] = findLastRow(cols.date) + 1;
-        const row = sectionNextRow[cols.date];
-
         const dateStr = new Date(delivery.deliveryDate).toLocaleDateString("en-AU", {
           weekday: "long", year: "numeric", month: "long", day: "numeric",
         });
         // Convert to tonnes: API stores kg when coming from QR scanner
         const u = (delivery.unit ?? "t").toLowerCase().trim();
         const tonnes = u === "kg" ? +(delivery.amount / 1000).toFixed(3) : delivery.amount;
+
+        // For docket-less deliveries, dedup by dateCol|date|tonnes so re-syncing doesn't duplicate
+        if (!docket) {
+          const compositeKey = `${cols.date}|${dateStr}|${tonnes}`;
+          if (existingNoDocketKeys.has(compositeKey)) continue;
+          existingNoDocketKeys.add(compositeKey);
+        }
+
+        if (!(cols.date in sectionNextRow)) sectionNextRow[cols.date] = findLastRow(cols.date) + 1;
+        const row = sectionNextRow[cols.date];
 
         pairs.set(`${row},${cols.date}`, dateStr);
         if (docket) pairs.set(`${row},${cols.docket}`, docket);
