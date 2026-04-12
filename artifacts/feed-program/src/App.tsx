@@ -167,12 +167,18 @@ function parseDateInput(str: string): Date | null {
   const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mdy) return new Date(parseInt(mdy[3]), parseInt(mdy[1]) - 1, parseInt(mdy[2]));
   // Excel serial number (Windows 1900-epoch: days since Dec 30 1899)
-  // Values 40000–60000 correspond roughly to 2009–2064
-  const serial = parseInt(str, 10);
-  if (!isNaN(serial) && serial > 40000 && serial < 60000 && str.trim() === String(serial)) {
-    const epoch = new Date(Date.UTC(1899, 11, 30));
-    epoch.setUTCDate(epoch.getUTCDate() + serial);
-    return new Date(epoch.getUTCFullYear(), epoch.getUTCMonth(), epoch.getUTCDate());
+  // Values 40000–60000 correspond roughly to 2009–2064.
+  // Excel stores dates as floats (e.g. "45290.0" for midnight, "45290.5" for noon)
+  // so we parse as float, floor to get the day count, and accept any numeric string.
+  const trimmed = str.trim();
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const serialFloat = parseFloat(trimmed);
+    const serial = Math.floor(serialFloat);
+    if (serial > 40000 && serial < 60000) {
+      const epoch = new Date(Date.UTC(1899, 11, 30));
+      epoch.setUTCDate(epoch.getUTCDate() + serial);
+      return new Date(epoch.getUTCFullYear(), epoch.getUTCMonth(), epoch.getUTCDate());
+    }
   }
   // Natural language fallback
   const d = new Date(str);
@@ -260,9 +266,11 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
   const placementStr = getCellStr(2, COL_C);
   const placementParsed = parseDateInput(String(placementStr));
   if (placementParsed) {
-    // Find the first data row (where day column = "1")
+    // Find the first data row (where day column = "1").
+    // Scan a generous range (rows 6-20) to cope with sheets whose header
+    // section is taller or shorter than the standard layout.
     let dataStart = 12;
-    for (let r = 9; r <= 16; r++) {
+    for (let r = 6; r <= 20; r++) {
       const v = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
       if (v === "1") { dataStart = r; break; }
     }
