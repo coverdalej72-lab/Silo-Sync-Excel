@@ -1,24 +1,53 @@
 {
-  "name": "Silo Mate",
-  "short_name": "Silo Mate",
-  "description": "Poultry farm silo feed tracker",
-  "start_url": "/",
+  "name": "PoultryMate",
+  "short_name": "PoultryMate",
+  "description": "Farm management for Australian poultry producers — silo tracking, feed programs, batch results and QR delivery scanning.",
+  "start_url": "/silo-tracker/",
+  "scope": "/silo-tracker/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#FF3C00",
+  "background_color": "#0f3d24",
+  "theme_color": "#1a5c36",
   "orientation": "portrait",
+  "lang": "en-AU",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/opengraph.jpg",
+      "sizes": "1200x630",
+      "type": "image/jpeg",
+      "label": "PoultryMate silo tracker"
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "id": "com.appcovi.poultrymate"
     }
   ]
 }
