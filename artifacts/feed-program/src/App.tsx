@@ -155,24 +155,36 @@ const COBB500_GRAMS = [22,24,26,28,30,32,34,36,40,45,50,55,60,65,74,75,80,87,93,
 // Cobb 500 average live weight per bird (kg) at each day (day 1 → day 56)
 const COBB_WEIGHT_KG = [0.042,0.055,0.071,0.090,0.112,0.138,0.169,0.205,0.246,0.293,0.346,0.406,0.472,0.545,0.626,0.714,0.810,0.914,1.026,1.145,1.272,1.405,1.546,1.693,1.846,2.005,2.170,2.339,2.513,2.691,2.872,3.056,3.242,3.430,3.618,3.807,3.996,4.184,4.371,4.556,4.739,4.920,5.098,5.272,5.443,5.609,5.770,5.926,6.076,6.220,6.358,6.489,6.613,6.730,6.840,6.942];
 
+const MONTH_NAMES = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+
 function parseDateInput(str: string): Date | null {
   if (!str) return null;
+  const s = str.trim();
   // DD/MM/YYYY or D/M/YYYY
-  const dmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (dmy) return new Date(parseInt(dmy[3]), parseInt(dmy[2]) - 1, parseInt(dmy[1]));
   // YYYY-MM-DD (ISO)
-  const iso = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]));
-  // MM/DD/YYYY (US, fallback)
-  const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (mdy) return new Date(parseInt(mdy[3]), parseInt(mdy[1]) - 1, parseInt(mdy[2]));
+  // DD-MM-YYYY or D-M-YYYY
+  const dmy2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmy2) return new Date(parseInt(dmy2[3]), parseInt(dmy2[2]) - 1, parseInt(dmy2[1]));
+  // Long format produced by parseSheet for date cells:
+  // "Monday, 12 March 2025" or "12 March 2025" or "12 March, 2025"
+  const ausLong = s.match(/(?:\w+,\s+)?(\d{1,2})\s+(\w+)[,\s]+(\d{4})/);
+  if (ausLong) {
+    const mo = MONTH_NAMES.indexOf(ausLong[2].toLowerCase());
+    if (mo >= 0) {
+      const d = new Date(parseInt(ausLong[3]), mo, parseInt(ausLong[1]));
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
   // Excel serial number (Windows 1900-epoch: days since Dec 30 1899)
   // Values 40000–60000 correspond roughly to 2009–2064.
   // Excel stores dates as floats (e.g. "45290.0" for midnight, "45290.5" for noon)
   // so we parse as float, floor to get the day count, and accept any numeric string.
-  const trimmed = str.trim();
-  if (/^\d+(\.\d+)?$/.test(trimmed)) {
-    const serialFloat = parseFloat(trimmed);
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const serialFloat = parseFloat(s);
     const serial = Math.floor(serialFloat);
     if (serial > 40000 && serial < 60000) {
       const epoch = new Date(Date.UTC(1899, 11, 30));
@@ -181,8 +193,28 @@ function parseDateInput(str: string): Date | null {
     }
   }
   // Natural language fallback
-  const d = new Date(str);
+  const d = new Date(s);
   return isNaN(d.getTime()) ? null : d;
+}
+
+// Find the placement date in a shed sheet by scanning column C (index 2) across
+// the first several rows. Returns the date and the row index it was found at.
+function findPlacementDate(
+  sheet: Pick<SheetParsed, "cells">,
+  edits?: Map<string, string>
+): { date: Date; row: number } | null {
+  const COL = COL_C; // column C = index 2
+  for (let r = 0; r <= 8; r++) {
+    const key = `${r},${COL}`;
+    const raw = edits?.get(key) ?? sheet.cells.get(key)?.value ?? "";
+    if (!raw) continue;
+    const d = parseDateInput(String(raw));
+    // Only accept plausible farm placement dates (2010–2040)
+    if (d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040) {
+      return { date: d, row: r };
+    }
+  }
+  return null;
 }
 
 // Build the initial edits map for a shed sheet by seeding values from the
@@ -263,8 +295,10 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
   // This ensures per-shed date detection works even when dates are stored as
   // Excel serial numbers or when the cascade hasn't been manually triggered.
   // Only fills rows that currently have an empty date cell in COL_B.
-  const placementStr = getCellStr(2, COL_C);
-  const placementParsed = parseDateInput(String(placementStr));
+  // Use findPlacementDate to scan rows 0-8 of col C so different sheet layouts
+  // (e.g. Sheds 9 & 10 having an extra header row) are handled automatically.
+  const placementFound = findPlacementDate(sheet);
+  const placementParsed = placementFound?.date ?? null;
   if (placementParsed) {
     // Find the first data row (where day column = "1").
     // Scan a generous range (rows 6-20) to cope with sheets whose header
@@ -579,7 +613,9 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
 
   const shedNum    = g(0, 6);
   const totalBirdsRaw = g(1, 2);
-  const placement  = g(2, 2);
+  // Scan rows 0-8 for the placement date to handle sheets where the date isn't at the standard C3 position
+  const placementDateObj = findPlacementDate(sheet, safeEdits);
+  const placement  = placementDateObj ? placementDateObj.date.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) : g(2, 2);
   const shed1Name  = g(3, 1);  const shed1Birds = g(3, 2);
   const shed2Name  = g(4, 1);  const shed2Birds = g(4, 2);
   const strAlloc   = g(1, 7);
@@ -3432,7 +3468,7 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
     // Morts: row 3/4 col 4 (column D) holds cumulative morts per shed if available
     const morts1 = gcn(i, 3, 4);
     const morts2 = gcn(i, 4, 4);
-    const pd     = parseDateInput(gcv(i, 2, 2));
+    const pd     = findPlacementDate(sheets[i], edits[i])?.date ?? null;
     const age    = pd ? Math.floor((today.getTime() - pd.getTime()) / 86400000) + 1 : 0;
 
     let feedUsed = 0;
