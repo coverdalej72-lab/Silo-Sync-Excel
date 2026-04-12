@@ -166,6 +166,14 @@ function parseDateInput(str: string): Date | null {
   // MM/DD/YYYY (US, fallback)
   const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mdy) return new Date(parseInt(mdy[3]), parseInt(mdy[1]) - 1, parseInt(mdy[2]));
+  // Excel serial number (Windows 1900-epoch: days since Dec 30 1899)
+  // Values 40000–60000 correspond roughly to 2009–2064
+  const serial = parseInt(str, 10);
+  if (!isNaN(serial) && serial > 40000 && serial < 60000 && str.trim() === String(serial)) {
+    const epoch = new Date(Date.UTC(1899, 11, 30));
+    epoch.setUTCDate(epoch.getUTCDate() + serial);
+    return new Date(epoch.getUTCFullYear(), epoch.getUTCMonth(), epoch.getUTCDate());
+  }
   // Natural language fallback
   const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
@@ -242,6 +250,32 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     const foh = parseFloat(fohStr);
     if (fohStr !== "" && !isNaN(foh)) {
       m.set(`${r},${COL_I}`, String(Math.round(foh * 100) / 100));
+    }
+  }
+
+  // Seed date column (COL_B) from the placement date in cell (2, COL_C).
+  // This ensures per-shed date detection works even when dates are stored as
+  // Excel serial numbers or when the cascade hasn't been manually triggered.
+  // Only fills rows that currently have an empty date cell in COL_B.
+  const placementStr = getCellStr(2, COL_C);
+  const placementParsed = parseDateInput(String(placementStr));
+  if (placementParsed) {
+    // Find the first data row (where day column = "1")
+    let dataStart = 12;
+    for (let r = 9; r <= 16; r++) {
+      const v = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
+      if (v === "1") { dataStart = r; break; }
+    }
+    for (let r = dataStart; r <= dataStart + 65; r++) {
+      const dayVal = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
+      const age = parseInt(dayVal, 10);
+      if (isNaN(age) || age < 1) continue;
+      // Only seed if the cell in COL_B is empty or an unparseable Excel serial
+      const existingDate = m.get(`${r},${COL_B}`) ?? getCellStr(r, COL_B);
+      const alreadyParsed = parseDateInput(String(existingDate));
+      if (alreadyParsed) continue; // legible date already present — leave it
+      const d = new Date(placementParsed.getFullYear(), placementParsed.getMonth(), placementParsed.getDate() + (age - 1));
+      m.set(`${r},${COL_B}`, d.toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" }));
     }
   }
 
@@ -3935,10 +3969,13 @@ export default function App() {
         const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
         if (v0 === "1" || v1 === "1") { startRow = r; break; }
       }
-      // Per-shed date detection: find today's date in THIS shed's date column
-      // so sheds with different placement dates land on the correct row.
-      // Both a correction and a first-sync-of-the-day target today's exact row.
-      let targetRow = startRow + (day - 1); // fallback to global day offset
+      // ── Per-shed target row resolution ──────────────────────────────────────
+      // Priority 1: today's date exists in this shed's date column → use that row
+      // Priority 2: last row with a silo value in this shed + 1 (or same row for corrections)
+      // Priority 3: global day-offset fallback (only if shed has no silo data at all)
+
+      // Priority 1 — date-column scan
+      let targetRow = -1;
       for (let r = startRow; r < startRow + 65; r++) {
         const dv = String(cells.get(`${r},1`)?.value ?? "").trim();
         if (!dv) continue;
@@ -3947,8 +3984,26 @@ export default function App() {
             parsed.getFullYear() === today.getFullYear() &&
             parsed.getMonth() === today.getMonth() &&
             parsed.getDate() === today.getDate()) {
-          targetRow = r; // always write to today's exact row in this shed
+          targetRow = r; // today's exact row found
           break;
+        }
+      }
+
+      if (targetRow === -1) {
+        // Priority 2 — find the last row in this shed that already has a silo value
+        const sheetEditsNow = next[i] ?? new Map<string, string>();
+        let lastSiloRow = -1;
+        for (let r = startRow; r < startRow + 65; r++) {
+          const hasK = !!(sheetEditsNow.get(`${r},${COL_K}`) ?? cells.get(`${r},${COL_K}`)?.value ?? "").toString().trim();
+          const hasL = !!(sheetEditsNow.get(`${r},${COL_L}`) ?? cells.get(`${r},${COL_L}`)?.value ?? "").toString().trim();
+          const hasM = !!(sheetEditsNow.get(`${r},${COL_M}`) ?? cells.get(`${r},${COL_M}`)?.value ?? "").toString().trim();
+          if (hasK || hasL || hasM) lastSiloRow = r;
+        }
+        if (lastSiloRow >= 0) {
+          targetRow = isCorrection ? lastSiloRow : lastSiloRow + 1;
+        } else {
+          // Priority 3 — no silo data yet, use global day offset as best guess
+          targetRow = startRow + (day - 1);
         }
       }
       const sheetEdits = new Map(next[i] ?? []);
