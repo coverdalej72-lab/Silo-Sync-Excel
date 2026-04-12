@@ -87,7 +87,7 @@ export default function Deliveries() {
     createDelivery.mutate({ data: { ...values, shedGroupId: values.shedGroupId ?? null } }, {
       onSuccess: () => {
         toast({ title: "Delivery saved" });
-        form.reset({ amount: 0, unit: "kg", feedType: "Feed", notes: "", deliveryDate: new Date().toISOString().split("T")[0] });
+        form.reset({ amount: 0, unit: "kg", feedType: "Starter", notes: "", deliveryDate: new Date().toISOString().split("T")[0] });
         setShowForm(false);
         queryClient.invalidateQueries({ queryKey: getListDeliveriesQueryKey() });
       },

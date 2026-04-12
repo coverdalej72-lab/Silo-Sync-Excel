@@ -43,7 +43,7 @@ export default function RecordReading() {
       siloId: 0,
       feedType: "",
       amountRemaining: 0,
-      unit: "tons",
+      unit: localStorage.getItem("silo-default-unit") || "t",
       notes: "",
     },
   });

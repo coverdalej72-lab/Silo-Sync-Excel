@@ -3793,7 +3793,12 @@ export default function App() {
   const [siloSyncLoading, setSiloSyncLoading] = useState(false);
   const [siloSyncError, setSiloSyncError] = useState("");
   const [siloSyncMode, setSiloSyncMode] = useState<"next" | "correct">("next");
-  const [siloSyncUnitOverride, setSiloSyncUnitOverride] = useState<"as-saved" | "t">("t");
+  const [siloSyncUnitOverride, setSiloSyncUnitOverride] = useState<"as-saved" | "t">(() => {
+    // Default to "as-saved" so each reading's stored unit is respected.
+    // Only default to "t" if the user has explicitly set their recording unit to tonnes.
+    const defUnit = localStorage.getItem("silo-default-unit") || "kg";
+    return defUnit === "t" ? "t" : "as-saved";
+  });
   const [deliverySyncLoading, setDeliverySyncLoading] = useState(false);
   const [deliverySyncResult, setDeliverySyncResult] = useState<number | null>(null);
   const [pendingScrollRow, setPendingScrollRow] = useState<number | null>(null);
