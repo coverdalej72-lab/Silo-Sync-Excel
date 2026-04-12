@@ -3937,7 +3937,8 @@ export default function App() {
       }
       // Per-shed date detection: find today's date in THIS shed's date column
       // so sheds with different placement dates land on the correct row.
-      let targetRow = startRow + (day - 1); // fallback to global day
+      // Both a correction and a first-sync-of-the-day target today's exact row.
+      let targetRow = startRow + (day - 1); // fallback to global day offset
       for (let r = startRow; r < startRow + 65; r++) {
         const dv = String(cells.get(`${r},1`)?.value ?? "").trim();
         if (!dv) continue;
@@ -3946,7 +3947,7 @@ export default function App() {
             parsed.getFullYear() === today.getFullYear() &&
             parsed.getMonth() === today.getMonth() &&
             parsed.getDate() === today.getDate()) {
-          targetRow = isCorrection ? r : r + 1;
+          targetRow = r; // always write to today's exact row in this shed
           break;
         }
       }
@@ -4153,6 +4154,10 @@ export default function App() {
   };
 
   const clearAndResync = () => {
+    const confirmed = window.confirm(
+      "⚠️ This will permanently delete ALL silo readings from every shed sheet and replace them with only today's reading.\n\nAre you sure? This cannot be undone."
+    );
+    if (!confirmed) return;
     const day = detectCurrentSyncDay(sheets, edits);
     const cleared = clearAllSiloEdits(edits);
     const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, cleared, siloSyncUnitOverride === "t" ? "t" : null, true);
