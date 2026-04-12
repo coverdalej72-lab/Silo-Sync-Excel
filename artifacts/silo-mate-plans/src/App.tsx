@@ -715,8 +715,8 @@ const PLANS = [
 
 const FAQS = [
   {
-    q: "Is there a free trial?",
-    a: "Yes — every new account starts on a 30-day free trial of Silver. No credit card required to start.",
+    q: "How do I get started?",
+    a: "Sign up and we'll get your account set up. No credit card required to start.",
   },
   {
     q: "Can I switch plans later?",
@@ -1923,7 +1923,7 @@ export default function App() {
               Simple, honest pricing
             </h2>
             <p style={{ color: "#6b7280", fontSize: 16, marginBottom: 32 }}>
-              Start free for 30 days. No credit card required.
+              Simple pricing. No lock-in contracts.
             </p>
 
             {/* TOGGLE */}
@@ -2521,7 +2521,7 @@ export default function App() {
             Ready to ditch the paperwork?
           </h2>
           <p style={{ opacity: 0.85, fontSize: 16, lineHeight: 1.6, marginBottom: 32 }}>
-            Start your free 30-day trial today. No credit card needed. Cancel anytime.
+            Get set up today and take control of every shed, every batch.
           </p>
           <a
             href="mailto:coverdalej72@gmail.com"
