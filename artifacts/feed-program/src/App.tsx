@@ -3912,12 +3912,14 @@ export default function App() {
     day: number,
     currentSheets: typeof sheets,
     currentEdits: typeof edits,
-    unitOverride?: "t" | null
+    unitOverride?: "t" | null,
+    isCorrection?: boolean
   ): typeof edits => {
     const effectiveUnit = (silo: { unit: string | null | undefined }) =>
       unitOverride === "t" ? "t" : (silo.unit ?? "kg");
     const next = [...currentEdits];
     let shedCount = 0;
+    const today = new Date();
     for (let i = 0; i < currentSheets.length; i++) {
       const tab = currentSheets[i].name.trim().toUpperCase();
       if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
@@ -3933,7 +3935,21 @@ export default function App() {
         const v1 = String(cells.get(`${r},1`)?.value ?? "").trim();
         if (v0 === "1" || v1 === "1") { startRow = r; break; }
       }
-      const targetRow = startRow + (day - 1);
+      // Per-shed date detection: find today's date in THIS shed's date column
+      // so sheds with different placement dates land on the correct row.
+      let targetRow = startRow + (day - 1); // fallback to global day
+      for (let r = startRow; r < startRow + 65; r++) {
+        const dv = String(cells.get(`${r},1`)?.value ?? "").trim();
+        if (!dv) continue;
+        const parsed = parseDateInput(dv);
+        if (parsed &&
+            parsed.getFullYear() === today.getFullYear() &&
+            parsed.getMonth() === today.getMonth() &&
+            parsed.getDate() === today.getDate()) {
+          targetRow = isCorrection ? r : r + 1;
+          break;
+        }
+      }
       const sheetEdits = new Map(next[i] ?? []);
       const siloA = shedData.silos.find(s => s.letter === "A");
       const siloB = shedData.silos.find(s => s.letter === "B");
@@ -3970,7 +3986,7 @@ export default function App() {
         const day = isCorrection
           ? detectCurrentSyncDay(sheetsRef.current, editsRef.current)
           : detectNextSyncDay(sheetsRef.current, editsRef.current);
-        const nextEdits = doApplyReadings(sheds, day, sheetsRef.current, editsRef.current);
+        const nextEdits = doApplyReadings(sheds, day, sheetsRef.current, editsRef.current, undefined, isCorrection);
         setEdits(nextEdits);
         const now = Date.now();
         localStorage.setItem("silo-fp-last-sync", String(now));
@@ -4139,7 +4155,7 @@ export default function App() {
   const clearAndResync = () => {
     const day = detectCurrentSyncDay(sheets, edits);
     const cleared = clearAllSiloEdits(edits);
-    const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, cleared, siloSyncUnitOverride === "t" ? "t" : null);
+    const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, cleared, siloSyncUnitOverride === "t" ? "t" : null, true);
     setEdits(nextEdits);
     const hash = siloSyncReadings.map(s =>
       s.silos.filter(x => x.saved).map(x => `${x.letter}:${x.amountRemaining}:${x.unit}`).join(",")
@@ -4168,7 +4184,7 @@ export default function App() {
     const day = siloSyncMode === "correct"
       ? detectCurrentSyncDay(sheets, edits)
       : detectNextSyncDay(sheets, edits);
-    const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, edits, siloSyncUnitOverride === "t" ? "t" : null);
+    const nextEdits = doApplyReadings(siloSyncReadings, day, sheets, edits, siloSyncUnitOverride === "t" ? "t" : null, siloSyncMode === "correct");
     setEdits(nextEdits);
     const hash = siloSyncReadings.map(s =>
       s.silos.filter(x => x.saved).map(x => `${x.letter}:${x.amountRemaining}:${x.unit}`).join(",")
