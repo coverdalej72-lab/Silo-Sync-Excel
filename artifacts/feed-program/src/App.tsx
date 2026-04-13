@@ -4739,6 +4739,35 @@ export default function App() {
       const [r, c] = key.split(",").map(Number);
       const sheet = sheets[sheetIdx];
       const recalculated = sheet ? recalculate(sheet.cells, m, r, c, sheet.maxRow) : m;
+
+      // When the placement date ("2,2") changes, re-derive the date column
+      // (COL_B) for all data rows so dates stay consistent in the current
+      // session — e.g. after "Clear for New Batch" the user types a new date.
+      if (key === "2,2" && sheet) {
+        const parsedDate = parseDateInput(value.trim());
+        // Find the row where Age = 1
+        let dataStart = 12;
+        for (let dr = 6; dr <= 20; dr++) {
+          if (String(sheet.cells.get(`${dr},0`)?.value ?? "").trim() === "1") {
+            dataStart = dr; break;
+          }
+        }
+        if (parsedDate && parsedDate.getFullYear() >= 2010 && parsedDate.getFullYear() <= 2040) {
+          for (let dr = dataStart; dr <= dataStart + 65; dr++) {
+            const age = parseInt(String(sheet.cells.get(`${dr},0`)?.value ?? "").trim(), 10);
+            if (isNaN(age) || age < 1) continue;
+            const d = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate() + (age - 1));
+            recalculated.set(`${dr},${COL_B}`, d.toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" }));
+          }
+        } else {
+          // Blank placement date → also blank every date column cell so no
+          // stale xlsx-template dates bleed through.
+          for (let dr = dataStart; dr <= dataStart + 65; dr++) {
+            recalculated.set(`${dr},${COL_B}`, "");
+          }
+        }
+      }
+
       next[sheetIdx] = recalculated;
       return next;
     });
@@ -4898,8 +4927,10 @@ export default function App() {
 
         // Re-seed Feed Alloc (G) cascade from cream row, and restore Feed On Hand (I)
         // from xlsx values — both are wiped by clearing but must remain visible.
+        // Also blank the date column so stale cached xlsx dates never show after reset.
         let gPrev = getCell(11, COL_G); // cream row starting allocation
         for (let r = 12; r <= 71; r++) {
+          m.set(`${r},${COL_B}`, ""); // col B – Date (blanked; re-seeded when user enters new placement date)
           m.set(`${r},3`,  ""); // col D – Feed Del (hidden but must be cleared)
           m.set(`${r},4`,  ""); // col E – Feed Ordered
           m.set(`${r},5`,  ""); // col F – Silo (letter)
