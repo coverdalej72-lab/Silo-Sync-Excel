@@ -3837,7 +3837,7 @@ export default function App() {
     return defUnit === "t" ? "t" : "as-saved";
   });
   const [deliverySyncLoading, setDeliverySyncLoading] = useState(false);
-  const [deliverySyncResult, setDeliverySyncResult] = useState<number | null>(null);
+  const [deliverySyncResult, setDeliverySyncResult] = useState<{ added: number; error?: string } | null>(null);
   const [pendingScrollRow, setPendingScrollRow] = useState<number | null>(null);
   const [autoSync, setAutoSync] = useState(() => localStorage.getItem("silo-auto-sync") !== "off");
   const [lastAutoSyncTs, setLastAutoSyncTs] = useState<number | null>(() => { const v = localStorage.getItem("silo-fp-last-sync"); return v ? parseInt(v, 10) : null; });
@@ -4163,22 +4163,34 @@ export default function App() {
     return null;
   };
 
-  const doSeedDeliveries = async (): Promise<number> => {
+  const doSeedDeliveries = async (): Promise<{ added: number; error?: string }> => {
     const currentSheets = sheetsRef.current;
     const currentEdits  = editsRef.current;
-    if (currentSheets.length === 0) return 0;
+    if (currentSheets.length === 0) return { added: 0, error: "No spreadsheet loaded — please upload your Excel file first." };
 
-    const eobIdx = currentSheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
-    if (eobIdx === -1) return 0;
+    const eobIdx = currentSheets.findIndex(s => {
+      const n = s.name.trim().toLowerCase();
+      return n === "end of batch" || n === "eob" || (n.includes("end") && n.includes("batch"));
+    });
+    if (eobIdx === -1) {
+      const tabNames = currentSheets.map(s => `"${s.name}"`).join(", ");
+      return { added: 0, error: `Could not find the End of Batch tab. Tabs found: ${tabNames}` };
+    }
     const eobSheet = currentSheets[eobIdx];
     const eobEdits  = currentEdits[eobIdx];
     const DATA_START_ROW = 6;
 
+    let deliveries: Array<{ feedType: string; amount: number; unit: string | null; notes: string | null; deliveryDate: string }>;
     try {
       const r = await fetch("/api/deliveries");
-      if (!r.ok) return 0;
-      const deliveries: Array<{ feedType: string; amount: number; unit: string | null; notes: string | null; deliveryDate: string }> = await r.json();
-      if (!deliveries?.length) return 0;
+      if (!r.ok) return { added: 0, error: `API error ${r.status}: could not fetch deliveries.` };
+      deliveries = await r.json();
+    } catch (e) {
+      return { added: 0, error: `Network error: could not reach the Poultry Mate server. Check your connection.` };
+    }
+    if (!deliveries?.length) return { added: 0, error: "No deliveries recorded in Silo Mate yet." };
+
+    try {
 
       // Collect existing dockets from BOTH original cells AND current edits
       const existingDockets = new Set<string>();
@@ -4267,7 +4279,7 @@ export default function App() {
         added++;
       }
 
-      if (pairs.size === 0) return 0;
+      if (pairs.size === 0) return { added: 0 };
 
       setEdits(prev => {
         const next = [...prev];
@@ -4277,8 +4289,10 @@ export default function App() {
         return next;
       });
       setHasChanges(true);
-      return added;
-    } catch { return 0; }
+      return { added };
+    } catch (e) {
+      return { added: 0, error: `Unexpected error: ${e instanceof Error ? e.message : String(e)}` };
+    }
   };
 
   const clearAndResync = () => {
@@ -5351,8 +5365,8 @@ export default function App() {
                       onClick={async () => {
                         setDeliverySyncLoading(true);
                         setDeliverySyncResult(null);
-                        const n = await doSeedDeliveries();
-                        setDeliverySyncResult(n);
+                        const r = await doSeedDeliveries();
+                        setDeliverySyncResult(r);
                         setDeliverySyncLoading(false);
                       }}
                       style={{ width: "100%", padding: "8px", borderRadius: 7, border: "none", background: "#0284c7", color: "#fff", fontSize: 12, fontWeight: 700, cursor: deliverySyncLoading ? "not-allowed" : "pointer", opacity: deliverySyncLoading ? 0.7 : 1 }}
@@ -5360,10 +5374,12 @@ export default function App() {
                       {deliverySyncLoading ? "Syncing…" : "📦 Sync Deliveries to End of Batch"}
                     </button>
                     {deliverySyncResult !== null && (
-                      <div style={{ marginTop: 7, fontSize: 11, fontWeight: 600, color: deliverySyncResult > 0 ? "#15803d" : "#555" }}>
-                        {deliverySyncResult > 0
-                          ? `✓ ${deliverySyncResult} new deliver${deliverySyncResult === 1 ? "y" : "ies"} added to End of Batch`
-                          : "✓ No new deliveries — End of Batch is already up to date"}
+                      <div style={{ marginTop: 7, fontSize: 11, fontWeight: 600, color: deliverySyncResult.error ? "#dc2626" : deliverySyncResult.added > 0 ? "#15803d" : "#555" }}>
+                        {deliverySyncResult.error
+                          ? `⚠ ${deliverySyncResult.error}`
+                          : deliverySyncResult.added > 0
+                            ? `✓ ${deliverySyncResult.added} new deliver${deliverySyncResult.added === 1 ? "y" : "ies"} added to End of Batch`
+                            : "✓ No new deliveries to add — all records already synced"}
                       </div>
                     )}
                   </div>
