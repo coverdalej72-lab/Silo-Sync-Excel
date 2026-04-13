@@ -1461,10 +1461,15 @@ function ShedSummaryCard({
 }) {
   const t = useT();
   if (!sheet) return null;
-  const shedNum   = getCell(sheetIdx, 0, 6);
+  // Shed group label — prefer the G1 cell, fall back to the sheet name (e.g. "9 & 10")
+  const shedNum = getCell(sheetIdx, 0, 6) || (() => {
+    const m = sheet.name.match(/(\d+\s*&\s*\d+)/);
+    return m ? m[1].replace(/\s*&\s*/, " & ").trim() : sheet.name.replace(/SHED\s*/i, "").trim();
+  })();
   const placement = getCell(sheetIdx, 2, 2);
-  const shed1Name = getCell(sheetIdx, 3, 1) || "Shed 1";
-  const shed2Name = getCell(sheetIdx, 4, 1) || "Shed 2";
+  // Individual shed names — prefer the spreadsheet label, fall back to "SHED {n}" from the sheet name
+  const shed1Name = getCell(sheetIdx, 3, 1) || `SHED ${shed1Num}`;
+  const shed2Name = getCell(sheetIdx, 4, 1) || `SHED ${shed2Num}`;
   const shed1Birds = getCell(sheetIdx, 3, 2);
   const shed2Birds = getCell(sheetIdx, 4, 2);
   const strAlloc  = fmtAllocValue(getCell(sheetIdx, 1, 7));
