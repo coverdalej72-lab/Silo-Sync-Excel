@@ -353,25 +353,34 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
   // Seed Feed Ordered (COL_E) and Silo readings (COL_K/L/M) from the spreadsheet
   // template so that values from an imported old spreadsheet are preserved and
   // picked up by the FOH cascade (which only reads from edits, not template cells).
+  //
+  // Guard: only seed individual silo readings (K/L/M) if the Silo Total (COL_J)
+  // for that row is also non-zero in the template.  Many old spreadsheets store
+  // formula-default values in K (e.g. 80,000 = full capacity) for every row even
+  // when no reading was taken; in those files J is zero because the actual reading
+  // never happened.  Using J as the discriminator prevents those defaults from
+  // driving a spurious FOH cascade.
   let minSeedRow = sheet.maxRow + 1;
   for (let r = 12; r <= 71; r++) {
-    const e = getCellStr(r, COL_E);
-    const k = getCellStr(r, COL_K);
-    const l = getCellStr(r, COL_L);
+    const e  = getCellStr(r, COL_E);
+    const j  = getCellStr(r, COL_J);  // Silo Total — zero when no reading taken
+    const k  = getCellStr(r, COL_K);
+    const l  = getCellStr(r, COL_L);
     const mv = getCellStr(r, COL_M);
+    const hasRealReading = j !== "" && parseFloat(j) !== 0;
     if (e !== "" && parseFloat(e) !== 0) {
       m.set(`${r},${COL_E}`, e);
       if (r < minSeedRow) minSeedRow = r;
     }
-    if (k !== "" && parseFloat(k) !== 0) {
+    if (hasRealReading && k !== "" && parseFloat(k) !== 0) {
       m.set(`${r},${COL_K}`, k);
       if (r < minSeedRow) minSeedRow = r;
     }
-    if (l !== "" && parseFloat(l) !== 0) {
+    if (hasRealReading && l !== "" && parseFloat(l) !== 0) {
       m.set(`${r},${COL_L}`, l);
       if (r < minSeedRow) minSeedRow = r;
     }
-    if (mv !== "" && parseFloat(mv) !== 0) {
+    if (hasRealReading && mv !== "" && parseFloat(mv) !== 0) {
       m.set(`${r},${COL_M}`, mv);
       if (r < minSeedRow) minSeedRow = r;
     }
