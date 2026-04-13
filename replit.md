@@ -36,6 +36,7 @@ An Excel-like spreadsheet viewer/editor with full inline editing and live formul
 - Syncs theme with Silo Tracker via `silo-theme` localStorage key
 - Syncs farm config (name, shed visibility) from `silo-farm-config` localStorage
 - **xlsx parsing**: uses a custom OOXML parser (`src/lib/xlsxParser.ts`) built on `jszip` + regex XML parsing — the vulnerable `xlsx@0.18.5` (SheetJS) package has been removed entirely
+- **`recalculate` data-row guard (fixed)**: The xlsx template's SHED sheets have numeric values in col A for rows 0-4 (e.g. 12, 16, 19 — these are NOT ages). Both the bird-count Cobb 500 loop and the placement-date propagation loop in `recalculate` now scan for the actual data-start row (first row where col A = "1", typically row 12) and iterate from there, preventing overwrite of STR/GWR/FIN/WDW allocation header cells (rows 1-4, col H) and avoiding spurious date writes to header col B cells.
 
 ## Theme System
 - **localStorage key**: `silo-theme` (`"dark"` | `"light"`)

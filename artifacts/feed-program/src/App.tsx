@@ -487,8 +487,15 @@ function recalculate(
     setNum(2, COL_H, Math.round(birds * 1.15));    // GWR ALL
     setNum(3, COL_H, Math.round(birds * 1.7));     // FIN ALL
     setNum(4, COL_H, Math.round(birds * 1.5));     // WDW ALL
-    // Cascade daily feed usage using Cobb 500 table: H = grams[age-1] × birds / 1000
-    for (let r = 0; r <= maxRow; r++) {
+    // Cascade daily feed usage using Cobb 500 table: H = grams[age-1] × birds / 1000.
+    // IMPORTANT: Only iterate actual data rows. Header/allocation rows 0-11 contain
+    // numeric values in col A (e.g. 12, 16, 19) that must NOT be treated as ages —
+    // doing so would overwrite the allocation totals (rows 1-4) set above.
+    let dataStart = 12;
+    for (let dr = 6; dr <= 20; dr++) {
+      if (cells.get(`${dr},0`)?.value?.trim() === "1") { dataStart = dr; break; }
+    }
+    for (let r = dataStart; r <= maxRow; r++) {
       const age = parseInt(cells.get(`${r},0`)?.value ?? "");
       if (!isNaN(age) && age >= 1 && age <= COBB500_GRAMS.length) {
         setNum(r, COL_H, Math.round(COBB500_GRAMS[age - 1] * birds / 1000));
@@ -502,7 +509,13 @@ function recalculate(
     const dateStr = newEdits.get("2,2") ?? cells.get("2,2")?.value ?? "";
     const placement = parseDateInput(dateStr);
     if (placement) {
-      for (let r = 0; r <= maxRow; r++) {
+      // Only iterate actual data rows — header/allocation rows 0-11 contain
+      // numeric col A values that must NOT be treated as ages for date derivation.
+      let dataStart = 12;
+      for (let dr = 6; dr <= 20; dr++) {
+        if (cells.get(`${dr},0`)?.value?.trim() === "1") { dataStart = dr; break; }
+      }
+      for (let r = dataStart; r <= maxRow; r++) {
         const age = parseInt(cells.get(`${r},0`)?.value ?? "");
         if (!isNaN(age) && age >= 1) {
           const d = new Date(placement.getFullYear(), placement.getMonth(), placement.getDate() + (age - 1));
