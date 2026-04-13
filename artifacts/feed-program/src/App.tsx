@@ -384,18 +384,14 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     }
   }
 
-  // Always seed Feed On Hand (COL_I) from the template into the edits map,
-  // rounded to 2 decimal places. This prevents raw Excel floating-point values
-  // (e.g. 24901.399999999998) from leaking into the display when no silo
-  // readings have been entered to trigger the cascade.
-  // If silo readings DO exist, the cascade below will overwrite these with
-  // freshly computed values.
+  // Blank Feed On Hand (COL_I) for all data rows.
+  // FOH is derived entirely from the silo-readings cascade; seeding it from
+  // the xlsx template would leak stale previous-batch values into a new batch
+  // that has no silo readings or feed ordered yet.  The cascade below
+  // (recalculate → COL_K trigger) will overwrite these blanks for any row
+  // that actually has silo or delivery data.
   for (let r = 12; r <= 71; r++) {
-    const fohStr = getCellStr(r, COL_I);
-    const foh = parseFloat(fohStr);
-    if (fohStr !== "" && !isNaN(foh)) {
-      m.set(`${r},${COL_I}`, String(Math.round(foh * 100) / 100));
-    }
+    m.set(`${r},${COL_I}`, "");
   }
 
   // Seed date column (COL_B) from the placement date, seeding "2,2" into edits
@@ -4952,9 +4948,9 @@ export default function App() {
           const g = gPrev - h;
           m.set(`${r},${COL_G}`, String(Math.round(g * 100) / 100));
           gPrev = g;
-          // Restore Feed On Hand from xlsx (cleared edits would blank it out)
-          const foh = sheet?.cells.get(`${r},${COL_I}`)?.value ?? "";
-          if (foh !== "") m.set(`${r},${COL_I}`, String(foh));
+          // Blank Feed On Hand — stale xlsx values must not bleed into a new batch.
+          // FOH is recomputed by the silo-readings cascade when readings are entered.
+          m.set(`${r},${COL_I}`, "");
           m.set(`${r},9`,  ""); // col J – Silo Total
           m.set(`${r},10`, ""); // col K – Silo A
           m.set(`${r},11`, ""); // col L – Silo B
