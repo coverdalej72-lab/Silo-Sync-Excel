@@ -4297,6 +4297,22 @@ export default function App() {
     }
     if (!deliveries?.length) return { added: 0, error: "No deliveries recorded in Silo Mate yet." };
 
+    // Filter deliveries to the current batch window (on or after the earliest placement date).
+    // This prevents deliveries from previous batches being seeded into the current End of Batch sheet.
+    let batchStartMs = 0;
+    for (let i = 0; i < currentSheets.length; i++) {
+      if (!currentSheets[i].name.trim().toUpperCase().includes("SHED")) continue;
+      const pd = findPlacementDate(currentSheets[i], currentEdits[i]);
+      if (pd) {
+        const t = pd.date.getTime();
+        if (batchStartMs === 0 || t < batchStartMs) batchStartMs = t;
+      }
+    }
+    if (batchStartMs > 0) {
+      deliveries = deliveries.filter(d => new Date(d.deliveryDate).getTime() >= batchStartMs);
+      if (!deliveries.length) return { added: 0, error: "No deliveries found for the current batch — all recorded deliveries pre-date the placement date." };
+    }
+
     try {
 
       // Collect existing dockets from BOTH original cells AND current edits
