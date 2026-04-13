@@ -120,7 +120,9 @@ function saveFarmConfig(cfg: FarmConfigData) {
 }
 
 const BATCH_HISTORY_KEY    = "feedmate-batch-history";
-const EDITS_AUTOSAVE_KEY   = "feedmate-edits-autosave";
+// v2: renamed from "feedmate-edits-autosave" to invalidate stale date-column
+//     saves from the old code that wrote wrong placement dates for SHED 9 & 10.
+const EDITS_AUTOSAVE_KEY   = "feedmate-edits-autosave-v2";
 
 function serializeEdits(edits: Map<string, string>[]): string {
   return JSON.stringify(edits.map(m => [...m.entries()]));
@@ -4549,10 +4551,14 @@ export default function App() {
         // Restore any auto-saved edits from the previous session and merge them
         // on top of the template defaults so nothing is lost on refresh.
         //
-        // IMPORTANT: "2,2" (placement date) is always derived fresh from the
-        // spreadsheet by buildInitialEditsForSheet.  If old saved edits contain
-        // a stale/wrong date at "2,2" we must NOT let it override the freshly-
-        // computed value — otherwise old batches with wrong dates keep showing.
+        // IMPORTANT: certain cells are always derived fresh from the spreadsheet
+        // by buildInitialEditsForSheet and must NOT be overridden by stale saved
+        // edits (which may contain wrong dates from a previous buggy code version):
+        //   • "2,2" — the canonical placement date position
+        //   • any `"r,${COL_B}"` for r ≥ 12 — the data-row DATE column.
+        //     The date column is never user-entered; it is always recomputed from
+        //     the placement date + age.  Old saved values here are the root cause
+        //     of SHED 9 & 10 (and any other shed) showing the wrong date.
         try {
           const saved = localStorage.getItem(EDITS_AUTOSAVE_KEY);
           if (saved) {
@@ -4562,9 +4568,15 @@ export default function App() {
               if (savedMap && savedMap.size > 0) {
                 const merged = new Map(initialEdits[i]);
                 const freshPlacementDate = merged.get("2,2");
+                const hasValidFreshDate = !!(freshPlacementDate && parseDateString(freshPlacementDate));
                 savedMap.forEach((v, k) => {
-                  // Keep the template-derived placement date; skip old saved value
-                  if (k === "2,2" && freshPlacementDate && parseDateString(freshPlacementDate)) return;
+                  if (hasValidFreshDate) {
+                    // Protect canonical placement-date edit
+                    if (k === "2,2") return;
+                    // Protect every data-row date cell (COL_B = 1, rows 12+)
+                    const [rStr, cStr] = k.split(",");
+                    if (cStr === String(COL_B) && parseInt(rStr) >= 12) return;
+                  }
                   merged.set(k, v);
                 });
                 initialEdits[i] = merged;
