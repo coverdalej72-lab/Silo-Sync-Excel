@@ -1481,9 +1481,8 @@ function fmtAllocValue(raw: string): string {
   const stripped = raw.replace(/,/g, "");
   const n = parseFloat(stripped);
   if (isNaN(n)) return raw;
-  // Round to 2 dp to eliminate floating-point artefacts (e.g. 163516.19999999998)
-  const rounded = Math.round(n * 100) / 100;
-  return rounded.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  // Round to nearest whole number so all sheds show clean figures (e.g. 26,000 not 26,260.5)
+  return Math.round(n).toLocaleString();
 }
 
 function ShedSummaryCard({
@@ -1501,6 +1500,7 @@ function ShedSummaryCard({
     const m = sheet.name.match(/(\d+\s*&\s*\d+)/);
     return m ? m[1].replace(/\s*&\s*/, " & ").trim() : sheet.name.replace(/SHED\s*/i, "").trim();
   })();
+  const placement = getCell(sheetIdx, 2, 2);
   // Individual shed names — prefer the spreadsheet label, fall back to "SHED {n}" from the sheet name
   const shed1Name = getCell(sheetIdx, 3, 1) || `SHED ${shed1Num}`;
   const shed2Name = getCell(sheetIdx, 4, 1) || `SHED ${shed2Num}`;
@@ -1532,6 +1532,8 @@ function ShedSummaryCard({
         </div>
       </div>
       <div style={{ padding: "12px 14px" }}>
+        <SummaryInputField label={t("placement")} value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
+        <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>{t("birdsPerShed")}</div>
         <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => {
           onEdit(sheetIdx, "3,2", v);
