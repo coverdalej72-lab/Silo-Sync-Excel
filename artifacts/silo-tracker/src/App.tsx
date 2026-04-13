@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,6 +39,12 @@ function useBatchVersionSync() {
   }, []);
 }
 
+function RedirectHome() {
+  const [, setLocation] = useLocation();
+  useEffect(() => { setLocation("/"); }, [setLocation]);
+  return null;
+}
+
 function Router() {
   return (
     <Layout>
@@ -48,6 +54,8 @@ function Router() {
         <Route path="/deliveries" component={Deliveries} />
         <Route path="/photos" component={Photos} />
         <Route path="/settings" component={SettingsPage} />
+        <Route path="/record" component={RedirectHome} />
+        <Route path="/silos" component={RedirectHome} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
