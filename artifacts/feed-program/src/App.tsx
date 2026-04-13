@@ -197,23 +197,99 @@ function parseDateInput(str: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Find the placement date in a shed sheet by scanning column C (index 2) across
-// the first several rows. Returns the date and the row index it was found at.
+// Parse a date from a TEXT string only — no Excel serial-number parsing.
+// Used when reading from user edits or header cell text to avoid misidentifying
+// large integer bird counts (e.g. 46900 birds) as date serials.
+function parseDateString(str: string): Date | null {
+  if (!str) return null;
+  const s = str.trim();
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) {
+    const mo = parseInt(dmy[2]) - 1;
+    if (mo >= 0 && mo <= 11) return new Date(parseInt(dmy[3]), mo, parseInt(dmy[1]));
+  }
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return new Date(parseInt(iso[1]), parseInt(iso[2]) - 1, parseInt(iso[3]));
+  const dmy2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmy2) return new Date(parseInt(dmy2[3]), parseInt(dmy2[2]) - 1, parseInt(dmy2[1]));
+  const ausLong = s.match(/(?:\w+,\s+)?(\d{1,2})\s+(\w+)[,\s]+(\d{4})/);
+  if (ausLong) {
+    const mo = MONTH_NAMES.indexOf(ausLong[2].toLowerCase());
+    if (mo >= 0) {
+      const d = new Date(parseInt(ausLong[3]), mo, parseInt(ausLong[1]));
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+  return null;
+}
+
+// Find the placement date in a shed sheet.
+//
+// Strategy (in priority order):
+//   1. Check the canonical edit at "2,2" — written by buildInitialEditsForSheet
+//      so all downstream readers use one consistent value.
+//   2. Find the first data row (col A = "1") and read its COL_B date cell.
+//      This is the most reliable source because the spreadsheet formula
+//      (=C3 or similar) already computes the correct placement date and
+//      the xlsxParser marks it as isDateCell=true.
+//   3. Scan header rows 0-6 for any cell marked isDateCell=true.
+//      Only accepts cells the parser already identified as dates — avoids
+//      misidentifying bird counts (e.g. 46,900 birds ≈ serial for 2028)
+//      as placement dates.
+//   4. Scan any per-cell edits in rows 0-8 using text-only parsing.
+//
 function findPlacementDate(
   sheet: Pick<SheetParsed, "cells">,
   edits?: Map<string, string>
 ): { date: Date; row: number } | null {
-  const COL = COL_C; // column C = index 2
-  for (let r = 0; r <= 8; r++) {
-    const key = `${r},${COL}`;
-    const raw = edits?.get(key) ?? sheet.cells.get(key)?.value ?? "";
-    if (!raw) continue;
-    const d = parseDateInput(String(raw));
-    // Only accept plausible farm placement dates (2010–2040)
-    if (d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040) {
-      return { date: d, row: r };
+  const ok = (d: Date | null) => d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040;
+
+  // 1. Canonical edit position
+  const canonical = edits?.get("2,2");
+  if (canonical) {
+    const d = parseDateString(canonical);
+    if (ok(d)) return { date: d!, row: 2 };
+  }
+
+  // 2. Day-1 data row → COL_B (index 1) date cell
+  for (let r = 6; r <= 20; r++) {
+    const dayKey = `${r},0`;
+    const dayVal = String(edits?.get(dayKey) ?? sheet.cells.get(dayKey)?.value ?? "").trim();
+    if (dayVal !== "1") continue;
+    // Check edits for date column first, then original cell
+    const dateKey = `${r},${COL_B}`;
+    const editDate = edits?.get(dateKey);
+    if (editDate) {
+      const d = parseDateString(editDate);
+      if (ok(d)) return { date: d!, row: 2 };
+    }
+    const cell = sheet.cells.get(dateKey);
+    if (cell?.isDateCell) {
+      const d = parseDateInput(cell.value);
+      if (ok(d)) return { date: d!, row: 2 };
+    }
+    break; // found day-1 row — don't keep scanning
+  }
+
+  // 3. Scan header rows for Excel-identified date cells (isDateCell=true)
+  //    Limit to rows 0-6 to avoid rows 7-8 which can have allocation quantities
+  //    formatted as dates from prior batches.
+  for (let r = 0; r <= 6; r++) {
+    for (let c = 0; c <= 15; c++) {
+      const key = `${r},${c}`;
+      const editVal = edits?.get(key);
+      if (editVal !== undefined) {
+        const d = parseDateString(editVal);
+        if (ok(d)) return { date: d!, row: r };
+        continue;
+      }
+      const cell = sheet.cells.get(key);
+      if (!cell?.isDateCell) continue;
+      const d = parseDateInput(cell.value);
+      if (ok(d)) return { date: d!, row: r };
     }
   }
+
   return null;
 }
 
@@ -294,23 +370,38 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
   // Seed date column (COL_B) from the placement date, seeding "2,2" into edits
   // so the green header panel and tab labels always read the canonical value.
   //
-  // IMPORTANT: scan BACKWARDS from the data-start row (where col A = "1") so
-  // we pick up the date closest to the actual data.  For sheets with an extra
-  // header row (e.g. Sheds 9 & 10) the CURRENT batch's placement date lives
-  // at row 3 whereas the OLD batch's stale date may still sit at row 2.
-  // A forward scan would incorrectly pick up the old date first; a backward
-  // scan finds the freshest, most-relevant date instead.
+  // Strategy: read the placement date from the day-1 data row's COL_B date cell.
+  // That cell is set by an Excel formula (=C3 or similar) whose cached value is
+  // the placement date serial.  xlsxParser converts it to a Date and marks it
+  // isDateCell=true, so we can safely use parseDateInput on the formatted string
+  // without risk of misidentifying a bird-count integer (e.g. 46,900 birds)
+  // as an Excel date serial.
+  //
+  // Fallback: scan header rows 0-6 for isDateCell=true cells — same guard.
   let dataStart = 12;
   for (let r = 6; r <= 20; r++) {
     const v = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
     if (v === "1") { dataStart = r; break; }
   }
   let placementParsed: Date | null = null;
-  for (let r = Math.min(dataStart - 1, 8); r >= 0; r--) {
-    const raw = sheet.cells.get(`${r},${COL_C}`)?.value ?? "";
-    if (!raw) continue;
-    const d = parseDateInput(String(raw));
-    if (d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040) { placementParsed = d; break; }
+  // Primary: day-1 row COL_B date cell
+  {
+    const dateCell = sheet.cells.get(`${dataStart},${COL_B}`);
+    if (dateCell?.isDateCell) {
+      const d = parseDateInput(dateCell.value);
+      if (d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040) placementParsed = d;
+    }
+  }
+  // Fallback: scan header rows for isDateCell=true (avoids serial mis-parsing)
+  if (!placementParsed) {
+    outer: for (let r = 0; r <= 6; r++) {
+      for (let c = 0; c <= 15; c++) {
+        const cell = sheet.cells.get(`${r},${c}`);
+        if (!cell?.isDateCell) continue;
+        const d = parseDateInput(cell.value);
+        if (d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040) { placementParsed = d; break outer; }
+      }
+    }
   }
   if (placementParsed) {
     // Normalise to the canonical "2,2" position so every forward-scan call
@@ -4457,6 +4548,11 @@ export default function App() {
 
         // Restore any auto-saved edits from the previous session and merge them
         // on top of the template defaults so nothing is lost on refresh.
+        //
+        // IMPORTANT: "2,2" (placement date) is always derived fresh from the
+        // spreadsheet by buildInitialEditsForSheet.  If old saved edits contain
+        // a stale/wrong date at "2,2" we must NOT let it override the freshly-
+        // computed value — otherwise old batches with wrong dates keep showing.
         try {
           const saved = localStorage.getItem(EDITS_AUTOSAVE_KEY);
           if (saved) {
@@ -4465,7 +4561,12 @@ export default function App() {
               const savedMap = savedMaps[i];
               if (savedMap && savedMap.size > 0) {
                 const merged = new Map(initialEdits[i]);
-                savedMap.forEach((v, k) => merged.set(k, v));
+                const freshPlacementDate = merged.get("2,2");
+                savedMap.forEach((v, k) => {
+                  // Keep the template-derived placement date; skip old saved value
+                  if (k === "2,2" && freshPlacementDate && parseDateString(freshPlacementDate)) return;
+                  merged.set(k, v);
+                });
                 initialEdits[i] = merged;
               }
             }
