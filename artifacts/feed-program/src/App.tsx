@@ -301,8 +301,37 @@ function findPlacementDate(
 //   • Feed Ordered (COL_E) — preserved so deliveries in old spreadsheets survive
 //   • Silo A/B/C (COL_K/L/M) — preserved so silo readings in old spreadsheets survive
 // After seeding, the FOH cascade is run so Feed On Hand reflects all of these.
+//
+// For the "end of batch" sheet the only job is to blank out all data rows
+// (row ≥ 6) so that delivery records from the previous batch that are baked
+// into the xlsx template never bleed into a new batch.
+// Rows 0-5 (farm/batch header, section labels, column headers) and col 21
+// (permanent shed-number list) are always preserved.
+const EOB_DATA_START_ROW = 6;
 function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
   const m = new Map<string, string>();
+
+  const isEob = /end.{0,4}batch/i.test(sheet.name.trim());
+  if (isEob) {
+    for (const key of sheet.cells.keys()) {
+      const parts = key.split(",");
+      const r = parseInt(parts[0]);
+      const c = parseInt(parts[1]);
+      if (r >= EOB_DATA_START_ROW && c !== 21) m.set(key, "");
+    }
+    // Keep totals visible as zero rather than blank
+    m.set("36,3",  "0");
+    m.set("36,8",  "0");
+    m.set("36,12", "0");
+    m.set("36,16", "0");
+    m.set("11,18", "0");
+    m.set("18,18", "0");
+    m.set("21,23", "0");
+    m.set("16,23", "0");
+    m.set("16,24", "0");
+    return m;
+  }
+
   const isShed = sheet.name.toUpperCase().includes("SHED") &&
                  !sheet.name.toUpperCase().includes("WEEKLY");
   if (!isShed) return m;
