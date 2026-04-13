@@ -312,10 +312,11 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
       const dayVal = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
       const age = parseInt(dayVal, 10);
       if (isNaN(age) || age < 1) continue;
-      // Only seed if the cell in COL_B is empty or an unparseable Excel serial
-      const existingDate = m.get(`${r},${COL_B}`) ?? getCellStr(r, COL_B);
-      const alreadyParsed = parseDateInput(String(existingDate));
-      if (alreadyParsed) continue; // legible date already present — leave it
+      // Always derive the date column from the placement date.
+      // The date column is never user-entered — it's purely a function of
+      // placement date + age. Stale dates from a previous batch must be
+      // overwritten so the new batch shows correct dates (e.g. Sheds 9 & 10
+      // after a new placement date is set).
       const d = new Date(placementParsed.getFullYear(), placementParsed.getMonth(), placementParsed.getDate() + (age - 1));
       m.set(`${r},${COL_B}`, d.toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" }));
     }
