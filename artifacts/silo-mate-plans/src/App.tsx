@@ -1197,22 +1197,6 @@ const SUPPORTER_TIERS = [
       "Direct input on feature roadmap",
     ],
   },
-  {
-    id: "founder",
-    name: "Founding Supporter",
-    icon: "🏆",
-    amount: 1000,
-    colour: "#dc2626",
-    tagline: "Be part of the founding story",
-    perks: [
-      "Name listed as a Founding Supporter",
-      "Lifetime access to Poultry Mate (once live)",
-      "Founding backer recognition",
-      "Early access to all new features",
-      "Direct input on feature roadmap",
-      "Personal thank-you call from the founder",
-    ],
-  },
 ];
 
 function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIERS[0]; onClose: () => void }) {
