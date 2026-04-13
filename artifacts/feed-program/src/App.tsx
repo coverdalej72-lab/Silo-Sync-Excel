@@ -867,13 +867,8 @@ function SheetView({
     const shedMatch = sheet.rawName.match(/(\d+)\s*&\s*(\d+)/);
     if (shedMatch) { shedNums.push(parseInt(shedMatch[1]), parseInt(shedMatch[2])); }
 
-    // Placement date from cell r=2,c=2 (C2)
-    let placementDate: Date | null = null;
-    const pdRaw = edits.has("2,2") ? edits.get("2,2")! : (cells.get("2,2")?.value ?? "");
-    if (pdRaw) {
-      const parsed = new Date(pdRaw);
-      if (!isNaN(parsed.getTime())) placementDate = parsed;
-    }
+    // Placement date — scan rows 0-8 of col C to handle varying sheet layouts
+    const placementDate: Date | null = findPlacementDate({ cells }, edits)?.date ?? null;
 
     // Dynamically find where Day 1 (AGE=1) is — same logic as shedDataStartRow
     let dataStart = 12;
@@ -2905,10 +2900,7 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
   const placementDate = useMemo((): Date | null => {
     const si = sheets.findIndex(s => /shed/i.test(s.name) && !/end/i.test(s.name));
     if (si < 0) return null;
-    const raw = edits[si]?.get("2,2") ?? String(sheets[si].cells.get("2,2")?.value ?? "");
-    if (!raw) return null;
-    const d = new Date(raw);
-    return isNaN(d.getTime()) ? null : d;
+    return findPlacementDate(sheets[si], edits[si])?.date ?? null;
   }, [sheets, edits]);
 
   const getDayNum = (d: Date): number | null => {
@@ -5094,8 +5086,7 @@ export default function App() {
               })()}
               {(() => {
                 if (!tabName.includes("SHED")) return s.name;
-                const cellVal = edits[i]?.get("2,2") ?? String(s.cells.get("2,2")?.value ?? "");
-                const pd = parseDateInput(cellVal);
+                const pd = findPlacementDate(s, edits[i])?.date ?? null;
                 if (!pd) return s.name;
                 const dateLabel = pd.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
                 return <>{dateLabel} · {s.name}</>;
