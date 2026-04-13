@@ -291,23 +291,32 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     }
   }
 
-  // Seed date column (COL_B) from the placement date in cell (2, COL_C).
-  // This ensures per-shed date detection works even when dates are stored as
-  // Excel serial numbers or when the cascade hasn't been manually triggered.
-  // Only fills rows that currently have an empty date cell in COL_B.
-  // Use findPlacementDate to scan rows 0-8 of col C so different sheet layouts
-  // (e.g. Sheds 9 & 10 having an extra header row) are handled automatically.
-  const placementFound = findPlacementDate(sheet);
-  const placementParsed = placementFound?.date ?? null;
+  // Seed date column (COL_B) from the placement date, seeding "2,2" into edits
+  // so the green header panel and tab labels always read the canonical value.
+  //
+  // IMPORTANT: scan BACKWARDS from the data-start row (where col A = "1") so
+  // we pick up the date closest to the actual data.  For sheets with an extra
+  // header row (e.g. Sheds 9 & 10) the CURRENT batch's placement date lives
+  // at row 3 whereas the OLD batch's stale date may still sit at row 2.
+  // A forward scan would incorrectly pick up the old date first; a backward
+  // scan finds the freshest, most-relevant date instead.
+  let dataStart = 12;
+  for (let r = 6; r <= 20; r++) {
+    const v = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
+    if (v === "1") { dataStart = r; break; }
+  }
+  let placementParsed: Date | null = null;
+  for (let r = Math.min(dataStart - 1, 8); r >= 0; r--) {
+    const raw = sheet.cells.get(`${r},${COL_C}`)?.value ?? "";
+    if (!raw) continue;
+    const d = parseDateInput(String(raw));
+    if (d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040) { placementParsed = d; break; }
+  }
   if (placementParsed) {
-    // Find the first data row (where day column = "1").
-    // Scan a generous range (rows 6-20) to cope with sheets whose header
-    // section is taller or shorter than the standard layout.
-    let dataStart = 12;
-    for (let r = 6; r <= 20; r++) {
-      const v = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
-      if (v === "1") { dataStart = r; break; }
-    }
+    // Normalise to the canonical "2,2" position so every forward-scan call
+    // (ShedInfoPanel, tab labels, recalculate) reads the right date.
+    const placementStr = placementParsed.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
+    m.set("2,2", placementStr);
     for (let r = dataStart; r <= dataStart + 65; r++) {
       const dayVal = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
       const age = parseInt(dayVal, 10);
