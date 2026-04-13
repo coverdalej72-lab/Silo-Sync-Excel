@@ -635,7 +635,7 @@ const PLANS = [
       "QR docket scanning",
       "Multi-user access",
     ],
-    cta: "Start Free Trial",
+    cta: "Get Started",
     highlight: false,
   },
   {
@@ -659,7 +659,7 @@ const PLANS = [
       "Multiple farms / locations",
       "Multi-user access",
     ],
-    cta: "Start Free Trial",
+    cta: "Get Started",
     highlight: true,
   },
   {
@@ -668,8 +668,8 @@ const PLANS = [
     icon: "🥇",
     color: GOLD,
     tagline: "For large operations and integrators.",
-    monthlyPrice: 150,
-    yearlyPrice: 1620,
+    monthlyPrice: 100,
+    yearlyPrice: 1080,
     features: [
       "Everything in Silver",
       "Multiple farms / locations",
@@ -684,7 +684,7 @@ const PLANS = [
       "Egg production & HDP% tracking",
       "Body weight & uniformity tracking",
     ],
-    cta: "Start Free Trial",
+    cta: "Get Started",
     highlight: false,
   },
   {
@@ -693,8 +693,8 @@ const PLANS = [
     icon: "💎",
     color: "#7c3aed",
     tagline: "Complete lifecycle management for breeder & parent stock farms.",
-    monthlyPrice: 250,
-    yearlyPrice: 2700,
+    monthlyPrice: 150,
+    yearlyPrice: 1620,
     features: [
       "Everything in Gold",
       "Breeder / parent stock farm mode",
@@ -707,7 +707,7 @@ const PLANS = [
       "Breeder Program header & tailored tabs",
     ],
     notIncluded: [],
-    cta: "Start Free Trial",
+    cta: "Get Started",
     highlight: false,
     premium: true,
   },
@@ -716,7 +716,7 @@ const PLANS = [
 const FAQS = [
   {
     q: "How do I get started?",
-    a: "Sign up and we'll get your account set up. No credit card required to start.",
+    a: "Sign up and we'll get your account set up straight away.",
   },
   {
     q: "Can I switch plans later?",
