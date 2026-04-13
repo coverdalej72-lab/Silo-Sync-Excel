@@ -350,38 +350,19 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     gPrev = g;
   }
 
-  // Seed Feed Ordered (COL_E) and Silo readings (COL_K/L/M) from the spreadsheet
-  // template so that values from an imported old spreadsheet are preserved and
-  // picked up by the FOH cascade (which only reads from edits, not template cells).
+  // Seed Feed Ordered (COL_E) from the template so delivery/allocation values
+  // from an imported xlsx are preserved.
   //
-  // Guard: only seed individual silo readings (K/L/M) if the Silo Total (COL_J)
-  // for that row is also non-zero in the template.  Many old spreadsheets store
-  // formula-default values in K (e.g. 80,000 = full capacity) for every row even
-  // when no reading was taken; in those files J is zero because the actual reading
-  // never happened.  Using J as the discriminator prevents those defaults from
-  // driving a spurious FOH cascade.
+  // Silo reading columns (K/L/M/J) are intentionally NOT seeded from the template.
+  // The template always retains the previous batch's cached silo values — seeding
+  // them would drive a spurious FOH cascade using last-batch data.  Readings only
+  // ever enter the app through live Silo Mate sync or manual cell edits, both of
+  // which go through handleEdit → autosave, so they survive page reloads correctly.
   let minSeedRow = sheet.maxRow + 1;
   for (let r = 12; r <= 71; r++) {
-    const e  = getCellStr(r, COL_E);
-    const j  = getCellStr(r, COL_J);  // Silo Total — zero when no reading taken
-    const k  = getCellStr(r, COL_K);
-    const l  = getCellStr(r, COL_L);
-    const mv = getCellStr(r, COL_M);
-    const hasRealReading = j !== "" && parseFloat(j) !== 0;
+    const e = getCellStr(r, COL_E);
     if (e !== "" && parseFloat(e) !== 0) {
       m.set(`${r},${COL_E}`, e);
-      if (r < minSeedRow) minSeedRow = r;
-    }
-    if (hasRealReading && k !== "" && parseFloat(k) !== 0) {
-      m.set(`${r},${COL_K}`, k);
-      if (r < minSeedRow) minSeedRow = r;
-    }
-    if (hasRealReading && l !== "" && parseFloat(l) !== 0) {
-      m.set(`${r},${COL_L}`, l);
-      if (r < minSeedRow) minSeedRow = r;
-    }
-    if (hasRealReading && mv !== "" && parseFloat(mv) !== 0) {
-      m.set(`${r},${COL_M}`, mv);
       if (r < minSeedRow) minSeedRow = r;
     }
     // Col F (5) is the silo letter column — valid values are A/B/C only.
@@ -558,8 +539,15 @@ function recalculate(
     const l = getEditOnly(r, COL_L);
     const m = getEditOnly(r, COL_M);
     const j = k + l + m;
-    // Only set J if at least one silo column exists on this row
-    if (cells.has(`${r},${COL_K}`) || cells.has(`${r},${COL_L}`) || cells.has(`${r},${COL_M}`) || cells.has(`${r},${COL_J}`)) {
+    // Set J if the template has silo columns for this row OR if edits (autosave/live
+    // sync) have introduced readings.  Template-only rows without readings produce
+    // j=0 which is a correct default.  Without this check, autosaved readings on
+    // rows where the template stored those cells as blank would never update J.
+    const hasKLMJ = cells.has(`${r},${COL_K}`) || cells.has(`${r},${COL_L}`)
+      || cells.has(`${r},${COL_M}`) || cells.has(`${r},${COL_J}`)
+      || newEdits.has(`${r},${COL_K}`) || newEdits.has(`${r},${COL_L}`)
+      || newEdits.has(`${r},${COL_M}`);
+    if (hasKLMJ) {
       setNum(r, COL_J, j);
       const h = getNum(r, COL_H);
       // Feed Ordered (col E): only use app-entered edits, not template spreadsheet values.
@@ -3995,7 +3983,10 @@ export default function App() {
   const [pendingScrollRow, setPendingScrollRow] = useState<number | null>(null);
   const [autoSync, setAutoSync] = useState(() => localStorage.getItem("silo-auto-sync") !== "off");
   const [lastAutoSyncTs, setLastAutoSyncTs] = useState<number | null>(() => { const v = localStorage.getItem("silo-fp-last-sync"); return v ? parseInt(v, 10) : null; });
-  const lastSyncHashRef = useRef(localStorage.getItem("silo-fp-sync-hash") ?? "");
+  // Intentionally NOT restoring hash from localStorage on init: this forces the
+  // auto-sync to re-apply current Silo Mate readings on every page reload, which
+  // ensures K/L/M and J are correct even if nothing changed since the last session.
+  const lastSyncHashRef = useRef("");
   const [autoSaveFlash, setAutoSaveFlash] = useState(false);
   const [settingsFarmName, setSettingsFarmName] = useState("");
   const [settingsBatchNum, setSettingsBatchNum] = useState("");
@@ -4186,13 +4177,16 @@ export default function App() {
       }
 
       if (targetRow === -1) {
-        // Priority 2 — find the last row in this shed that already has a silo value
+        // Priority 2 — find the last row in this shed that already has a silo value.
+        // Only check app-entered edits (not template cells), since the template may
+        // contain stale readings from a previous batch which would place the new
+        // reading at the wrong (too-far-forward) row.
         const sheetEditsNow = next[i] ?? new Map<string, string>();
         let lastSiloRow = -1;
         for (let r = startRow; r < startRow + 65; r++) {
-          const hasK = !!(sheetEditsNow.get(`${r},${COL_K}`) ?? cells.get(`${r},${COL_K}`)?.value ?? "").toString().trim();
-          const hasL = !!(sheetEditsNow.get(`${r},${COL_L}`) ?? cells.get(`${r},${COL_L}`)?.value ?? "").toString().trim();
-          const hasM = !!(sheetEditsNow.get(`${r},${COL_M}`) ?? cells.get(`${r},${COL_M}`)?.value ?? "").toString().trim();
+          const hasK = !!(sheetEditsNow.get(`${r},${COL_K}`) ?? "").toString().trim();
+          const hasL = !!(sheetEditsNow.get(`${r},${COL_L}`) ?? "").toString().trim();
+          const hasM = !!(sheetEditsNow.get(`${r},${COL_M}`) ?? "").toString().trim();
           if (hasK || hasL || hasM) lastSiloRow = r;
         }
         if (lastSiloRow >= 0) {
@@ -4612,8 +4606,9 @@ export default function App() {
         // Seed initial edits: cascade Feed Alloc (col G=6) from cream row down
         // for each shed sheet, using whatever Feed Usage (col H=7) values exist.
         // G(r) = G(r-1) - H(r) starting from the cream row allocation at r=11.
-        // Also seeds Feed Ordered (E) and Silo readings (K/L/M) from the spreadsheet
-        // template so they are preserved when importing an old spreadsheet.
+        // Also seeds Feed Ordered (E) from the template.
+        // NOTE: Silo reading columns (K/L/M/J) are NOT seeded from the template —
+        // they only enter via live Silo Mate sync or manual handleEdit edits.
         const initialEdits = result.map(buildInitialEditsForSheet);
 
         // Restore any auto-saved edits from the previous session and merge them
@@ -4645,6 +4640,14 @@ export default function App() {
                     const [rStr, cStr] = k.split(",");
                     if (cStr === String(COL_B) && parseInt(rStr) >= 12) return;
                   }
+                  // Silo reading columns (K/L/M/J) are intentionally excluded from the
+                  // autosave restore.  These values are owned by the live Silo Mate sync
+                  // (which re-applies on every page load because lastSyncHashRef is reset
+                  // to "" at init) or by manual handleEdit during the session.  Restoring
+                  // old autosaved values would bake in stale readings from previous code
+                  // versions that seeded these columns from the previous batch's template.
+                  const cNum = parseInt(k.split(",")[1]);
+                  if (cNum === COL_K || cNum === COL_L || cNum === COL_M || cNum === COL_J) return;
                   merged.set(k, v);
                 });
                 initialEdits[i] = merged;
@@ -5034,6 +5037,10 @@ export default function App() {
     localStorage.removeItem("silo-batch-num");
     localStorage.removeItem("silo-batch-farm-name");
     localStorage.removeItem(EDITS_AUTOSAVE_KEY);
+    // Reset sync hash so the next Silo Mate sync re-applies readings from scratch
+    lastSyncHashRef.current = "";
+    localStorage.removeItem("silo-fp-sync-hash");
+    localStorage.removeItem("silo-fp-last-sync-date");
     setBatchKey(k => k + 1);
 
     setHasChanges(false);
