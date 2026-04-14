@@ -766,10 +766,21 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
   const placement  = placementDateObj ? placementDateObj.date.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) : g(2, 2);
   const shed1Name  = g(3, 1);  const shed1Birds = g(3, 2);
   const shed2Name  = g(4, 1);  const shed2Birds = g(4, 2);
-  const strAlloc   = g(1, 7);
-  const gwrAlloc   = g(2, 7);
-  const finAlloc   = g(3, 7);
-  const wdwAlloc   = g(4, 7);
+  // For allocation cells prefer rawNum (stored when parser encounters a date-formatted
+  // numeric cell) so that H3-H5 with "d-mmm" numFmt show kg values, not date strings.
+  const getAllocRaw = (r: number) => {
+    const editKey = `${r},7`;
+    const edited = safeEdits.get(editKey);
+    if (edited !== undefined) return edited;
+    const cell = cells.get(editKey);
+    if (!cell) return "";
+    if (cell.numericValue !== undefined) return String(Math.round(cell.numericValue));
+    return cell.value;
+  };
+  const strAlloc   = getAllocRaw(1);
+  const gwrAlloc   = getAllocRaw(2);
+  const finAlloc   = getAllocRaw(3);
+  const wdwAlloc   = getAllocRaw(4);
 
   const allocations = [["STR", strAlloc], ["GWR", gwrAlloc], ["FIN", finAlloc], ["WDW", wdwAlloc]] as [string, string][];
 
