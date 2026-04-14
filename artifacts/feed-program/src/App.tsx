@@ -374,14 +374,18 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     }
   }
 
-  // Blank Feed On Hand (COL_I) for all data rows.
-  // FOH is derived entirely from the silo-readings cascade; seeding it from
-  // the xlsx template would leak stale previous-batch values into a new batch
-  // that has no silo readings or feed ordered yet.  The cascade below
-  // (recalculate → COL_K trigger) will overwrite these blanks for any row
-  // that actually has silo or delivery data.
+  // Blank Feed On Hand (COL_I) and all silo reading columns (J/K/L/M) for every
+  // data row.  FOH and silo readings are derived from live Silo Mate sync or
+  // manual entry only — seeding them from the xlsx would leak stale
+  // previous-batch values into a new batch.  Explicitly setting them in the
+  // edits map prevents getCell() from falling back to the raw cell values in
+  // the imported file, which is what caused "other users see old silo data".
   for (let r = 12; r <= 71; r++) {
-    m.set(`${r},${COL_I}`, "");
+    m.set(`${r},${COL_I}`, "");  // Feed On Hand
+    m.set(`${r},9`,  "");        // J – Silo Total
+    m.set(`${r},10`, "");        // K – Silo A
+    m.set(`${r},11`, "");        // L – Silo B
+    m.set(`${r},12`, "");        // M – Silo C
   }
 
   // Seed date column (COL_B) from the placement date, seeding "2,2" into edits
