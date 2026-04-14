@@ -768,10 +768,12 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
   const shed2Name  = g(4, 1);  const shed2Birds = g(4, 2);
   // For allocation cells prefer rawNum (stored when parser encounters a date-formatted
   // numeric cell) so that H3-H5 with "d-mmm" numFmt show kg values, not date strings.
+  // Only trust an edit value if it parses as a valid positive number — date strings that
+  // were accidentally autosaved by a previous buggy version must be ignored here.
   const getAllocRaw = (r: number) => {
     const editKey = `${r},7`;
     const edited = safeEdits.get(editKey);
-    if (edited !== undefined) return edited;
+    if (edited !== undefined && !isNaN(parseFloat(edited.replace(/,/g, "")))) return edited;
     const cell = cells.get(editKey);
     if (!cell) return "";
     if (cell.numericValue !== undefined) return String(Math.round(cell.numericValue));
@@ -1536,7 +1538,10 @@ function ShedSummaryCard({
   // numericValue bypasses this and always returns the actual kg figure.
   const getAllocRaw = (r: number): string => {
     const editKey = `${r},7`;
-    if (edits.has(editKey)) return edits.get(editKey) ?? "";
+    const edited = edits.get(editKey);
+    // Only trust an edit if it parses as a valid number — date strings accidentally
+    // autosaved by a previous buggy version must be bypassed here.
+    if (edited !== undefined && !isNaN(parseFloat(edited.replace(/,/g, "")))) return edited;
     const cell = sheet.cells.get(editKey);
     if (!cell) return "";
     if (cell.numericValue !== undefined) return String(cell.numericValue);
@@ -4505,6 +4510,12 @@ export default function App() {
                   // versions that seeded these columns from the previous batch's template.
                   const cNum = parseInt(k.split(",")[1]);
                   if (cNum === COL_K || cNum === COL_L || cNum === COL_M || cNum === COL_J) return;
+                  // Skip stale date-string values that were accidentally autosaved into
+                  // allocation cells (H2-H5 = rows 1-4, col 7).  These appear when a
+                  // previous buggy version displayed a date-formatted kg value and the
+                  // user clicked through the Summary card, causing onBlur to persist it.
+                  const rNum = parseInt(k.split(",")[0]);
+                  if (cNum === COL_H && rNum >= 1 && rNum <= 4 && isNaN(parseFloat(v))) return;
                   merged.set(k, v);
                 });
                 initialEdits[i] = merged;
