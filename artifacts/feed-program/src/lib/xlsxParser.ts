@@ -14,6 +14,10 @@ export interface CellObject {
   v?: string | number | boolean | Date;
   w?: string;
   s?: CellStyle;
+  /** Original Excel numeric serial preserved when a date-formatted cell is converted to a Date.
+   *  Lets consumers recover the underlying number (e.g. kg allocation) even when the
+   *  cell has a date numFmt like "d-mmm" applied in error. */
+  rawNum?: number;
 }
 
 export interface CellStyle {
@@ -327,6 +331,7 @@ function parseWorksheet(
       let cellT: CellObject["t"] = "z";
       let cellV: CellObject["v"];
       let cellW: string | undefined;
+      let rawNum: number | undefined;
 
       if (t === "s") {
         const ssIdx = parseInt(vText, 10);
@@ -356,6 +361,7 @@ function parseWorksheet(
             const d = excelDateToJs(num);
             cellT = "d"; cellV = d;
             cellW = d.toLocaleDateString("en-AU");
+            rawNum = num; // preserve serial before date conversion
           } else {
             cellT = "n"; cellV = num;
             cellW = options.raw ? vText : String(num);
@@ -382,7 +388,7 @@ function parseWorksheet(
         }
       }
 
-      ws[addrStr] = { t: cellT, v: cellV, w: cellW, s } as CellObject;
+      ws[addrStr] = { t: cellT, v: cellV, w: cellW, s, rawNum } as CellObject;
     }
   }
 

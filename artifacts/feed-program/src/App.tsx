@@ -585,6 +585,10 @@ interface CellInfo {
   borderLeft?: string;
   borderRight?: string;
   isDateCell?: boolean;
+  /** Raw Excel serial preserved when the cell has a date numFmt but the underlying
+   *  value is actually a number (e.g. a kg allocation formatted as "d-mmm" by mistake).
+   *  Use this instead of `value` whenever you need the real numeric figure. */
+  numericValue?: number;
 }
 
 interface RichStyle {
@@ -689,6 +693,7 @@ function parseSheet(
 
       let value = "";
       const isDateCell = cell?.t === "d";
+      const numericValue: number | undefined = (cell as any)?.rawNum as number | undefined;
       if (cell) {
         if (cell.t === "d" && cell.v instanceof Date)
           value = cell.v.toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
@@ -734,6 +739,7 @@ function parseSheet(
         borderLeft: borderStyle(border?.left),
         borderRight: borderStyle(border?.right),
         isDateCell,
+        numericValue,
       });
     }
   }
@@ -1513,10 +1519,22 @@ function ShedSummaryCard({
   const shed2Name = getCell(sheetIdx, 4, 1) || `SHED ${shed2Num}`;
   const shed1Birds = getCell(sheetIdx, 3, 2);
   const shed2Birds = getCell(sheetIdx, 4, 2);
-  const strAlloc  = fmtAllocValue(getCell(sheetIdx, 1, 7));
-  const gwrAlloc  = fmtAllocValue(getCell(sheetIdx, 2, 7));
-  const finAlloc  = fmtAllocValue(getCell(sheetIdx, 3, 7));
-  const wdwAlloc  = fmtAllocValue(getCell(sheetIdx, 4, 7));
+  // For allocation cells, prefer the raw numeric value stored by the parser over the
+  // formatted cell string — some sheds have "d-mmm" date format applied to H3-H5 in the
+  // template which converts the kg number into a date string (e.g. "2154 May"). Using
+  // numericValue bypasses this and always returns the actual kg figure.
+  const getAllocRaw = (r: number): string => {
+    const editKey = `${r},7`;
+    if (edits.has(editKey)) return edits.get(editKey) ?? "";
+    const cell = sheet.cells.get(editKey);
+    if (!cell) return "";
+    if (cell.numericValue !== undefined) return String(cell.numericValue);
+    return cell.value;
+  };
+  const strAlloc  = fmtAllocValue(getAllocRaw(1));
+  const gwrAlloc  = fmtAllocValue(getAllocRaw(2));
+  const finAlloc  = fmtAllocValue(getAllocRaw(3));
+  const wdwAlloc  = fmtAllocValue(getAllocRaw(4));
 
   const b1 = parseFloat(shed1Birds.replace(/,/g, "")) || 0;
   const b2 = parseFloat(shed2Birds.replace(/,/g, "")) || 0;
