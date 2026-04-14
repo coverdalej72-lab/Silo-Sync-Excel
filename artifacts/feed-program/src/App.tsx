@@ -1484,7 +1484,10 @@ function fmtAllocValue(raw: string): string {
   if (!raw) return raw;
   const stripped = raw.replace(/,/g, "");
   const n = parseFloat(stripped);
-  if (isNaN(n)) return raw;
+  // If the value doesn't parse as a positive number (e.g. it's a date string like
+  // "20/03/2026" that leaked from an adjacent cell), suppress it entirely so the
+  // Summary card never shows a date where a kg figure should appear.
+  if (isNaN(n) || n <= 0) return "";
   // Round to nearest whole number so all sheds show clean figures (e.g. 26,000 not 26,260.5)
   return Math.round(n).toLocaleString();
 }
