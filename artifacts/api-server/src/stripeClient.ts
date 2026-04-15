@@ -3,6 +3,17 @@ import Stripe from 'stripe';
 let connectionSettings: any;
 
 async function getCredentials() {
+  // Fallback: use STRIPE_SECRET_KEY env var directly (for production deployments
+  // where the Replit Stripe connector only provides a sandbox/development connection)
+  const envSecretKey = process.env.STRIPE_SECRET_KEY;
+  const envPublishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+  if (envSecretKey) {
+    return {
+      publishableKey: envPublishableKey ?? '',
+      secretKey: envSecretKey,
+    };
+  }
+
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -15,8 +26,10 @@ async function getCredentials() {
   }
 
   const connectorName = 'stripe';
-  const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
-  const targetEnvironment = isProduction ? 'production' : 'development';
+  // Always try development connection first — the Replit Stripe connector only
+  // provides sandbox connections, so we never request 'production' from it.
+  // Live keys come from the STRIPE_SECRET_KEY env var above.
+  const targetEnvironment = 'development';
 
   const url = new URL(`https://${hostname}/api/v2/connection`);
   url.searchParams.set('include_secrets', 'true');
