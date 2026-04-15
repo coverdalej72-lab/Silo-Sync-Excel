@@ -336,8 +336,14 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
                  !sheet.name.toUpperCase().includes("WEEKLY");
   if (!isShed) return m;
 
-  const getCellNum = (r: number, c: number): number =>
-    parseFloat(sheet.cells.get(`${r},${c}`)?.value ?? "0") || 0;
+  const getCellNum = (r: number, c: number): number => {
+    const cell = sheet.cells.get(`${r},${c}`);
+    if (!cell) return 0;
+    // Prefer rawNum when the parser detected a date-formatted numeric cell
+    // (e.g. SHED 9&10 daily feed-usage column has "d-mmm" numFmt applied)
+    if (cell.numericValue !== undefined) return cell.numericValue;
+    return parseFloat(cell.value ?? "0") || 0;
+  };
   const getCellStr = (r: number, c: number): string =>
     sheet.cells.get(`${r},${c}`)?.value ?? "";
 
@@ -464,7 +470,11 @@ function recalculate(
     const key = `${r},${c}`;
     const ev = newEdits.get(key);
     if (ev !== undefined) return parseFloat(ev) || 0;
-    return parseFloat(cells.get(key)?.value ?? "0") || 0;
+    const cell = cells.get(key);
+    if (!cell) return 0;
+    // Prefer rawNum for date-formatted numeric cells (e.g. SHED 9&10 feed-usage column)
+    if (cell.numericValue !== undefined) return cell.numericValue;
+    return parseFloat(cell.value ?? "0") || 0;
   };
   const setNum = (r: number, c: number, val: number) => {
     newEdits.set(`${r},${c}`, String(Math.round(val * 100) / 100));
