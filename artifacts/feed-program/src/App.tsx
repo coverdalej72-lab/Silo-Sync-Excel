@@ -378,6 +378,13 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     if (fLetter !== "" && !isNaN(parseFloat(fLetter))) {
       m.set(`${r},5`, "");
     }
+    // If the feed-usage cell (COL_H) was parsed as a date-formatted number
+    // (e.g. SHED 9&10 where "d-mmm" numFmt is applied to daily usage cells),
+    // seed its real numeric value so the grid shows kg instead of a date string.
+    const hCell = sheet.cells.get(`${r},${COL_H}`);
+    if (hCell?.numericValue !== undefined) {
+      m.set(`${r},${COL_H}`, String(Math.round(hCell.numericValue)));
+    }
   }
 
   // Blank Feed On Hand (COL_I) and all silo reading columns (J/K/L/M) for every
