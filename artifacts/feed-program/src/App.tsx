@@ -149,7 +149,8 @@ function readBatchHistory(): BatchHistoryEntry[] {
 }
 
 // Maps shed sheet index (0-based, counting only SHED sheets) → shedGroupId (1–12)
-const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+// Supports up to 20 shed groups (40 sheds). Index = position of SHED sheet in workbook, value = shedGroupId.
+const SHED_SHEET_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 // Shed groups listed here are completely hidden (tab bar + settings) pending bug fixes.
 const DISABLED_SHED_GROUPS = new Set<number>([]); // empty — all sheds enabled
 
@@ -5681,9 +5682,25 @@ export default function App() {
                   <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Mate</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {SHED_SHEET_ORDER.filter(id => !DISABLED_SHED_GROUPS.has(id)).map(shedGroupId => {
+                  {(() => {
+                    // Build list from the actual loaded sheets so any number of sheds is handled.
+                    let shedIdx = 0;
+                    return sheets
+                      .filter(s => {
+                        const n = s.name.trim().toUpperCase();
+                        return n.includes("SHED") && !n.includes("WEEKLY") && !n.includes("CONSUMPTION");
+                      })
+                      .map(s => {
+                        const gid = SHED_SHEET_ORDER[shedIdx] ?? (shedIdx + 1);
+                        shedIdx++;
+                        return { shedGroupId: gid, sheetName: s.name };
+                      })
+                      .filter(({ shedGroupId }) => !DISABLED_SHED_GROUPS.has(shedGroupId))
+                      .map(({ shedGroupId, sheetName }) => {
                     const existing = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-                    const defaultName = `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
+                    // Derive default name from the sheet name itself (e.g. "SHED 9 & 10" → "Shed 9 & 10")
+                    const m = sheetName.match(/(\d+)\s*&\s*(\d+)/);
+                    const defaultName = m ? `Shed ${m[1]} & ${m[2]}` : sheetName.replace(/SHED\s*/i, "Shed ").trim();
                     const customName = (existing as any)?.customName ?? "";
                     const isActive = existing ? existing.active !== false : true;
 
@@ -5720,7 +5737,8 @@ export default function App() {
                         {isActive && <span style={{ fontSize: 11, color: "#2d8653", fontWeight: 700, whiteSpace: "nowrap" }}>{t("active")}</span>}
                       </div>
                     );
-                  })}
+                  });
+                })()}
                 </div>
               </div>
 
