@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { useTheme } from "@/hooks/use-theme";
+import { useRegisterSW } from "virtual:pwa-register/react";
 
 import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
@@ -37,6 +38,31 @@ function useBatchVersionSync() {
       })
       .catch(() => {});
   }, []);
+}
+
+function PwaUpdateBanner() {
+  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
+  if (!needRefresh) return null;
+  return (
+    <div style={{
+      position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+      zIndex: 9999, display: "flex", alignItems: "center", gap: 12,
+      background: "#1a5c36", color: "#fff", borderRadius: 12,
+      padding: "12px 20px", boxShadow: "0 4px 24px rgba(0,0,0,0.28)",
+      fontSize: 14, fontWeight: 600, whiteSpace: "nowrap",
+    }}>
+      <span>🔄 Update available</span>
+      <button
+        onClick={() => updateServiceWorker(true)}
+        style={{
+          background: "#C9A227", color: "#000", border: "none", borderRadius: 7,
+          padding: "6px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer",
+        }}
+      >
+        Refresh now
+      </button>
+    </div>
+  );
 }
 
 function RedirectHome() {
@@ -72,6 +98,7 @@ function App() {
           <Router />
         </WouterRouter>
         <Toaster />
+        <PwaUpdateBanner />
       </TooltipProvider>
     </QueryClientProvider>
   );

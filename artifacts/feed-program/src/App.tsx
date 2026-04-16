@@ -17,6 +17,32 @@ import { EndOfBatchContent } from "./components/EndOfBatchContent";
 import EggProductionView from "./components/EggProductionView";
 import BodyWeightView from "./components/BodyWeightView";
 import { LANGUAGES, createTranslator, LanguageContext, useT } from "./lib/i18n";
+import { useRegisterSW } from "virtual:pwa-register/react";
+
+function PwaUpdateBanner() {
+  const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW();
+  if (!needRefresh) return null;
+  return (
+    <div style={{
+      position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+      zIndex: 9999, display: "flex", alignItems: "center", gap: 12,
+      background: "#1a5c36", color: "#fff", borderRadius: 12,
+      padding: "12px 20px", boxShadow: "0 4px 24px rgba(0,0,0,0.28)",
+      fontSize: 14, fontWeight: 600, whiteSpace: "nowrap",
+    }}>
+      <span>🔄 Update available</span>
+      <button
+        onClick={() => updateServiceWorker(true)}
+        style={{
+          background: "#C9A227", color: "#000", border: "none", borderRadius: 7,
+          padding: "6px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer",
+        }}
+      >
+        Refresh now
+      </button>
+    </div>
+  );
+}
 
 function escapeXml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
@@ -5927,6 +5953,7 @@ export default function App() {
           </div>
         </div>
       )}
+      <PwaUpdateBanner />
     </div>
     </LanguageContext.Provider>
   );
