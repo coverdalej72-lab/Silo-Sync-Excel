@@ -779,9 +779,9 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
   };
   const fmt = (v: string | number) => { const n = parseFloat(String(v).replace(/,/g, "")); return isNaN(n) ? String(v) : n.toLocaleString(); };
 
-  // Prefer the G1 cell value; fall back to parsing the sheet name so copied sheets
-  // (e.g. Shed 9 & 10 copied from Shed 7 & 8) still show the correct number.
-  const shedNum = g(0, 6) || (() => {
+  // Always derive shed number from the sheet name — G1 cell data can be stale
+  // if the sheet was copied from another shed (e.g. Shed 9&10 copied from Shed 7&8).
+  const shedNum = (() => {
     const m = sheet.name.match(/(\d+\s*&\s*\d+)/);
     return m ? m[1].replace(/\s*&\s*/, " & ").trim() : sheet.name.replace(/SHED\s*/i, "").trim();
   })();
@@ -1576,8 +1576,9 @@ function ShedSummaryCard({
 }) {
   const t = useT();
   if (!sheet) return null;
-  // Shed group label — prefer the G1 cell, fall back to the sheet name (e.g. "9 & 10")
-  const shedNum = getCell(sheetIdx, 0, 6) || (() => {
+  // Always derive shed number from the sheet name — G1 cell data can be stale
+  // if the sheet was copied from another shed (e.g. Shed 9&10 copied from Shed 7&8).
+  const shedNum = (() => {
     const m = sheet.name.match(/(\d+\s*&\s*\d+)/);
     return m ? m[1].replace(/\s*&\s*/, " & ").trim() : sheet.name.replace(/SHED\s*/i, "").trim();
   })();
