@@ -5683,28 +5683,42 @@ export default function App() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {SHED_SHEET_ORDER.filter(id => !DISABLED_SHED_GROUPS.has(id)).map(shedGroupId => {
                     const existing = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-                    const shedNums = (existing as any)?.customName || `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
+                    const defaultName = `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
+                    const customName = (existing as any)?.customName ?? "";
                     const isActive = existing ? existing.active !== false : true;
+
+                    const saveGroup = (patch: { active?: boolean; customName?: string }) => {
+                      const groups = SHED_SHEET_ORDER.map(id => {
+                        const ex = farmConfig.shedGroups?.find(g => g.shedGroupId === id);
+                        const act = ex ? ex.active !== false : true;
+                        const cn  = (ex as any)?.customName ?? "";
+                        if (id === shedGroupId) {
+                          return { shedGroupId: id, active: patch.active ?? act, customName: patch.customName ?? cn, silos: ex?.silos ?? [] };
+                        }
+                        return { shedGroupId: id, active: act, customName: cn, silos: ex?.silos ?? [] };
+                      });
+                      const updated = { ...farmConfig, shedGroups: groups };
+                      saveFarmConfig(updated);
+                      setFarmConfig(updated);
+                    };
+
                     return (
-                      <label key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "8px 12px", borderRadius: 7, background: isActive ? "var(--pm-primary-soft)" : "#f5f5f5", border: `1.5px solid ${isActive ? "var(--pm-primary)" : "#ddd"}` }}>
+                      <div key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 7, background: isActive ? "var(--pm-primary-soft)" : "#f5f5f5", border: `1.5px solid ${isActive ? "var(--pm-primary)" : "#ddd"}` }}>
                         <input
                           type="checkbox"
                           checked={isActive}
-                          onChange={() => {
-                            const groups = SHED_SHEET_ORDER.map(id => {
-                              const ex = farmConfig.shedGroups?.find(g => g.shedGroupId === id);
-                              const act = ex ? ex.active !== false : id <= 6;
-                              return { shedGroupId: id, active: id === shedGroupId ? !act : act, silos: ex?.silos ?? [] };
-                            });
-                            const updated = { ...farmConfig, shedGroups: groups };
-                            saveFarmConfig(updated);
-                            setFarmConfig(updated);
-                          }}
-                          style={{ width: 17, height: 17, accentColor: "var(--pm-primary)", cursor: "pointer" }}
+                          onChange={() => saveGroup({ active: !isActive })}
+                          style={{ width: 17, height: 17, accentColor: "var(--pm-primary)", cursor: "pointer", flexShrink: 0 }}
                         />
-                        <span style={{ fontWeight: 600, fontSize: 14, color: isActive ? "var(--pm-primary)" : "#888" }}>{shedNums}</span>
-                        {isActive && <span style={{ marginLeft: "auto", fontSize: 11, color: "#2d8653", fontWeight: 700 }}>{t("active")}</span>}
-                      </label>
+                        <input
+                          type="text"
+                          value={customName}
+                          placeholder={defaultName}
+                          onChange={e => saveGroup({ customName: e.target.value })}
+                          style={{ flex: 1, border: "1px solid", borderColor: isActive ? "rgba(26,92,54,0.3)" : "#ddd", borderRadius: 5, padding: "3px 8px", fontSize: 13, fontWeight: 600, color: isActive ? "var(--pm-primary)" : "#888", background: "transparent", outline: "none", minWidth: 0 }}
+                        />
+                        {isActive && <span style={{ fontSize: 11, color: "#2d8653", fontWeight: 700, whiteSpace: "nowrap" }}>{t("active")}</span>}
+                      </div>
                     );
                   })}
                 </div>
