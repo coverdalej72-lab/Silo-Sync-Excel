@@ -1366,11 +1366,40 @@ function SheetView({
 
 // ── Summary Tab Components ────────────────────────────────────────────────
 
-function SummaryInputField({ label, value, onSave, wide }: { label: string; value: string; onSave: (v: string) => void; wide?: boolean }) {
+// Convert any recognised date value → "DD/MM/YYYY" for display/editing.
+function toDisplayDate(raw: string): string {
+  if (!raw) return "";
+  const d = parseDateString(raw) ?? parseDateInput(raw);
+  if (!d || isNaN(d.getTime())) return raw;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+// Normalise a user-typed date string to "DD/MM/YYYY" for storage.
+// Accepts DD/MM/YYYY, D/M/YYYY, DD-MM-YYYY, long formats, etc.
+// Returns the original string unchanged if it can't be parsed as a date.
+function normaliseDateInput(raw: string): string {
+  const display = toDisplayDate(raw);
+  return display || raw;
+}
+
+function SummaryInputField({ label, value, onSave, wide, isDate }: { label: string; value: string; onSave: (v: string) => void; wide?: boolean; isDate?: boolean }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  useEffect(() => { if (!editing) setDraft(value); }, [value, editing]);
+
+  // For date fields show DD/MM/YYYY when not editing; seed draft the same way.
+  const displayValue = isDate ? toDisplayDate(value) || value : value;
+  const [draft, setDraft] = useState(displayValue);
+  useEffect(() => { if (!editing) setDraft(displayValue); }, [value, editing]);
+
+  const commit = (raw: string) => {
+    const normalised = isDate ? normaliseDateInput(raw) : raw;
+    onSave(normalised);
+    setEditing(false);
+  };
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
       <span style={{ fontSize: 11, color: "#555", minWidth: wide ? 0 : 80, flexShrink: 0 }}>{label}</span>
@@ -1378,20 +1407,21 @@ function SummaryInputField({ label, value, onSave, wide }: { label: string; valu
         <input
           autoFocus
           value={draft}
+          placeholder={isDate ? "DD/MM/YYYY" : undefined}
           onChange={e => setDraft(e.target.value)}
-          onBlur={() => { onSave(draft); setEditing(false); }}
+          onBlur={() => commit(draft)}
           onKeyDown={e => {
-            if (e.key === "Enter") { onSave(draft); setEditing(false); }
-            if (e.key === "Escape") { setDraft(value); setEditing(false); }
+            if (e.key === "Enter") commit(draft);
+            if (e.key === "Escape") { setDraft(displayValue); setEditing(false); }
           }}
           style={{ flex: 1, border: "2px solid var(--pm-primary)", borderRadius: 4, padding: "3px 7px", fontSize: 13, outline: "none", minWidth: 0 }}
         />
       ) : (
         <div
-          onClick={() => { setDraft(value); setEditing(true); }}
-          style={{ flex: 1, background: "#f5f5f5", borderRadius: 4, padding: "3px 7px", fontSize: 13, cursor: "pointer", minHeight: 22, color: value ? "#000" : "#aaa", minWidth: 0 }}
+          onClick={() => { setDraft(displayValue); setEditing(true); }}
+          style={{ flex: 1, background: "#f5f5f5", borderRadius: 4, padding: "3px 7px", fontSize: 13, cursor: "pointer", minHeight: 22, color: displayValue ? "#000" : "#aaa", minWidth: 0 }}
         >
-          {value || t("tapToEdit")}
+          {displayValue || (isDate ? "DD/MM/YYYY" : t("tapToEdit"))}
         </div>
       )}
     </div>
@@ -1597,7 +1627,7 @@ function ShedSummaryCard({
         </div>
       </div>
       <div style={{ padding: "12px 14px" }}>
-        <SummaryInputField label={t("placement")} value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} />
+        <SummaryInputField label={t("placement")} value={placement} onSave={v => onEdit(sheetIdx, "2,2", v)} isDate />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>{t("birdsPerShed")}</div>
         <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => {
