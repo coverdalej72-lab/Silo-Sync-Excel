@@ -1485,7 +1485,7 @@ function computeFeedAlerts(
     shedCount++;
 
     const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-    const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+    const groupActive = groupCfg ? groupCfg.active !== false : true;
     if (!groupActive) continue;
 
     const getV = (row: number, col: number): number => {
@@ -1718,7 +1718,7 @@ function PredictionBanner({ sheets, edits, farmConfig }: {
     if (!name.includes("SHED") || name.includes("WEEKLY")) continue;
     const shedGroupId = SHED_SHEET_ORDER[shedOrder] ?? (shedOrder + 1);
     const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-    const groupActive = groupCfg ? groupCfg.active !== false : (shedGroupId != null && shedGroupId <= 6);
+    const groupActive = groupCfg ? groupCfg.active !== false : true;
     if (!groupActive) { shedOrder++; continue; }
     activeShedIdxs.push(i);
     shedOrder++;
@@ -1898,7 +1898,7 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     if (tabName.includes("SHED")) {
       const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
       const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-      const groupActive = groupCfg ? groupCfg.active !== false : shedGroupId <= 6;
+      const groupActive = groupCfg ? groupCfg.active !== false : true;
       if (groupActive) shedItems.push({ sheetIdx: i, shedGroupId });
       shedCount++;
     }
@@ -2336,7 +2336,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const isGroupActive = (shedNum: number) => {
     const groupId = Math.ceil(shedNum / 2);
     const cfg = farmConfig.shedGroups?.find(g => g.shedGroupId === groupId);
-    return cfg ? cfg.active !== false : groupId <= 6;
+    return cfg ? cfg.active !== false : true;
   };
 
   // All active shed numbers (union of xlsx sheds + live placement)
@@ -3714,7 +3714,7 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
     const sgId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
     shedCount++;
     const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
-    const grpActive = grpCfg ? grpCfg.active !== false : sgId <= 6;
+    const grpActive = grpCfg ? grpCfg.active !== false : true;
     if (!grpActive) continue;
 
     const shed1  = gcv(i, 3, 1) || `Shed ${sgId * 2 - 1}`;
@@ -5241,7 +5241,7 @@ export default function App() {
             const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
             // If config found: use stored active flag.
             // If no config: groups 1–6 (sheds 1–12) active by default; 7+ inactive.
-            const groupActive = groupCfg ? groupCfg.active !== false : (shedGroupId != null && shedGroupId <= 6);
+            const groupActive = groupCfg ? groupCfg.active !== false : true;
             if (!groupActive) return null;
           }
 
@@ -5470,7 +5470,7 @@ export default function App() {
                     <div style={{ fontWeight: 700, color: "#f59e0b", textAlign: "center" }}>Silo C</div>
                     {siloSyncReadings.filter(s => {
                       const farmCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === s.shedGroupId);
-                      return farmCfg ? farmCfg.active !== false : s.shedGroupId <= 6;
+                      return farmCfg ? farmCfg.active !== false : true;
                     }).map(shed => {
                       const a = shed.silos.find(s => s.letter === "A");
                       const b = shed.silos.find(s => s.letter === "B");
