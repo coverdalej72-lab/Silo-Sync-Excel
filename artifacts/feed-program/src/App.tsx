@@ -3149,14 +3149,25 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
   };
 
   const activeShedNums: number[] = [];
-  (farmConfig.shedGroups ?? []).forEach((g: FarmShedConfig) => {
-    if (g.active !== false) {
-      const id = g.shedGroupId;
-      const odd = id * 2 - 1; const even = id * 2;
-      if (odd > 0 && odd <= 24) { activeShedNums.push(odd); activeShedNums.push(even); }
+  {
+    let sc = 0;
+    for (let i = 0; i < sheets.length; i++) {
+      const tabName = sheets[i].name.trim().toUpperCase();
+      if (!tabName.includes("SHED") || tabName.includes("WEEKLY") || tabName.includes("CONSUMPTION")) continue;
+      const sgId = SHED_SHEET_ORDER[sc] ?? (sc + 1);
+      sc++;
+      const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
+      const grpActive = grpCfg ? grpCfg.active !== false : true;
+      if (!grpActive) continue;
+      const nm = sheets[i].name.match(/(\d+)\s*&\s*(\d+)/);
+      const odd  = nm ? parseInt(nm[1]) : sgId * 2 - 1;
+      const even = nm ? parseInt(nm[2]) : sgId * 2;
+      activeShedNums.push(odd, even);
     }
-  });
-  const shedNums = activeShedNums.length > 0 ? activeShedNums : Array.from({ length: 12 }, (_, i) => i + 1);
+  }
+  const shedNums = activeShedNums.length > 0
+    ? activeShedNums
+    : Array.from({ length: 24 }, (_, i) => i + 1);
 
   const days = getWeekDays(weekOffset);
   const weekLabel = `${days[0].toLocaleDateString("en-AU", { day: "numeric", month: "short" })} – ${days[6].toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}`;
