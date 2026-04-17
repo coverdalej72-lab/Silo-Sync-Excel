@@ -5721,62 +5721,74 @@ export default function App() {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {(() => {
-                    // Build list from the actual loaded sheets so any number of sheds is handled.
-                    let shedIdx = 0;
-                    return sheets
-                      .filter(s => {
-                        const n = s.name.trim().toUpperCase();
-                        return n.includes("SHED") && !n.includes("WEEKLY") && !n.includes("CONSUMPTION");
-                      })
-                      .map(s => {
-                        const gid = SHED_SHEET_ORDER[shedIdx] ?? (shedIdx + 1);
-                        shedIdx++;
-                        return { shedGroupId: gid, sheetName: s.name };
-                      })
-                      .filter(({ shedGroupId }) => !DISABLED_SHED_GROUPS.has(shedGroupId))
-                      .map(({ shedGroupId, sheetName }) => {
-                    const existing = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-                    // Derive default name from the sheet name itself (e.g. "SHED 9 & 10" → "Shed 9 & 10")
-                    const m = sheetName.match(/(\d+)\s*&\s*(\d+)/);
-                    const defaultName = m ? `Shed ${m[1]} & ${m[2]}` : sheetName.replace(/SHED\s*/i, "Shed ").trim();
-                    const customName = (existing as any)?.customName ?? "";
-                    const isActive = existing ? existing.active !== false : true;
+                    // Build a map from shedGroupId → sheet name for sheets that exist in the workbook.
+                    const sheetNameByGid = new Map<number, string>();
+                    let sc = 0;
+                    for (const s of sheets) {
+                      const n = s.name.trim().toUpperCase();
+                      if (!n.includes("SHED") || n.includes("WEEKLY") || n.includes("CONSUMPTION")) continue;
+                      const gid = SHED_SHEET_ORDER[sc] ?? (sc + 1);
+                      sc++;
+                      if (!DISABLED_SHED_GROUPS.has(gid)) sheetNameByGid.set(gid, s.name);
+                    }
+                    // Always show groups 1–12 (sheds 1–24), plus any extra groups that have sheets.
+                    const MIN_GROUPS = 12;
+                    const maxGid = Math.max(MIN_GROUPS, ...sheetNameByGid.keys());
+                    const groupIds: number[] = [];
+                    for (let id = 1; id <= maxGid; id++) {
+                      if (!DISABLED_SHED_GROUPS.has(id)) groupIds.push(id);
+                    }
 
-                    const saveGroup = (patch: { active?: boolean; customName?: string }) => {
-                      const groups = SHED_SHEET_ORDER.map(id => {
-                        const ex = farmConfig.shedGroups?.find(g => g.shedGroupId === id);
-                        const act = ex ? ex.active !== false : true;
-                        const cn  = (ex as any)?.customName ?? "";
-                        if (id === shedGroupId) {
-                          return { shedGroupId: id, active: patch.active ?? act, customName: patch.customName ?? cn, silos: ex?.silos ?? [] };
-                        }
-                        return { shedGroupId: id, active: act, customName: cn, silos: ex?.silos ?? [] };
-                      });
-                      const updated = { ...farmConfig, shedGroups: groups };
-                      saveFarmConfig(updated);
-                      setFarmConfig(updated);
-                    };
+                    return groupIds.map(shedGroupId => {
+                      const sheetName = sheetNameByGid.get(shedGroupId);
+                      const existing = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
+                      // Derive default name: from sheet name if available, else from formula.
+                      const m = sheetName?.match(/(\d+)\s*&\s*(\d+)/);
+                      const defaultName = m
+                        ? `Shed ${m[1]} & ${m[2]}`
+                        : sheetName
+                          ? sheetName.replace(/SHED\s*/i, "Shed ").trim()
+                          : `Shed ${shedGroupId * 2 - 1} & ${shedGroupId * 2}`;
+                      const customName = (existing as any)?.customName ?? "";
+                      const isActive = existing ? existing.active !== false : true;
+                      const hasSheet = sheetNameByGid.has(shedGroupId);
 
-                    return (
-                      <div key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 7, background: isActive ? "var(--pm-primary-soft)" : "#f5f5f5", border: `1.5px solid ${isActive ? "var(--pm-primary)" : "#ddd"}` }}>
-                        <input
-                          type="checkbox"
-                          checked={isActive}
-                          onChange={() => saveGroup({ active: !isActive })}
-                          style={{ width: 17, height: 17, accentColor: "var(--pm-primary)", cursor: "pointer", flexShrink: 0 }}
-                        />
-                        <input
-                          type="text"
-                          value={customName}
-                          placeholder={defaultName}
-                          onChange={e => saveGroup({ customName: e.target.value })}
-                          style={{ flex: 1, border: "1px solid", borderColor: isActive ? "rgba(26,92,54,0.3)" : "#ddd", borderRadius: 5, padding: "3px 8px", fontSize: 13, fontWeight: 600, color: isActive ? "var(--pm-primary)" : "#888", background: "transparent", outline: "none", minWidth: 0 }}
-                        />
-                        {isActive && <span style={{ fontSize: 11, color: "#2d8653", fontWeight: 700, whiteSpace: "nowrap" }}>{t("active")}</span>}
-                      </div>
-                    );
-                  });
-                })()}
+                      const saveGroup = (patch: { active?: boolean; customName?: string }) => {
+                        const groups = SHED_SHEET_ORDER.map(id => {
+                          const ex = farmConfig.shedGroups?.find(g => g.shedGroupId === id);
+                          const act = ex ? ex.active !== false : true;
+                          const cn  = (ex as any)?.customName ?? "";
+                          if (id === shedGroupId) {
+                            return { shedGroupId: id, active: patch.active ?? act, customName: patch.customName ?? cn, silos: ex?.silos ?? [] };
+                          }
+                          return { shedGroupId: id, active: act, customName: cn, silos: ex?.silos ?? [] };
+                        });
+                        const updated = { ...farmConfig, shedGroups: groups };
+                        saveFarmConfig(updated);
+                        setFarmConfig(updated);
+                      };
+
+                      return (
+                        <div key={shedGroupId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 7, background: isActive ? "var(--pm-primary-soft)" : "#f5f5f5", border: `1.5px solid ${isActive ? "var(--pm-primary)" : "#ddd"}`, opacity: hasSheet ? 1 : 0.6 }}>
+                          <input
+                            type="checkbox"
+                            checked={isActive}
+                            onChange={() => saveGroup({ active: !isActive })}
+                            style={{ width: 17, height: 17, accentColor: "var(--pm-primary)", cursor: "pointer", flexShrink: 0 }}
+                          />
+                          <input
+                            type="text"
+                            value={customName}
+                            placeholder={defaultName}
+                            onChange={e => saveGroup({ customName: e.target.value })}
+                            style={{ flex: 1, border: "1px solid", borderColor: isActive ? "rgba(26,92,54,0.3)" : "#ddd", borderRadius: 5, padding: "3px 8px", fontSize: 13, fontWeight: 600, color: isActive ? "var(--pm-primary)" : "#888", background: "transparent", outline: "none", minWidth: 0 }}
+                          />
+                          {isActive && hasSheet && <span style={{ fontSize: 11, color: "#2d8653", fontWeight: 700, whiteSpace: "nowrap" }}>{t("active")}</span>}
+                          {!hasSheet && <span style={{ fontSize: 10, color: "#aaa", whiteSpace: "nowrap" }}>no sheet</span>}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
 
