@@ -332,11 +332,13 @@ function findPlacementDate(
 // After seeding, the FOH cascade is run so Feed On Hand reflects all of these.
 //
 // For the "end of batch" sheet the only job is to blank out all data rows
-// (row ≥ 6) so that delivery records from the previous batch that are baked
-// into the xlsx template never bleed into a new batch.
-// Rows 0-5 (farm/batch header, section labels, column headers) and col 21
+// (row ≥ 4) so that delivery records and bird counts from the previous batch
+// that are baked into the xlsx template never bleed into a new batch.
+// Rows 0-3 (farm/batch header, section labels, column headers) and col 21
 // (permanent shed-number list) are always preserved.
-const EOB_DATA_START_ROW = 6;
+// NOTE: shed data rows start at row 4, so clearing must begin there —
+// rows 4-5 contain the first two shed pairs' bird counts which must be wiped.
+const EOB_DATA_START_ROW = 4;
 function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
   const m = new Map<string, string>();
 
