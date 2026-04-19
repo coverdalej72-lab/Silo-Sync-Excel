@@ -6,7 +6,6 @@ import deliveriesRouter from "./deliveries";
 import onedriveRouter from "./onedrive";
 import exportRouter from "./export";
 import batchRouter from "./batch";
-import stripeRouter from "./stripe";
 import paypalRouter from "./paypal";
 import sponsorsRouter from "./sponsors";
 
@@ -19,7 +18,6 @@ router.use(readingsRouter);
 router.use(deliveriesRouter);
 router.use(onedriveRouter);
 router.use(batchRouter);
-router.use(stripeRouter);
 router.use(paypalRouter);
 router.use(sponsorsRouter);
 
