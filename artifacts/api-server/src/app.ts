@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { WebhookHandlers } from "./webhookHandlers";
+import { ensurePlansTable } from "./paypalClient";
 
 const app: Express = express();
 
@@ -44,5 +45,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+// Initialize PayPal plans table (non-blocking)
+ensurePlansTable().catch(err =>
+  logger.warn({ err: err.message }, 'PayPal plans table setup failed — continuing')
+);
 
 export default app;

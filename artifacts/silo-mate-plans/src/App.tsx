@@ -967,17 +967,7 @@ function ManageSubscriptionModal({ onClose }: { onClose: () => void }) {
     setLoading(true);
     setError("");
     try {
-      const resp = await fetch(`${window.location.origin}/api/stripe/portal`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, returnUrl: window.location.href }),
-      });
-      const data = await resp.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setError(data.error || "No active subscription found for that email.");
-      }
+      window.location.href = "https://www.paypal.com/myaccount/autopay/";
     } catch {
       setError("Connection error. Please try again.");
     } finally {
@@ -1013,7 +1003,7 @@ function ManageSubscriptionModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ background: "#f9fafb", borderRadius: 10, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
-          You'll be taken to Stripe's secure billing portal where you can upgrade, downgrade, update payment details, or cancel.
+          You'll be taken to your PayPal account where you can manage, pause, or cancel your subscription.
         </div>
 
         <button
@@ -1024,7 +1014,7 @@ function ManageSubscriptionModal({ onClose }: { onClose: () => void }) {
           {loading ? "Opening portal…" : "Go to Billing Portal →"}
         </button>
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
-          Secure · Powered by Stripe
+          Secure · Powered by PayPal
         </p>
       </div>
     </div>
@@ -1036,48 +1026,26 @@ function CheckoutModal({ plan, yearly, onClose }: {
   yearly: boolean;
   onClose: () => void;
 }) {
-  const [email, setEmail]           = useState("");
-  const [charityId, setCharityId]   = useState(CHARITIES[0].id);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState("");
-  const [priceId, setPriceId]       = useState<string | null>(null);
+  const [email, setEmail]         = useState("");
+  const [charityId, setCharityId] = useState(CHARITIES[0].id);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
 
-  const price = yearly ? plan.yearlyPrice : plan.monthlyPrice;
+  const price    = yearly ? plan.yearlyPrice : plan.monthlyPrice;
   const interval = yearly ? "year" : "month";
-
-  // Load the live price ID from the API on mount
-  useEffect(() => {
-    const domain = window.location.origin;
-    fetch(`${domain}/api/stripe/plans`)
-      .then(r => r.json())
-      .then(data => {
-        const product = (data.data ?? []).find((p: any) =>
-          p.metadata?.tier === plan.id
-        );
-        const matchingPrice = (product?.prices ?? []).find((p: any) =>
-          p.recurring?.interval === interval
-        );
-        if (matchingPrice) {
-          setPriceId(matchingPrice.id);
-        } else {
-          setError("Unable to load plan pricing. Please try again later.");
-        }
-      })
-      .catch(() => setError("Unable to load plan pricing. Please try again later."));
-  }, [plan.id, interval]);
 
   const handleCheckout = async () => {
     if (!email.includes("@")) { setError("Please enter a valid email address."); return; }
-    if (!priceId) { setError("Pricing not loaded yet. Please try again."); return; }
     setLoading(true);
     setError("");
     try {
       const domain = window.location.origin;
-      const resp = await fetch(`${domain}/api/stripe/checkout`, {
+      const resp = await fetch(`${domain}/api/paypal/create-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          priceId,
+          tier: plan.id,
+          interval,
           email,
           charityId,
           successUrl: `${domain}/plans/?checkout=success`,
@@ -1154,13 +1122,13 @@ function CheckoutModal({ plan, yearly, onClose }: {
 
         <button
           onClick={handleCheckout}
-          disabled={loading || !priceId}
-          style={{ width: "100%", background: (loading || !priceId) ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 800, fontSize: 15, padding: "14px 0", borderRadius: 12, border: "none", cursor: (loading || !priceId) ? "not-allowed" : "pointer", transition: "background 0.2s" }}
+          disabled={loading}
+          style={{ width: "100%", background: loading ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 800, fontSize: 15, padding: "14px 0", borderRadius: 12, border: "none", cursor: loading ? "not-allowed" : "pointer", transition: "background 0.2s" }}
         >
-          {loading ? "Redirecting to Stripe…" : !priceId ? "Loading…" : `Subscribe — $${price.toFixed(2)}/${yearly ? "yr" : "mo"}`}
+          {loading ? "Redirecting to PayPal…" : `Subscribe — $${price.toFixed(2)}/${yearly ? "yr" : "mo"}`}
         </button>
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
-          Secure payment via Stripe · Cancel anytime
+          Secure payment via PayPal · Accepts credit cards · Cancel anytime
         </p>
       </div>
     </div>
@@ -1211,7 +1179,7 @@ function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIER
     setError("");
     try {
       const domain = window.location.origin;
-      const resp = await fetch(`${domain}/api/stripe/supporter-checkout`, {
+      const resp = await fetch(`${domain}/api/paypal/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1282,7 +1250,7 @@ function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIER
           Cancel
         </button>
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 12, marginBottom: 0 }}>
-          Secure one-time payment via Stripe · No subscription created
+          Secure one-time payment via PayPal · No subscription created
         </p>
       </div>
     </div>
@@ -1308,7 +1276,7 @@ function CheckoutSuccessModal({ onClose }: { onClose: () => void }) {
           Open Feed Program →
         </a>
         <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
-          Bookmark that link — it's your app. A Stripe receipt has been sent to your email.
+          Bookmark that link — it's your app. A PayPal receipt has been sent to your email.
         </p>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", fontSize: 13, cursor: "pointer" }}>Close</button>
       </div>
@@ -2483,7 +2451,7 @@ export default function App() {
           </div>
 
           <p style={{ textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
-            Payments are processed securely by Stripe · One-off contribution · No recurring charges
+            Payments are processed securely by PayPal · One-off contribution · No recurring charges
           </p>
         </div>
       </section>
