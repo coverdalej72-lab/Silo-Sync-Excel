@@ -3148,22 +3148,30 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
     return parseFloat(String(sheets[eobIdx].cells.get(key)?.value ?? 0)) || 0;
   };
 
-  const activeShedNums: number[] = [];
+  // Build a shed-name lookup from loaded sheets
+  const sheetNameForGroup = new Map<number, string>();
   {
     let sc = 0;
-    for (let i = 0; i < sheets.length; i++) {
-      const tabName = sheets[i].name.trim().toUpperCase();
+    for (const s of sheets) {
+      const tabName = s.name.trim().toUpperCase();
       if (!tabName.includes("SHED") || tabName.includes("WEEKLY") || tabName.includes("CONSUMPTION")) continue;
       const sgId = SHED_SHEET_ORDER[sc] ?? (sc + 1);
       sc++;
-      const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
-      const grpActive = grpCfg ? grpCfg.active !== false : true;
-      if (!grpActive) continue;
-      const nm = sheets[i].name.match(/(\d+)\s*&\s*(\d+)/);
-      const odd  = nm ? parseInt(nm[1]) : sgId * 2 - 1;
-      const even = nm ? parseInt(nm[2]) : sgId * 2;
-      activeShedNums.push(odd, even);
+      sheetNameForGroup.set(sgId, s.name);
     }
+  }
+  // Always show minimum 12 groups (sheds 1–24), plus any extra groups from sheets
+  const maxMortsGroup = Math.max(12, ...(sheetNameForGroup.size > 0 ? sheetNameForGroup.keys() : [12]));
+  const activeShedNums: number[] = [];
+  for (let sgId = 1; sgId <= maxMortsGroup; sgId++) {
+    const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
+    const grpActive = grpCfg ? grpCfg.active !== false : true;
+    if (!grpActive) continue;
+    const sheetName = sheetNameForGroup.get(sgId);
+    const nm = sheetName?.match(/(\d+)\s*&\s*(\d+)/);
+    const odd  = nm ? parseInt(nm[1]) : sgId * 2 - 1;
+    const even = nm ? parseInt(nm[2]) : sgId * 2;
+    activeShedNums.push(odd, even);
   }
   const shedNums = activeShedNums.length > 0
     ? activeShedNums
