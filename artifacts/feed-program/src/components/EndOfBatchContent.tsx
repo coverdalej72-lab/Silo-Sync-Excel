@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { EobQrScanner, type DocketData } from "./EobQrScanner";
 
 interface CellInfo {
   value: string;
@@ -30,10 +31,15 @@ function fmtNum(v: string): string {
   return isNaN(n) || v === "" ? "—" : n.toLocaleString();
 }
 
+const GREEN = "#1a5c36";
+
 export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   const { cells } = sheet;
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue]   = useState("");
+  const [showScanner, setShowScanner] = useState(false);
+  const [pendingDocket, setPendingDocket] = useState<DocketData | null>(null);
+  const [selectedFeedType, setSelectedFeedType] = useState<number | null>(null);
 
   const g = (r: number, c: number): string => {
     const key = `${r},${c}`;
@@ -105,6 +111,38 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
     return rows;
   }
 
+  function getNextEmptyRow(dateCol: number): number {
+    for (let r = 6; r <= 35; r++) {
+      const v = g(r, dateCol);
+      if (!v || v === "" || v === "0") return r;
+    }
+    return 35;
+  }
+
+  function handleQrResult(data: DocketData) {
+    setPendingDocket(data);
+    setShowScanner(false);
+    // Auto-select feed type if detected from QR
+    if (data.feedType) {
+      const idx = feedTypes.findIndex(ft =>
+        ft.name.toLowerCase().includes(data.feedType!.toLowerCase()) ||
+        data.feedType!.toLowerCase().includes(ft.name.toLowerCase())
+      );
+      if (idx >= 0) setSelectedFeedType(idx);
+    }
+  }
+
+  function applyDocket() {
+    if (!pendingDocket || selectedFeedType === null) return;
+    const ft = feedTypes[selectedFeedType];
+    const nextRow = getNextEmptyRow(ft.cols[0]);
+    if (pendingDocket.deliveryDate) onEdit(`${nextRow},${ft.cols[0]}`, pendingDocket.deliveryDate);
+    if (pendingDocket.docNumber)    onEdit(`${nextRow},${ft.cols[1]}`, pendingDocket.docNumber);
+    if (pendingDocket.amountKg != null) onEdit(`${nextRow},${ft.cols[2]}`, String(pendingDocket.amountKg));
+    setPendingDocket(null);
+    setSelectedFeedType(null);
+  }
+
   const birdRows: number[] = [];
   for (let r = 4; r <= 20; r++) {
     const v = g(r, 21);
@@ -127,12 +165,84 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   return (
     <div style={{ padding: "16px 18px 24px", background: "#f8fafc", minHeight: "100%", boxSizing: "border-box" }}>
 
+      {showScanner && (
+        <EobQrScanner
+          onClose={() => setShowScanner(false)}
+          onResult={handleQrResult}
+        />
+      )}
+
+      {/* Feed type selector modal after scan */}
+      {pendingDocket && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "22px 22px 18px", width: "100%", maxWidth: 400, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontWeight: 700, fontSize: 17, color: "#111", marginBottom: 4 }}>Docket Scanned ✓</div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Select which feed type this delivery belongs to</div>
+
+            {/* Scanned data summary */}
+            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13 }}>
+              {[
+                { label: "Doc No", value: pendingDocket.docNumber },
+                { label: "Date", value: pendingDocket.deliveryDate },
+                { label: "Kilos", value: pendingDocket.amountKg != null ? `${pendingDocket.amountKg.toLocaleString()} kg` : undefined },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #f1f5f9" }}>
+                  <span style={{ color: "#64748b" }}>{label}</span>
+                  <span style={{ fontWeight: 700, color: value ? "#111" : "#cbd5e1" }}>{value ?? "—"}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Feed type selector */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+              {feedTypes.map((ft, idx) => (
+                <button
+                  key={ft.name}
+                  onClick={() => setSelectedFeedType(idx)}
+                  style={{
+                    padding: "12px 8px", borderRadius: 10, border: `2px solid ${selectedFeedType === idx ? ft.color : "#e2e8f0"}`,
+                    background: selectedFeedType === idx ? ft.bg : "#fff",
+                    color: selectedFeedType === idx ? ft.color : "#374151",
+                    fontWeight: 700, fontSize: 14, cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {ft.name}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => { setPendingDocket(null); setSelectedFeedType(null); }}
+                style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#374151", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={applyDocket}
+                disabled={selectedFeedType === null}
+                style={{ flex: 2, padding: "11px 0", borderRadius: 10, border: "none", background: selectedFeedType !== null ? GREEN : "#d1d5db", color: "#fff", fontWeight: 700, fontSize: 14, cursor: selectedFeedType !== null ? "pointer" : "not-allowed" }}
+              >
+                Add to {selectedFeedType !== null ? feedTypes[selectedFeedType].name : "…"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Feed Deliveries ───────────────────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "#94a3b8" }}>
           Feed Deliveries
         </span>
         <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+        <button
+          onClick={() => setShowScanner(true)}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: GREEN, color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          <span style={{ fontSize: 16 }}>⬛</span> Scan QR
+        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 18 }}>
