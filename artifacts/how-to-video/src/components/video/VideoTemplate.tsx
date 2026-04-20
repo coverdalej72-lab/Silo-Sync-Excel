@@ -9,12 +9,12 @@ import { Scene6 } from './video_scenes/Scene6';
 import { useBackgroundMusic } from '@/lib/audio';
 
 const SCENE_DURATIONS = {
-  hook: 3000,
-  benefits: 5000,
+  hook: 4000,
   feedProgram: 4000,
-  siloMate: 4000,
-  install: 5000,
-  closer: 4000,
+  scanner: 4000,
+  siloTracker: 4000,
+  endOfBatch: 4000,
+  closer: 5000,
 };
 
 export default function VideoTemplate() {
@@ -22,39 +22,21 @@ export default function VideoTemplate() {
   useBackgroundMusic();
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[var(--color-bg-dark)] font-body">
+    <div className="relative w-full h-screen overflow-hidden bg-[var(--color-bg-dark)] font-sans select-none">
       
-      {/* Persistent Background Layer - Animated Gradient */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <motion.div 
-          className="absolute w-[120vw] h-[120vw] rounded-full opacity-40 blur-[120px]"
-          style={{ background: 'radial-gradient(circle, var(--color-secondary), transparent)' }}
-          animate={{
-            x: ['-20%', '10%', '-10%', '-20%'],
-            y: ['-20%', '-10%', '10%', '-20%'],
-            scale: [1, 1.2, 0.9, 1]
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
-        />
-        <motion.div 
-          className="absolute w-[80vw] h-[80vw] rounded-full opacity-20 blur-[100px] right-0 bottom-0"
-          style={{ background: 'radial-gradient(circle, var(--color-accent), transparent)' }}
-          animate={{
-            x: ['20%', '-10%', '30%', '20%'],
-            y: ['20%', '30%', '-10%', '20%'],
-          }}
-          transition={{ duration: 15, repeat: Infinity, ease: 'easeInOut' }}
-        />
+      {/* Persistent Background Layer - Drift / Vignette */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-black/40 to-transparent z-10" />
       </div>
 
-      {/* Persistent Element - Gold Line that travels and morphs */}
+      {/* Persistent Element - Traveling brand line */}
       <motion.div
-        className="absolute bg-[var(--color-accent)] z-10"
+        className="absolute bg-[var(--color-accent)] z-30 shadow-[0_0_20px_var(--color-accent)]"
         animate={{
-          left: ['10%', '50%', '10%', '90%', '50%', '50%'][currentScene],
-          top: ['50%', '10%', '90%', '50%', '80%', '50%'][currentScene],
-          width: ['80%', '2px', '80%', '2px', '40%', '0%'][currentScene],
-          height: ['2px', '80%', '2px', '80%', '2px', '0%'][currentScene],
+          left: ['0%', '10%', '0%', '100%', '50%', '0%'][currentScene],
+          top: ['0%', '50%', '100%', '50%', '90%', '100%'][currentScene],
+          width: ['10px', '2px', '10px', '2px', '40%', '100%'][currentScene],
+          height: ['100%', '80%', '100%', '80%', '2px', '10px'][currentScene],
           opacity: currentScene === 5 ? 0 : 0.8,
         }}
         transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
@@ -63,10 +45,10 @@ export default function VideoTemplate() {
 
       <AnimatePresence mode="popLayout">
         {currentScene === 0 && <Scene1 key="hook" />}
-        {currentScene === 1 && <Scene2 key="benefits" />}
-        {currentScene === 2 && <Scene3 key="feedProgram" />}
-        {currentScene === 3 && <Scene4 key="siloMate" />}
-        {currentScene === 4 && <Scene5 key="install" />}
+        {currentScene === 1 && <Scene2 key="feedProgram" />}
+        {currentScene === 2 && <Scene3 key="scanner" />}
+        {currentScene === 3 && <Scene4 key="siloTracker" />}
+        {currentScene === 4 && <Scene5 key="endOfBatch" />}
         {currentScene === 5 && <Scene6 key="closer" />}
       </AnimatePresence>
     </div>

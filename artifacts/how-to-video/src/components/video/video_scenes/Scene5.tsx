@@ -1,105 +1,101 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { sceneTransitions } from '@/lib/video';
 
 export function Scene5() {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 1000),
-      setTimeout(() => setPhase(2), 2200),
+      setTimeout(() => setPhase(1), 300),
+      setTimeout(() => setPhase(2), 1200),
+      setTimeout(() => setPhase(3), 2000),
+      setTimeout(() => setPhase(4), 2800),
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
   return (
     <motion.div 
-      className="absolute inset-0 flex flex-col items-center justify-center p-12"
-      {...sceneTransitions.fadeBlur}
+      className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[var(--color-primary)]"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.1 }}
+      transition={{ duration: 0.8 }}
     >
+      <div className="absolute inset-0 bg-[#0a2415]/80 z-0" />
       
-      {/* Background Drone Video is in VideoTemplate, but we can darken here */}
-      <div className="absolute inset-0 z-0 bg-[#0f3d24]/60 mix-blend-multiply" />
-
-      {/* Final Logo Lockup */}
       <motion.div 
-        className="absolute inset-0 flex flex-col items-center justify-center z-20"
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 1.1 }}
-        transition={{ duration: 1, ease: "easeOut" }}
-      >
-        <div className="flex flex-col items-center gap-2 mb-12">
-           <motion.div 
-             className="w-[10vw] h-[10vw] bg-[#C9A227] rounded-xl rotate-45 mb-4 shadow-[0_0_30px_rgba(201,162,39,0.3)] flex items-center justify-center"
-             initial={{ scale: 0, rotate: 0 }}
-             animate={{ scale: 1, rotate: 45 }}
-             transition={{ type: "spring", duration: 1.5, delay: 0.5 }}
-           >
-             <div className="w-[5vw] h-[5vw] bg-[#0f3d24] rounded-lg" />
-           </motion.div>
-           <motion.h1 
-             className="text-[6vw] font-display text-white uppercase tracking-widest leading-none drop-shadow-2xl"
-             initial={{ opacity: 0, y: 20 }}
-             animate={{ opacity: 1, y: 0 }}
-             transition={{ delay: 0.8, duration: 0.8 }}
-           >
-             Poultry Mate
-           </motion.h1>
-        </div>
-        
-        <div className="flex gap-4 text-[3vw] font-display text-[#C9A227] tracking-wider uppercase">
-          <motion.span
-            initial={{ opacity: 0, y: 20 }}
-            animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ type: "spring", damping: 20 }}
-          >
-            Every shed.
-          </motion.span>
-          <motion.span
-            initial={{ opacity: 0, y: 20 }}
-            animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ type: "spring", damping: 20, delay: 0.2 }}
-          >
-            Every batch.
-          </motion.span>
-          <motion.span
-            initial={{ opacity: 0, y: 20 }}
-            animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            transition={{ type: "spring", damping: 20 }}
-            className="text-white"
-          >
-            Always in control.
-          </motion.span>
-        </div>
-        
-        {/* Drift particles (gold) */}
-        <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden">
-          {Array.from({ length: 30 }).map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-2 h-2 rounded-full bg-[#C9A227]/40 blur-[1px]"
-              style={{
-                left: `${Math.random() * 100}%`,
-                bottom: `-10%`,
-              }}
-              animate={{
-                y: [0, -1000],
-                x: [0, Math.random() * 200 - 100],
-                opacity: [0, 0.8, 0],
-              }}
-              transition={{
-                duration: Math.random() * 5 + 5,
-                repeat: Infinity,
-                delay: Math.random() * 5,
-                ease: "linear",
-              }}
-            />
-          ))}
-        </div>
-      </motion.div>
+        className="absolute top-0 right-0 w-[50vw] h-[50vw] bg-[var(--color-accent)] rounded-full mix-blend-screen filter blur-[120px] opacity-20 pointer-events-none"
+        animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.3, 0.1] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+      />
 
+      <div className="relative z-20 flex flex-col md:flex-row w-full h-full items-center justify-center p-8 gap-12 max-w-6xl">
+        
+        <div className="flex-1 flex flex-col">
+          <motion.h2 
+            className="text-[6vw] md:text-[5vw] font-black text-white uppercase tracking-tight leading-[1]"
+            initial={{ opacity: 0, y: 30 }}
+            animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+          >
+            END OF <span className="text-[var(--color-accent)]">BATCH</span>
+          </motion.h2>
+          <motion.p
+            className="text-[2.5vw] md:text-[2vw] font-medium text-white/80 mt-4 leading-snug"
+            initial={{ opacity: 0 }}
+            animate={phase >= 1 ? { opacity: 1 } : { opacity: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            All your data summarized perfectly.<br/>Ready for the processor.
+          </motion.p>
+        </div>
+
+        <div className="flex-1 w-full relative">
+          <motion.div 
+            className="bg-white rounded-xl shadow-2xl overflow-hidden p-6 w-full"
+            initial={{ opacity: 0, x: 50, rotateY: 20 }}
+            animate={phase >= 2 ? { opacity: 1, x: 0, rotateY: 0 } : { opacity: 0, x: 50, rotateY: 20 }}
+            transition={{ type: 'spring', damping: 20 }}
+            style={{ perspective: 1000 }}
+          >
+            <div className="border-b border-gray-200 pb-4 mb-6">
+              <h3 className="text-2xl font-black text-gray-800 uppercase">Batch Summary</h3>
+              <div className="text-sm text-gray-500 font-bold">Shed 1 - 42 Days</div>
+            </div>
+
+            <div className="space-y-6">
+              <motion.div 
+                className="flex justify-between items-center bg-gray-50 p-4 rounded-lg"
+                initial={{ opacity: 0, x: -20 }}
+                animate={phase >= 3 ? { opacity: 1, x: 0 } : {}}
+              >
+                <div className="text-gray-600 font-bold uppercase text-sm">Birds Placed</div>
+                <div className="text-2xl font-black text-gray-900">40,000</div>
+              </motion.div>
+
+              <motion.div 
+                className="flex justify-between items-center bg-gray-50 p-4 rounded-lg"
+                initial={{ opacity: 0, x: -20 }}
+                animate={phase >= 4 ? { opacity: 1, x: 0 } : {}}
+              >
+                <div className="text-gray-600 font-bold uppercase text-sm">Total Mortality</div>
+                <div className="text-2xl font-black text-red-600">3.2%</div>
+              </motion.div>
+
+              <motion.div 
+                className="flex justify-between items-center bg-[#dcfce7] p-4 rounded-lg border border-[#22c55e]/30"
+                initial={{ opacity: 0, x: -20 }}
+                animate={phase >= 4 ? { opacity: 1, x: 0 } : {}}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="text-green-800 font-bold uppercase text-sm">Total Feed Used</div>
+                <div className="text-2xl font-black text-green-900">164.5t</div>
+              </motion.div>
+            </div>
+          </motion.div>
+        </div>
+
+      </div>
     </motion.div>
   );
 }
