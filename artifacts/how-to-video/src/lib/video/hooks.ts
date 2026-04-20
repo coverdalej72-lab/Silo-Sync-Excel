@@ -17,6 +17,7 @@ export interface UseVideoPlayerOptions {
   durations: SceneDurations;
   onVideoEnd?: () => void;
   loop?: boolean;
+  paused?: boolean;
 }
 
 export interface UseVideoPlayerReturn {
@@ -27,7 +28,7 @@ export interface UseVideoPlayerReturn {
 }
 
 export function useVideoPlayer(options: UseVideoPlayerOptions): UseVideoPlayerReturn {
-  const { durations, onVideoEnd, loop = true } = options;
+  const { durations, onVideoEnd, loop = true, paused = false } = options;
 
   // Captured once on mount -- durations must be a static object
   const sceneKeys = useRef(Object.keys(durations)).current;
@@ -44,6 +45,7 @@ export function useVideoPlayer(options: UseVideoPlayerOptions): UseVideoPlayerRe
 
   // Scene advancement -- loops independently of recording
   useEffect(() => {
+    if (paused) return;
     if (hasEnded && !loop) return;
 
     const currentDuration = durationsArray[currentScene];
