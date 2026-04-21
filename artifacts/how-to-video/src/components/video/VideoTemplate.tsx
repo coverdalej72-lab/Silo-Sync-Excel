@@ -7,7 +7,6 @@ import { Scene3 } from './video_scenes/Scene3';
 import { Scene4 } from './video_scenes/Scene4';
 import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
-import { useBackgroundMusic } from '@/lib/audio';
 import { useNarration } from '@/lib/narration';
 
 const SCENE_DURATIONS = {
@@ -22,7 +21,6 @@ const SCENE_DURATIONS = {
 export default function VideoTemplate() {
   const [started, setStarted] = useState(false);
   const { currentScene } = useVideoPlayer({ durations: SCENE_DURATIONS, paused: !started });
-  useBackgroundMusic();
   useNarration(started ? currentScene : -1);
 
   return (
@@ -93,7 +91,7 @@ export default function VideoTemplate() {
                   Tap to Play
                 </div>
                 <div className="text-white/60 font-medium text-[3vw] md:text-[1.4vw] mt-1">
-                  with music & voice-over
+                  with voice-over
                 </div>
               </div>
             </motion.div>
