@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 
 const NARRATION_SCRIPTS: Record<number, string> = {
-  0: "Still managing your shed on paper? There's a smarter way.",
-  1: "Poultry Mate gives you a clean digital feed program — auto-calculating spreadsheets built for Australian producers.",
-  2: "Scan delivery dockets straight from your phone. Data fills in automatically. No manual entry, no mistakes.",
-  3: "Track your silo levels in real time. Always know exactly how much feed is in every bin.",
-  4: "End-of-batch reporting done in seconds. Everything you need, automatically calculated.",
-  5: "Poultry Mate. Download free today at poultry mate dot com dot au",
+  0: "Here's how Poultry Mate works. It replaces all your paper shed records with one simple app on your phone or tablet.",
+  1: "Open your feed program and enter your shed details. Poultry Mate automatically calculates feed rates, adjustments, and tonnages for every age group and weight target.",
+  2: "When a feed delivery arrives, tap Scan Docket and point your camera at the QR code on the delivery docket. The batch, date, and tonnes fill in instantly — no typing needed.",
+  3: "Tap Add Reading any time to log your silo levels. The app tracks usage across the whole batch and shows you exactly how much feed is left in each bin.",
+  4: "At the end of the batch, tap Generate Report. Poultry Mate compiles your full feed summary, conversion rate, and batch data — ready to send straight to your grower company.",
+  5: "Download Poultry Mate free at poultrymate.com.au and get your first batch started today.",
 };
 
 let cachedVoice: SpeechSynthesisVoice | null = null;
@@ -16,7 +16,7 @@ function getBestVoice(): SpeechSynthesisVoice | null {
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) return null;
 
-  const namePrefs = ['Karen', 'Catherine', 'Moira', 'Samantha', 'Daniel'];
+  const namePrefs = ['Karen', 'Catherine', 'Moira', 'Samantha', 'Daniel', 'Aaron'];
   for (const name of namePrefs) {
     const v = voices.find(v => v.name.includes(name));
     if (v) { cachedVoice = v; return v; }
@@ -45,24 +45,28 @@ export function useNarration(currentScene: number) {
       const utterance = new SpeechSynthesisUtterance(text);
       const voice = getBestVoice();
       if (voice) utterance.voice = voice;
-      utterance.rate = 0.9;
+      utterance.rate = 0.95;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
       window.speechSynthesis.speak(utterance);
     };
 
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-      trySpeak();
-    } else {
-      const handler = () => {
+    // Small delay so cancel() fully clears before new utterance starts
+    const t = setTimeout(() => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
         trySpeak();
-        window.speechSynthesis.removeEventListener('voiceschanged', handler);
-      };
-      window.speechSynthesis.addEventListener('voiceschanged', handler);
-    }
+      } else {
+        const handler = () => {
+          trySpeak();
+          window.speechSynthesis.removeEventListener('voiceschanged', handler);
+        };
+        window.speechSynthesis.addEventListener('voiceschanged', handler);
+      }
+    }, 120);
 
     return () => {
+      clearTimeout(t);
       window.speechSynthesis.cancel();
     };
   }, [currentScene]);

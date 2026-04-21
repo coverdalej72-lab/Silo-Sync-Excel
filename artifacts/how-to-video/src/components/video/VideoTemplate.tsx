@@ -10,12 +10,12 @@ import { Scene6 } from './video_scenes/Scene6';
 import { useNarration } from '@/lib/narration';
 
 const SCENE_DURATIONS = {
-  hook: 5500,
-  feedProgram: 8000,
-  scanner: 7500,
-  siloTracker: 7000,
-  endOfBatch: 7000,
-  closer: 7000,
+  hook: 8000,
+  feedProgram: 10000,
+  scanner: 11000,
+  siloTracker: 10000,
+  endOfBatch: 11000,
+  closer: 8000,
 };
 
 export default function VideoTemplate() {
