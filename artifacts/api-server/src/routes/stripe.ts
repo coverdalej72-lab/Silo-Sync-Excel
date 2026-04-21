@@ -139,9 +139,10 @@ router.post('/stripe/supporter-checkout', async (req, res) => {
     }
 
     const TIERS: Record<string, { name: string; description: string; amount: number }> = {
-      seed:    { name: 'Seed Supporter',     description: 'Help get the ideas off the ground — early backer of Poultry Mate.',          amount: 10000  },
-      backer:  { name: 'Project Backer',     description: 'A meaningful contribution to building the future of farm management tech.',  amount: 50000  },
-      founder: { name: 'Founding Supporter', description: 'Founding supporter of Poultry Mate — your name in our founding story.',      amount: 100000 },
+      seed:       { name: 'Seed Supporter',      description: 'Help get the ideas off the ground — early backer of Poultry Mate.',          amount: 10000  },
+      backer:     { name: 'Project Backer',      description: 'A meaningful contribution to building the future of farm management tech.',  amount: 50000  },
+      founder:    { name: 'Founding Supporter',  description: 'Founding supporter of Poultry Mate — your name in our founding story.',      amount: 100000 },
+      foundation: { name: 'Foundation Partner',  description: 'Foundation Partner of Poultry Mate — logo on site, priority support, and a direct role in shaping the product.', amount: 100000 },
     };
 
     const selected = TIERS[tier];
@@ -172,6 +173,56 @@ router.post('/stripe/supporter-checkout', async (req, res) => {
       },
       success_url: successUrl || `${baseUrl}/plans/?supporter=success`,
       cancel_url:  cancelUrl  || `${baseUrl}/plans/?supporter=cancel`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Inline subscription checkout — no pre-created Stripe price needed
+// Body: { planName, amountAUD, interval, email, charityId, successUrl, cancelUrl }
+router.post('/stripe/subscribe', async (req, res) => {
+  try {
+    const { planName, amountAUD, interval, email, charityId, successUrl, cancelUrl } = req.body;
+    if (!planName || !amountAUD || !interval || !email) {
+      return res.status(400).json({ error: 'planName, amountAUD, interval and email are required' });
+    }
+
+    const stripe = await getUncachableStripeClient();
+    const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+
+    // Find or create customer
+    const existing = await stripe.customers.list({ email, limit: 1 });
+    let customer = existing.data[0];
+    if (!customer) {
+      customer = await stripe.customers.create({ email, metadata: { chosen_charity: charityId || '' } });
+    } else if (charityId) {
+      await stripe.customers.update(customer.id, { metadata: { chosen_charity: charityId } });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customer.id,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'aud',
+          product_data: {
+            name: `Poultry Mate — ${planName} Plan`,
+            description: `${planName} subscription billed ${interval === 'year' ? 'annually' : 'monthly'}.`,
+          },
+          unit_amount: Math.round(amountAUD * 100),
+          recurring: { interval: interval === 'year' ? 'year' : 'month' },
+        },
+        quantity: 1,
+      }],
+      mode: 'subscription',
+      subscription_data: {
+        metadata: { plan: planName.toLowerCase(), chosen_charity: charityId || '' },
+      },
+      success_url: successUrl || `${baseUrl}/plans/?checkout=success`,
+      cancel_url:  cancelUrl  || `${baseUrl}/plans/?checkout=cancel`,
     });
 
     res.json({ url: session.url });

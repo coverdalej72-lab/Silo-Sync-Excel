@@ -967,7 +967,18 @@ function ManageSubscriptionModal({ onClose }: { onClose: () => void }) {
     setLoading(true);
     setError("");
     try {
-      window.location.href = "https://www.paypal.com/myaccount/autopay/";
+      const domain = window.location.origin;
+      const resp = await fetch(`${domain}/api/stripe/portal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, returnUrl: `${domain}/plans/` }),
+      });
+      const data = await resp.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error || "Something went wrong. Please try again.");
+      }
     } catch {
       setError("Connection error. Please try again.");
     } finally {
@@ -1003,7 +1014,7 @@ function ManageSubscriptionModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ background: "#f9fafb", borderRadius: 10, padding: "10px 14px", marginBottom: 18, fontSize: 12, color: "#6b7280", lineHeight: 1.6 }}>
-          You'll be taken to your PayPal account where you can manage, pause, or cancel your subscription.
+          You'll be taken to the Stripe billing portal where you can manage, pause, or cancel your subscription.
         </div>
 
         <button
@@ -1014,7 +1025,7 @@ function ManageSubscriptionModal({ onClose }: { onClose: () => void }) {
           {loading ? "Opening portal…" : "Go to Billing Portal →"}
         </button>
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
-          Secure · Powered by PayPal
+          Secure · Powered by Stripe
         </p>
       </div>
     </div>
@@ -1040,11 +1051,12 @@ function CheckoutModal({ plan, yearly, onClose }: {
     setError("");
     try {
       const domain = window.location.origin;
-      const resp = await fetch(`${domain}/api/paypal/create-subscription`, {
+      const resp = await fetch(`${domain}/api/stripe/subscribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tier: plan.id,
+          planName: plan.name,
+          amountAUD: price,
           interval,
           email,
           charityId,
@@ -1125,10 +1137,10 @@ function CheckoutModal({ plan, yearly, onClose }: {
           disabled={loading}
           style={{ width: "100%", background: loading ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 800, fontSize: 15, padding: "14px 0", borderRadius: 12, border: "none", cursor: loading ? "not-allowed" : "pointer", transition: "background 0.2s" }}
         >
-          {loading ? "Redirecting to PayPal…" : `Subscribe — $${price.toFixed(2)}/${yearly ? "yr" : "mo"}`}
+          {loading ? "Redirecting to Stripe…" : `Subscribe — $${price.toFixed(2)}/${yearly ? "yr" : "mo"}`}
         </button>
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
-          Secure payment via PayPal · Accepts credit cards · Cancel anytime
+          Secure payment via Stripe · Accepts credit cards · Cancel anytime
         </p>
       </div>
     </div>
@@ -1196,7 +1208,7 @@ function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIER
     setError("");
     try {
       const domain = window.location.origin;
-      const resp = await fetch(`${domain}/api/paypal/create-order`, {
+      const resp = await fetch(`${domain}/api/stripe/supporter-checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1267,7 +1279,7 @@ function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIER
           Cancel
         </button>
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 12, marginBottom: 0 }}>
-          Secure one-time payment via PayPal · No subscription created
+          Secure one-time payment via Stripe · No subscription created
         </p>
       </div>
     </div>
@@ -1293,7 +1305,7 @@ function CheckoutSuccessModal({ onClose }: { onClose: () => void }) {
           Open Feed Program →
         </a>
         <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
-          Bookmark that link — it's your app. A PayPal receipt has been sent to your email.
+          Bookmark that link — it's your app. A Stripe receipt has been sent to your email.
         </p>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", fontSize: 13, cursor: "pointer" }}>Close</button>
       </div>
@@ -2468,7 +2480,7 @@ export default function App() {
           </div>
 
           <p style={{ textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
-            Payments are processed securely by PayPal · One-off contribution · No recurring charges
+            Payments are processed securely by Stripe · One-off contribution · No recurring charges
           </p>
         </div>
       </section>
