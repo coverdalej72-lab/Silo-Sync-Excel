@@ -1,5 +1,54 @@
 import { useEffect, useRef } from 'react';
 
+// Plays a single short note and cleans itself up — no continuous oscillators
+function playNote(
+  ctx: AudioContext,
+  dest: AudioNode,
+  freq: number,
+  duration: number,
+  volume: number,
+  type: OscillatorType = 'sine',
+  attackTime = 0.01,
+) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(dest);
+
+  const now = ctx.currentTime;
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(volume, now + attackTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  osc.start(now);
+  osc.stop(now + duration + 0.05);
+}
+
+function playNoise(ctx: AudioContext, dest: AudioNode, volume: number, durationSec: number, hpfHz = 8000) {
+  const bufSize = Math.floor(ctx.sampleRate * durationSec);
+  const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+
+  const hpf = ctx.createBiquadFilter();
+  hpf.type = 'highpass';
+  hpf.frequency.value = hpfHz;
+
+  const gain = ctx.createGain();
+  const now = ctx.currentTime;
+  gain.gain.setValueAtTime(volume, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+
+  src.connect(hpf);
+  hpf.connect(gain);
+  gain.connect(dest);
+  src.start(now);
+}
+
 export function useBackgroundMusic() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -11,131 +60,89 @@ export function useBackgroundMusic() {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       audioCtxRef.current = ctx;
 
+      // Keep music quiet so it doesn't fight the voice-over
       const masterGain = ctx.createGain();
-      masterGain.gain.value = 0;
+      masterGain.gain.setValueAtTime(0, ctx.currentTime);
+      masterGain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 3);
       masterGain.connect(ctx.destination);
 
-      const BPM = 105;
-      const beat = 60 / BPM;
+      const BPM = 96;
+      const beat = 60 / BPM; // ~625ms
 
-      // --- Bass guitar pulse (E2 root, country-style walking) ---
-      const bassOsc = ctx.createOscillator();
-      bassOsc.type = 'triangle';
-      bassOsc.frequency.value = 82.4;
-      const bassGain = ctx.createGain();
-      bassGain.gain.value = 0;
-      const bassFilter = ctx.createBiquadFilter();
-      bassFilter.type = 'lowpass';
-      bassFilter.frequency.value = 320;
-      bassOsc.connect(bassGain);
-      bassGain.connect(bassFilter);
-      bassFilter.connect(masterGain);
-      bassOsc.start();
-
-      const bassPattern = [82.4, 82.4, 98.0, 110.0, 123.5, 98.0, 82.4, 82.4];
+      // Walking bass — a simple G pentatonic pattern
+      const bassNotes = [98.0, 98.0, 110.0, 123.5, 130.8, 110.0, 98.0, 87.3];
+      // G2, G2, A2, B2, C3, A2, G2, F2
       let bassStep = 0;
       const bassInterval = setInterval(() => {
-        bassOsc.frequency.setValueAtTime(bassPattern[bassStep % bassPattern.length], ctx.currentTime);
-        const now = ctx.currentTime;
-        bassGain.gain.cancelScheduledValues(now);
-        bassGain.gain.setValueAtTime(0, now);
-        bassGain.gain.linearRampToValueAtTime(0.65, now + 0.03);
-        bassGain.gain.exponentialRampToValueAtTime(0.01, now + beat * 0.85);
+        playNote(ctx, masterGain, bassNotes[bassStep % bassNotes.length], beat * 0.6, 0.7, 'triangle', 0.02);
         bassStep++;
       }, beat * 1000);
 
-      // --- Strummed guitar chord (G major: G3, B3, D4, G4) ---
-      const chordNotes = [196.0, 246.94, 293.66, 392.0];
-      const strumGain = ctx.createGain();
-      strumGain.gain.value = 0;
-      const strumFilter = ctx.createBiquadFilter();
-      strumFilter.type = 'bandpass';
-      strumFilter.frequency.value = 900;
-      strumFilter.Q.value = 0.7;
-      strumGain.connect(strumFilter);
-      strumFilter.connect(masterGain);
-
-      const strumOscs = chordNotes.map((freq, i) => {
-        const osc = ctx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.value = freq;
-        osc.detune.value = (Math.random() - 0.5) * 6;
-        osc.connect(strumGain);
-        osc.start(ctx.currentTime + i * 0.035);
-        return osc;
-      });
-
-      let strumCount = 0;
-      const strumInterval = setInterval(() => {
-        const now = ctx.currentTime;
-        strumGain.gain.cancelScheduledValues(now);
-        strumGain.gain.setValueAtTime(strumCount % 2 === 0 ? 0.13 : 0.07, now);
-        strumGain.gain.exponentialRampToValueAtTime(0.001, now + beat * 1.9);
-        strumCount++;
-      }, beat * 2 * 1000);
-
-      // --- Melody picking line ---
-      const melodyNotes = [392.0, 440.0, 493.88, 440.0, 392.0, 329.63, 369.99, 392.0];
-      const melodyOsc = ctx.createOscillator();
-      melodyOsc.type = 'triangle';
-      melodyOsc.frequency.value = melodyNotes[0];
-      const melodyGain = ctx.createGain();
-      melodyGain.gain.value = 0;
-      const melodyReverb = ctx.createConvolver();
-      melodyOsc.connect(melodyGain);
-      melodyGain.connect(masterGain);
-      melodyOsc.start();
-
+      // Melody — plays every 2 beats, nice clean pentatonic
+      // G major pentatonic: G4, A4, B4, D5, E5
+      const melodyNotes = [392, 440, 494, 587, 659, 587, 494, 440, 392, 330, 370, 392];
       let melodyStep = 0;
       const melodyInterval = setInterval(() => {
-        melodyOsc.frequency.setValueAtTime(melodyNotes[melodyStep % melodyNotes.length], ctx.currentTime);
-        const now = ctx.currentTime;
-        melodyGain.gain.cancelScheduledValues(now);
-        melodyGain.gain.setValueAtTime(0, now);
-        melodyGain.gain.linearRampToValueAtTime(0.16, now + 0.02);
-        melodyGain.gain.exponentialRampToValueAtTime(0.001, now + beat * 1.6);
+        playNote(ctx, masterGain, melodyNotes[melodyStep % melodyNotes.length], beat * 1.2, 0.28, 'sine', 0.015);
         melodyStep++;
       }, beat * 2 * 1000);
 
-      // --- Hi-hat clicks ---
-      const bufSize = Math.floor(ctx.sampleRate * 0.07);
-      const noiseBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
-      const nData = noiseBuf.getChannelData(0);
-      for (let i = 0; i < bufSize; i++) nData[i] = Math.random() * 2 - 1;
+      // Kick drum — boom on beats 1 and 3
+      let kickCount = 0;
+      const kickInterval = setInterval(() => {
+        if (kickCount % 2 === 0) {
+          // Kick: pitch sweep from 120Hz to 40Hz
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(120, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.18);
+          gain.gain.setValueAtTime(0.9, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+          osc.connect(gain);
+          gain.connect(masterGain);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.3);
+        }
+        kickCount++;
+      }, beat * 2 * 1000);
 
-      let hatCount = 0;
-      const hatInterval = setInterval(() => {
-        const noise = ctx.createBufferSource();
-        noise.buffer = noiseBuf;
-        const hpf = ctx.createBiquadFilter();
-        hpf.type = 'highpass';
-        hpf.frequency.value = 9000;
-        const hGain = ctx.createGain();
-        const now = ctx.currentTime;
-        hGain.gain.setValueAtTime(hatCount % 4 === 0 ? 0.08 : 0.035, now);
-        hGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
-        noise.connect(hpf);
-        hpf.connect(hGain);
-        hGain.connect(masterGain);
-        noise.start(now);
-        hatCount++;
-      }, (beat / 2) * 1000);
+      // Snare — on beats 2 and 4 (offset by 1 beat)
+      let snareCount = 0;
+      const snareOffset = beat * 1000;
+      const snareTimer = setTimeout(() => {
+        const snareInterval = setInterval(() => {
+          // Snare = short noise burst + tonal body
+          playNoise(ctx, masterGain, 0.22, 0.12, 3000);
+          playNote(ctx, masterGain, 220, 0.06, 0.15, 'triangle', 0.005);
+          snareCount++;
+        }, beat * 2 * 1000);
+        cleanupRef.current = () => {
+          clearInterval(bassInterval);
+          clearInterval(melodyInterval);
+          clearInterval(kickInterval);
+          clearInterval(snareInterval);
+          ctx.close();
+          audioCtxRef.current = null;
+        };
+      }, snareOffset);
 
-      // Fade in nicely
-      masterGain.gain.setValueAtTime(0, ctx.currentTime);
-      masterGain.gain.linearRampToValueAtTime(0.32, ctx.currentTime + 2.5);
-
+      // Temporary cleanup before snare starts
       cleanupRef.current = () => {
+        clearTimeout(snareTimer);
         clearInterval(bassInterval);
-        clearInterval(strumInterval);
         clearInterval(melodyInterval);
-        clearInterval(hatInterval);
-        try { bassOsc.stop(); } catch {}
-        strumOscs.forEach(o => { try { o.stop(); } catch {} });
-        try { melodyOsc.stop(); } catch {}
+        clearInterval(kickInterval);
         ctx.close();
         audioCtxRef.current = null;
       };
+
+      // Hi-hat — eighth notes, very subtle
+      let hatCount = 0;
+      const hatInterval = setInterval(() => {
+        playNoise(ctx, masterGain, hatCount % 2 === 0 ? 0.06 : 0.025, 0.04, 9000);
+        hatCount++;
+      }, (beat / 2) * 1000);
     };
 
     initAudio();
