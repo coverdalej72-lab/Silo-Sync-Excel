@@ -1165,6 +1165,23 @@ const SUPPORTER_TIERS = [
       "Direct input on feature roadmap",
     ],
   },
+  {
+    id: "foundation",
+    name: "Foundation Partner",
+    icon: "🏆",
+    amount: 1000,
+    colour: "#1a5c36",
+    tagline: "Shape the future",
+    perks: [
+      "Name listed as a Foundation Partner",
+      "Lifetime access to Poultry Mate (once live)",
+      "Founding backer recognition",
+      "Early access to new features",
+      "Direct input on feature roadmap",
+      "Priority support & personal onboarding",
+      "Logo on the Poultry Mate website",
+    ],
+  },
 ];
 
 function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIERS[0]; onClose: () => void }) {
