@@ -620,8 +620,8 @@ const PLANS = [
     icon: "🥉",
     color: "#cd7f32",
     tagline: "Perfect for solo growers just getting started.",
-    monthlyPrice: 30,
-    yearlyPrice: 216,
+    monthlyPrice: 50,
+    yearlyPrice: 480,
     features: [
       "Silo Mate mobile app",
       "Up to 6 sheds / silos",
@@ -644,8 +644,8 @@ const PLANS = [
     icon: "🥈",
     color: "#94a3b8",
     tagline: "Full batch management for active farms.",
-    monthlyPrice: 60,
-    yearlyPrice: 540,
+    monthlyPrice: 100,
+    yearlyPrice: 960,
     features: [
       "Everything in Bronze",
       "Feed Mate spreadsheet viewer",
@@ -668,8 +668,8 @@ const PLANS = [
     icon: "🥇",
     color: GOLD,
     tagline: "For large operations and integrators.",
-    monthlyPrice: 100,
-    yearlyPrice: 1080,
+    monthlyPrice: 150,
+    yearlyPrice: 1440,
     features: [
       "Everything in Silver",
       "Multiple farms / locations",
@@ -693,8 +693,8 @@ const PLANS = [
     icon: "💎",
     color: "#7c3aed",
     tagline: "Complete lifecycle management for breeder & parent stock farms.",
-    monthlyPrice: 150,
-    yearlyPrice: 1620,
+    monthlyPrice: 200,
+    yearlyPrice: 1920,
     features: [
       "Everything in Gold",
       "Breeder / parent stock farm mode",
