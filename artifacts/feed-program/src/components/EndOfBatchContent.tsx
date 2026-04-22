@@ -132,12 +132,20 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
     }
   }
 
+  function todayStr(): string {
+    const d = new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+
   function applyDocket() {
     if (!pendingDocket || selectedFeedType === null) return;
     const ft = feedTypes[selectedFeedType];
     const nextRow = getNextEmptyRow(ft.cols[0]);
-    if (pendingDocket.deliveryDate) onEdit(`${nextRow},${ft.cols[0]}`, pendingDocket.deliveryDate);
-    if (pendingDocket.docNumber)    onEdit(`${nextRow},${ft.cols[1]}`, pendingDocket.docNumber);
+    // Always write a date — fall back to today if QR didn't contain one
+    onEdit(`${nextRow},${ft.cols[0]}`, pendingDocket.deliveryDate ?? todayStr());
+    if (pendingDocket.docNumber)        onEdit(`${nextRow},${ft.cols[1]}`, pendingDocket.docNumber);
     if (pendingDocket.amountKg != null) onEdit(`${nextRow},${ft.cols[2]}`, String(pendingDocket.amountKg));
     setPendingDocket(null);
     setSelectedFeedType(null);

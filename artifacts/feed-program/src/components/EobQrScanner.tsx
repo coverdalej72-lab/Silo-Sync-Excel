@@ -194,35 +194,52 @@ export function EobQrScanner({ onClose, onResult }: EobQrScannerProps) {
         </>
       )}
 
-      {scanned && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", gap: 12 }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px" }}>
-            <div style={{ fontWeight: 700, fontSize: 16, color: "#111", marginBottom: 16 }}>Docket Scanned ✓</div>
-            {[
-              { label: "Document No", value: scanned.docNumber },
-              { label: "Date", value: scanned.deliveryDate },
-              { label: "Kilos", value: scanned.amountKg != null ? `${scanned.amountKg.toLocaleString()} kg` : undefined },
-              { label: "Feed Type", value: scanned.feedType },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", padding: "10px 0", fontSize: 14 }}>
-                <span style={{ color: "#64748b" }}>{label}</span>
-                <span style={{ fontWeight: 700, color: value ? "#111" : "#cbd5e1" }}>{value ?? "—"}</span>
+      {scanned && (() => {
+        const nothingParsed = !scanned.deliveryDate && !scanned.docNumber && scanned.amountKg == null;
+        const today = (() => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; })();
+        return (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", padding: "0 20px", gap: 12 }}>
+            <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px" }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: nothingParsed ? "#dc2626" : "#111", marginBottom: 4 }}>
+                {nothingParsed ? "⚠️ QR Format Not Recognised" : "Docket Scanned ✓"}
               </div>
-            ))}
-            {!scanned.deliveryDate && !scanned.docNumber && scanned.amountKg == null && (
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8, wordBreak: "break-all" }}>Raw: {scanned.rawText}</div>
-            )}
+              {nothingParsed && (
+                <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
+                  The QR code was read but no docket data could be extracted. You can still proceed — the row will be added with today's date so you can fill in the details manually.
+                </div>
+              )}
+              {[
+                { label: "Document No", value: scanned.docNumber },
+                {
+                  label: "Date",
+                  value: scanned.deliveryDate,
+                  fallback: `${today} (today)`,
+                },
+                { label: "Kilos", value: scanned.amountKg != null ? `${scanned.amountKg.toLocaleString()} kg` : undefined },
+                { label: "Feed Type", value: scanned.feedType },
+              ].map(({ label, value, fallback }: { label: string; value?: string; fallback?: string }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f1f5f9", padding: "10px 0", fontSize: 14 }}>
+                  <span style={{ color: "#64748b" }}>{label}</span>
+                  <span style={{ fontWeight: 700, color: value ? "#111" : (fallback ? "#f59e0b" : "#cbd5e1"), fontSize: value ? 14 : 12 }}>
+                    {value ?? fallback ?? "—"}
+                  </span>
+                </div>
+              ))}
+              {nothingParsed && (
+                <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 8, wordBreak: "break-all" }}>Raw: {scanned.rawText}</div>
+              )}
+            </div>
+            <button onClick={() => onResult(scanned)}
+              style={{ width: "100%", background: GREEN, color: "#fff", fontWeight: 700, fontSize: 16, padding: "15px 0", borderRadius: 12, border: "none", cursor: "pointer" }}>
+              {nothingParsed ? "Add Empty Row →" : "Use This Data →"}
+            </button>
+            <button onClick={handleScanAgain}
+              style={{ width: "100%", background: "rgba(255,255,255,0.12)", color: "#fff", fontWeight: 600, fontSize: 14, padding: "12px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)", cursor: "pointer" }}>
+              Scan Again
+            </button>
           </div>
-          <button onClick={() => onResult(scanned)}
-            style={{ width: "100%", background: GREEN, color: "#fff", fontWeight: 700, fontSize: 16, padding: "15px 0", borderRadius: 12, border: "none", cursor: "pointer" }}>
-            Use This Data →
-          </button>
-          <button onClick={handleScanAgain}
-            style={{ width: "100%", background: "rgba(255,255,255,0.12)", color: "#fff", fontWeight: 600, fontSize: 14, padding: "12px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)", cursor: "pointer" }}>
-            Scan Again
-          </button>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
