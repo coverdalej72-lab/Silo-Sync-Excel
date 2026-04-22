@@ -4103,30 +4103,66 @@ function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
     setParsedRows(null);
     const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
     const rows: FeedOrder[] = [];
-    for (const line of lines) {
-      const cols = line.split(/\t/);
-      // Expected: Order | Farm | Ration | Delivery Date | Ordered Date | Emergency? | Tons ordered | Notes?
-      if (cols.length < 7) continue;
-      const [, , ration, deliveryRaw, , emergencyRaw, tonsRaw] = cols;
-      if (!ration || !deliveryRaw || !tonsRaw) continue;
-      // Parse DD/MM/YYYY → YYYY-MM-DD
-      const dm = deliveryRaw.trim().match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-      if (!dm) continue;
+
+    // Helper: parse one block of columns (index: 0=order#, 1=farm, 2=ration, 3=delivery, 4=ordered, 5=emergency, 6=tons)
+    const parseBlock = (cols: string[], idx: number): FeedOrder | null => {
+      const ration = cols[2]?.trim();
+      const deliveryRaw = cols[3]?.trim();
+      const emergencyRaw = cols[5]?.trim() ?? "";
+      const tonsRaw = cols[6]?.trim();
+      if (!ration || !deliveryRaw || !tonsRaw) return null;
+      const dm = deliveryRaw.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (!dm) return null;
       const deliveryDate = `${dm[3]}-${dm[2].padStart(2,"0")}-${dm[1].padStart(2,"0")}`;
-      const totalTons = parseFloat(tonsRaw.trim().replace(/,/g,""));
-      if (isNaN(totalTons)) continue;
-      rows.push({
-        id: `fo-paste-${Date.now()}-${rows.length}`,
-        ration: ration.trim(),
+      const totalTons = parseFloat(tonsRaw.replace(/,/g,""));
+      if (isNaN(totalTons)) return null;
+      return {
+        id: `fo-paste-${Date.now()}-${idx}`,
+        ration,
         deliveryDate,
         totalTons,
         allocations: [],
-        emergency: (emergencyRaw ?? "").trim().toUpperCase() === "Y",
+        emergency: emergencyRaw.toUpperCase() === "Y",
         notes: "",
-      });
+      };
+    };
+
+    // Format A: tab-separated (one row per order)
+    const tabLines = lines.filter(l => l.includes("\t"));
+    if (tabLines.length > 0) {
+      for (const line of tabLines) {
+        const cols = line.split(/\t/);
+        if (cols.length < 7) continue;
+        const row = parseBlock(cols, rows.length);
+        if (row) rows.push(row);
+      }
+    } else {
+      // Format B: vertical (8 lines per order — order#, farm, ration, delivery, ordered, emergency, tons, flag)
+      // Find order boundaries: lines starting with # followed by digits
+      const orderStarts: number[] = [];
+      lines.forEach((l, i) => { if (/^#\d+/.test(l.trim())) orderStarts.push(i); });
+
+      if (orderStarts.length > 0) {
+        for (let s = 0; s < orderStarts.length; s++) {
+          const start = orderStarts[s];
+          const end = orderStarts[s + 1] ?? lines.length;
+          const block = lines.slice(start, end);
+          // block[0]=order#, [1]=farm, [2]=ration, [3]=delivery, [4]=ordered, [5]=emergency, [6]=tons, [7]=flag
+          const row = parseBlock(block, rows.length);
+          if (row) rows.push(row);
+        }
+      } else {
+        // Fallback: try every 8 consecutive lines as a block
+        for (let i = 0; i + 6 < lines.length; i += 8) {
+          const block = lines.slice(i, i + 8);
+          const row = parseBlock(block, rows.length);
+          if (row) rows.push(row);
+        }
+      }
     }
+
     if (rows.length === 0) {
-      setParseError("Could not find any valid order rows. Make sure you select and copy the data rows from the GeniusFOM orders table (not the header).");
+      setParseError("Could not find any valid order rows. Try copying the full table rows from GeniusFOM, including the order # column.");
       return;
     }
     setParsedRows(rows);
@@ -4406,15 +4442,15 @@ function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
             <div style={{ background: "#f0f9f4", border: "1px solid #b7e0c8", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1a5c35", marginBottom: 14, lineHeight: 1.6 }}>
               <strong>How to copy from GeniusFOM:</strong><br />
               1. Open your GeniusFOM Orders page<br />
-              2. Click the first row in the table, hold <kbd style={{ background: "#fff", border: "1px solid #ccc", borderRadius: 3, padding: "0 4px" }}>Shift</kbd> and click the last row<br />
-              3. Press <kbd style={{ background: "#fff", border: "1px solid #ccc", borderRadius: 3, padding: "0 4px" }}>Ctrl+C</kbd> to copy<br />
-              4. Tap in the box below and press <kbd style={{ background: "#fff", border: "1px solid #ccc", borderRadius: 3, padding: "0 4px" }}>Ctrl+V</kbd> to paste
+              2. Select all the order rows — on desktop hold <kbd style={{ background: "#fff", border: "1px solid #ccc", borderRadius: 3, padding: "0 4px" }}>Shift</kbd>+click; on mobile just long-press and drag<br />
+              3. Copy (<kbd style={{ background: "#fff", border: "1px solid #ccc", borderRadius: 3, padding: "0 4px" }}>Ctrl+C</kbd> or tap Copy)<br />
+              4. Paste below — works whether the data pastes as one line per order or one field per line
             </div>
 
             {/* Textarea */}
             <textarea
               rows={6}
-              placeholder={"Paste your GeniusFOM order rows here…\n\nExample:\n#31601\tDOUBLE B\t120 BROILER FINISHER\t22/04/2026\t15/04/2026 11:20 AM\tN\t132\tY"}
+              placeholder={"Paste your GeniusFOM order rows here…\n\nWorks with both formats:\n• One line per order (tab-separated)\n• One field per line starting with #31601…"}
               value={pasteText}
               onChange={e => { setPasteText(e.target.value); setParsedRows(null); setParseError(null); }}
               style={{ width: "100%", border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "10px 12px", fontSize: 12, fontFamily: "monospace", boxSizing: "border-box", resize: "vertical" }}
