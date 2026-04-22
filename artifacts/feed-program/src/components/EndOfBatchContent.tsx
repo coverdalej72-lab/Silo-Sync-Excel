@@ -170,11 +170,23 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   }
 
   const lastBatchLeft  = g(7,  18);
-  const totalPurchased = g(11, 18);
   const feedUsed       = g(18, 18);
   const feedLeft       = g(15, 18);
   const totalCatched   = g(16, 23);
   const totalMorts     = g(16, 24);
+
+  // Live-compute Total Purchased by summing all delivery kg columns (3, 8, 12, 16) rows 6-35.
+  // The formula cell at row 11 col 18 doesn't recalculate in-app, so we derive it ourselves.
+  const deliveryKgCols = [3, 8, 12, 16];
+  let liveTotalPurchased = 0;
+  for (let r = 6; r <= 35; r++) {
+    for (const col of deliveryKgCols) {
+      const v = parseFloat(g(r, col).replace(/,/g, ""));
+      if (!isNaN(v) && v > 0) liveTotalPurchased += v;
+    }
+  }
+  // Fall back to formula cell value if no deliveries have been entered yet
+  const totalPurchased = liveTotalPurchased > 0 ? String(liveTotalPurchased) : g(11, 18);
 
   const totalBirdsPlaced = birdRows.reduce((sum, r) => {
     const v = parseFloat(g(r, 22).replace(/,/g, ""));
@@ -454,19 +466,19 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <tbody>
               {([
-                { label: "Last Batch Left",  r: 7,  c: 18, accent: false },
-                { label: "Total Purchased",  r: 11, c: 18, accent: false },
-                { label: "Total Used",       r: 18, c: 18, accent: false },
-                { label: "Feed Left",        r: 15, c: 18, accent: true  },
-              ] as { label: string; r: number; c: number; accent: boolean }[]).map(({ label, r, c, accent }) => (
+                { label: "Last Batch Left",  r: 7,  c: 18, accent: false, liveVal: null },
+                { label: "Total Delivered",  r: 11, c: 18, accent: false, liveVal: liveTotalPurchased > 0 ? liveTotalPurchased.toLocaleString() : null },
+                { label: "Total Used",       r: 18, c: 18, accent: false, liveVal: null },
+                { label: "Feed Left",        r: 15, c: 18, accent: true,  liveVal: null },
+              ] as { label: string; r: number; c: number; accent: boolean; liveVal: string | null }[]).map(({ label, r, c, accent, liveVal }) => (
                 <tr key={label} style={{ borderBottom: "1px solid #f1f5f9" }}>
                   <td style={{ padding: "7px 14px", fontSize: 11, color: "#64748b", fontWeight: 500, whiteSpace: "nowrap" }}>
                     {label}
                   </td>
                   <td style={{ padding: "2px 0", width: "100%" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                      <span style={{ fontWeight: 700, color: accent ? "#16a34a" : "#1e293b", fontSize: 13, flex: 1 }}>
-                        <Cell r={r} c={c} align="right" muted />
+                      <span style={{ fontWeight: 700, color: accent ? "#16a34a" : "#1e293b", fontSize: 13, flex: 1, textAlign: "right", padding: "3px 6px" }}>
+                        {liveVal !== null ? liveVal : <Cell r={r} c={c} align="right" muted />}
                       </span>
                       <span style={{ padding: "0 10px 0 4px", fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>kg</span>
                     </div>

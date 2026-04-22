@@ -922,10 +922,20 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
   const _batchNumSheet = g(1, 2);
   const _batchNumLS    = localStorage.getItem("silo-batch-num");
   const batchNum       = _batchNumLS ? _batchNumLS : _batchNumSheet;
-  const totalPurchased = g(11, 18);
   const feedUsed       = g(18, 18);
   const feedLeft       = g(15, 18);
   const lastBatchLeft  = g(7, 18);
+
+  // Live-compute total purchased — formula cell at row 11, col 18 won't recalculate in-app
+  const eobDeliveryKgCols = [3, 8, 12, 16];
+  let liveTotalPurchased = 0;
+  for (let r = 6; r <= 35; r++) {
+    for (const col of eobDeliveryKgCols) {
+      const v = parseFloat(g(r, col).replace(/,/g, ""));
+      if (!isNaN(v) && v > 0) liveTotalPurchased += v;
+    }
+  }
+  const totalPurchased = liveTotalPurchased > 0 ? String(liveTotalPurchased) : g(11, 18);
   // Bird totals — end of batch row (row 16, 0-indexed)
   const totalBirdsCatched = g(16, 23);
   const totalMorts        = g(16, 24);
@@ -937,7 +947,7 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
       ``,
       `FEED SUMMARY`,
       `─────────────────────────────────`,
-      `Total Feed Purchased : ${totalPurchased ? fmt(totalPurchased) + " kg" : "—"}`,
+      `Total Feed Delivered : ${totalPurchased ? fmt(totalPurchased) + " kg" : "—"}`,
       `Feed Used            : ${feedUsed ? fmt(feedUsed) + " kg" : "—"}`,
       `Feed Left This Batch : ${feedLeft ? fmt(feedLeft) + " kg" : "—"}`,
       `Last Batch Feed Left : ${lastBatchLeft ? fmt(lastBatchLeft) + " kg" : "—"}`,
@@ -953,7 +963,7 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
   };
 
   const feedStats: [string, string, string][] = [
-    ["TOTAL PURCHASED", totalPurchased, "kg"],
+    ["TOTAL DELIVERED", totalPurchased, "kg"],
     ["FEED USED",       feedUsed,       "kg"],
     ["FEED LEFT",       feedLeft,       "kg"],
     ["LAST BATCH LEFT", lastBatchLeft,  "kg"],
