@@ -4030,6 +4030,10 @@ function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
   const [cycleOff, setCycleOff]   = useState(0);     // 0 = this week, 1 = next, -1 = last
   const [modal, setModal]         = useState<{ date: string; order?: FeedOrder } | null>(null);
   const [showAll, setShowAll]     = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [parsedRows, setParsedRows] = useState<FeedOrder[] | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
 
   // Current cycle: 7 days from Thursday
   const today    = new Date(); today.setHours(0, 0, 0, 0);
@@ -4093,6 +4097,57 @@ function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
     closeModal();
   };
 
+  // ── GeniusFOM paste parser ──
+  const parseGeniusFOM = (text: string) => {
+    setParseError(null);
+    setParsedRows(null);
+    const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+    const rows: FeedOrder[] = [];
+    for (const line of lines) {
+      const cols = line.split(/\t/);
+      // Expected: Order | Farm | Ration | Delivery Date | Ordered Date | Emergency? | Tons ordered | Notes?
+      if (cols.length < 7) continue;
+      const [, , ration, deliveryRaw, , emergencyRaw, tonsRaw] = cols;
+      if (!ration || !deliveryRaw || !tonsRaw) continue;
+      // Parse DD/MM/YYYY → YYYY-MM-DD
+      const dm = deliveryRaw.trim().match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (!dm) continue;
+      const deliveryDate = `${dm[3]}-${dm[2].padStart(2,"0")}-${dm[1].padStart(2,"0")}`;
+      const totalTons = parseFloat(tonsRaw.trim().replace(/,/g,""));
+      if (isNaN(totalTons)) continue;
+      rows.push({
+        id: `fo-paste-${Date.now()}-${rows.length}`,
+        ration: ration.trim(),
+        deliveryDate,
+        totalTons,
+        allocations: [],
+        emergency: (emergencyRaw ?? "").trim().toUpperCase() === "Y",
+        notes: "",
+      });
+    }
+    if (rows.length === 0) {
+      setParseError("Could not find any valid order rows. Make sure you select and copy the data rows from the GeniusFOM orders table (not the header).");
+      return;
+    }
+    setParsedRows(rows);
+  };
+
+  const importParsed = () => {
+    if (!parsedRows) return;
+    // Merge: skip duplicates with same deliveryDate + ration
+    const existing = orders;
+    const toAdd = parsedRows.filter(p =>
+      !existing.some(e => e.deliveryDate === p.deliveryDate && e.ration === p.ration)
+    );
+    const updated = [...existing, ...toAdd];
+    setOrders(updated);
+    saveFeedOrders(updated);
+    setShowPaste(false);
+    setPasteText("");
+    setParsedRows(null);
+    setShowAll(true); // open orders panel so user can see what was imported
+  };
+
   const totalAllocd = mAllocs.reduce((s, a) => s + (parseFloat(a.tons) || 0), 0);
   const allocWarning = mTons && Math.abs(totalAllocd - parseFloat(mTons)) > 0.5;
 
@@ -4114,6 +4169,7 @@ function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
           <button onClick={() => setCycleOff(v => v + 1)} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 7px", cursor: "pointer", fontSize: 13 }}>›</button>
           <button onClick={() => { setCycleOff(0); }} style={{ background: cycleOff === 0 ? "#C9A227" : "rgba(255,255,255,0.12)", border: "none", color: cycleOff === 0 ? "#000" : "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>Today</button>
           <button onClick={() => setShowAll(v => !v)} style={{ background: showAll ? "#C9A227" : "rgba(255,255,255,0.12)", border: "none", color: showAll ? "#000" : "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>📋 Orders</button>
+          <button onClick={() => { setShowPaste(true); setPasteText(""); setParsedRows(null); setParseError(null); }} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>📋 Paste GeniusFOM</button>
         </div>
 
         {/* Day columns */}
@@ -4333,6 +4389,104 @@ function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Paste GeniusFOM Modal ── */}
+      {showPaste && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowPaste(false)}>
+          <div style={{ background: "#fff", borderRadius: "14px 14px 0 0", width: "100%", maxWidth: 560, padding: "20px 18px 32px", boxSizing: "border-box", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "var(--pm-primary)" }}>Import from GeniusFOM</span>
+              <button onClick={() => setShowPaste(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#888" }}>✕</button>
+            </div>
+
+            {/* Instructions */}
+            <div style={{ background: "#f0f9f4", border: "1px solid #b7e0c8", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1a5c35", marginBottom: 14, lineHeight: 1.6 }}>
+              <strong>How to copy from GeniusFOM:</strong><br />
+              1. Open your GeniusFOM Orders page<br />
+              2. Click the first row in the table, hold <kbd style={{ background: "#fff", border: "1px solid #ccc", borderRadius: 3, padding: "0 4px" }}>Shift</kbd> and click the last row<br />
+              3. Press <kbd style={{ background: "#fff", border: "1px solid #ccc", borderRadius: 3, padding: "0 4px" }}>Ctrl+C</kbd> to copy<br />
+              4. Tap in the box below and press <kbd style={{ background: "#fff", border: "1px solid #ccc", borderRadius: 3, padding: "0 4px" }}>Ctrl+V</kbd> to paste
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              rows={6}
+              placeholder={"Paste your GeniusFOM order rows here…\n\nExample:\n#31601\tDOUBLE B\t120 BROILER FINISHER\t22/04/2026\t15/04/2026 11:20 AM\tN\t132\tY"}
+              value={pasteText}
+              onChange={e => { setPasteText(e.target.value); setParsedRows(null); setParseError(null); }}
+              style={{ width: "100%", border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "10px 12px", fontSize: 12, fontFamily: "monospace", boxSizing: "border-box", resize: "vertical" }}
+            />
+
+            {/* Parse button */}
+            {!parsedRows && (
+              <button
+                onClick={() => parseGeniusFOM(pasteText)}
+                disabled={!pasteText.trim()}
+                style={{ marginTop: 10, width: "100%", background: pasteText.trim() ? "var(--pm-primary)" : "#ccc", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 14, cursor: pasteText.trim() ? "pointer" : "default" }}
+              >
+                🔍 Read Orders
+              </button>
+            )}
+
+            {/* Parse error */}
+            {parseError && (
+              <div style={{ marginTop: 10, background: "#fff0f0", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#c0392b" }}>
+                ⚠️ {parseError}
+              </div>
+            )}
+
+            {/* Preview */}
+            {parsedRows && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--pm-primary)", marginBottom: 8 }}>
+                  Found {parsedRows.length} order{parsedRows.length !== 1 ? "s" : ""} — ready to import:
+                </div>
+                <div style={{ border: "1px solid #e5e5e5", borderRadius: 8, overflow: "hidden" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: "#f5f5f5" }}>
+                        {["Delivery Date", "Ration", "Tons", "Emergency"].map(h => (
+                          <th key={h} style={{ padding: "6px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, borderBottom: "1px solid #e5e5e5" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedRows.map((r, i) => {
+                        const d = new Date(r.deliveryDate + "T00:00:00");
+                        const isDupe = orders.some(e => e.deliveryDate === r.deliveryDate && e.ration === r.ration);
+                        return (
+                          <tr key={i} style={{ borderTop: "1px solid #eee", background: isDupe ? "#fffbe6" : "#fff" }}>
+                            <td style={{ padding: "6px 10px", fontWeight: 700, color: "var(--pm-primary)", whiteSpace: "nowrap" }}>
+                              {DAY_NAMES[d.getDay()]} {d.getDate()} {MONTH_SHORT[d.getMonth()]}
+                            </td>
+                            <td style={{ padding: "6px 10px" }}>
+                              <span style={{ background: rationColour(r.ration), color: "#fff", borderRadius: 4, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{r.ration}</span>
+                            </td>
+                            <td style={{ padding: "6px 10px", fontWeight: 800 }}>{r.totalTons}T</td>
+                            <td style={{ padding: "6px 10px", textAlign: "center" }}>
+                              {r.emergency ? "⚡ Yes" : "—"}
+                              {isDupe && <span style={{ marginLeft: 6, fontSize: 10, color: "#a07000", fontWeight: 700 }}>already exists</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                  <button onClick={() => { setParsedRows(null); setPasteText(""); }} style={{ flex: 1, background: "#eee", color: "#333", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                    Clear & Re-paste
+                  </button>
+                  <button onClick={importParsed} style={{ flex: 2, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+                    ✅ Import {parsedRows.filter(r => !orders.some(e => e.deliveryDate === r.deliveryDate && e.ration === r.ration)).length} New Orders
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
