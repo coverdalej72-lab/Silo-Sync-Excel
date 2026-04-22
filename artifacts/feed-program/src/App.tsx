@@ -2157,6 +2157,44 @@ interface ParsedEmailRow { shedNum: number; age: string; birds: string; aveWgt: 
 
 function parseEmailCatchText(text: string): ParsedEmailRow[] {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  const splitRow = (line: string) =>
+    line.includes('\t') ? line.split('\t').map(c => c.trim()) : line.split(/\s{2,}/).map(c => c.trim());
+
+  function buildResults(headerCols: string[], dataStart: number, getDataRow: (i: number) => string[]): ParsedEmailRow[] {
+    const upper = headerCols.map(c => c.toUpperCase());
+    const findCol = (kw: string) => upper.findIndex(c => c.includes(kw));
+    const shedIdx   = findCol('SHED');
+    const ageIdx    = upper.findIndex(c => c === 'AGE');
+    const birdIdx   = findCol('BIRD');
+    const actualIdx = upper.findIndex(c => c === 'ACTUAL');
+    const totalIdx  = findCol('TOTAL');
+    if (shedIdx === -1 || birdIdx === -1) return [];
+    const results: ParsedEmailRow[] = [];
+    let i = dataStart;
+    while (true) {
+      const cols = getDataRow(i);
+      if (!cols || cols.length === 0) break;
+      i++;
+      const shedNum = parseInt((cols[shedIdx] ?? '').replace(/[^\d]/g, ''), 10);
+      const birds   = parseInt((cols[birdIdx]  ?? '').replace(/,/g, ''), 10);
+      const aveWgt  = actualIdx >= 0 ? parseFloat((cols[actualIdx] ?? '').replace(/,/g, '')) : NaN;
+      const totalKg = totalIdx  >= 0 ? parseFloat((cols[totalIdx]  ?? '').replace(/,/g, '')) : NaN;
+      const age     = ageIdx    >= 0 ? (cols[ageIdx] ?? '') : '';
+      if (!isNaN(shedNum) && shedNum > 0 && !isNaN(birds) && birds > 0) {
+        results.push({
+          shedNum,
+          age,
+          birds: String(birds),
+          aveWgt: isNaN(aveWgt) ? '' : aveWgt.toFixed(3),
+          totalWgt: !isNaN(totalKg) && totalKg > 0 ? (totalKg / 1000).toFixed(3) : '',
+        });
+      }
+    }
+    return results;
+  }
+
+  // ── Standard format: header + data on same row (tab or 2+ spaces) ──
   let headerIdx = -1;
   for (let i = 0; i < lines.length; i++) {
     const upper = lines[i].toUpperCase();
@@ -2164,36 +2202,53 @@ function parseEmailCatchText(text: string): ParsedEmailRow[] {
       headerIdx = i; break;
     }
   }
-  if (headerIdx === -1) return [];
-  const headerLine = lines[headerIdx];
-  const splitRow = (line: string) => line.includes('\t') ? line.split('\t').map(c => c.trim()) : line.split(/\s{2,}/).map(c => c.trim());
-  const headerCols = splitRow(headerLine).map(c => c.toUpperCase());
-  const findCol = (kw: string) => headerCols.findIndex(c => c.includes(kw));
-  const shedIdx   = findCol('SHED');
-  const ageIdx    = headerCols.findIndex(c => c === 'AGE');
-  const birdIdx   = findCol('BIRD');
-  const actualIdx = headerCols.findIndex(c => c === 'ACTUAL');
-  const totalIdx  = findCol('TOTAL');
-  if (shedIdx === -1 || birdIdx === -1) return [];
-  const results: ParsedEmailRow[] = [];
-  for (let i = headerIdx + 1; i < lines.length; i++) {
-    const cols = splitRow(lines[i]);
-    const shedNum = parseInt(cols[shedIdx]?.replace(/[^\d]/g, ''), 10);
-    const birds   = parseInt((cols[birdIdx] ?? '').replace(/,/g, ''), 10);
-    const aveWgt  = actualIdx >= 0 ? parseFloat((cols[actualIdx] ?? '').replace(/,/g, '')) : NaN;
-    const totalKg = totalIdx  >= 0 ? parseFloat((cols[totalIdx]  ?? '').replace(/,/g, '')) : NaN;
-    const age     = ageIdx    >= 0 ? (cols[ageIdx] ?? '') : '';
-    if (!isNaN(shedNum) && shedNum > 0 && !isNaN(birds) && birds > 0) {
-      results.push({
-        shedNum,
-        age,
-        birds: String(birds),
-        aveWgt: isNaN(aveWgt) ? '' : aveWgt.toFixed(3),
-        totalWgt: !isNaN(totalKg) && totalKg > 0 ? (totalKg / 1000).toFixed(3) : '',
+  if (headerIdx >= 0) {
+    const headerCols = splitRow(lines[headerIdx]);
+    let rowIdx = headerIdx + 1;
+    const results = buildResults(headerCols, 0, () => {
+      if (rowIdx >= lines.length) return [];
+      return splitRow(lines[rowIdx++]);
+    });
+    if (results.length > 0) return results;
+  }
+
+  // ── Fallback: one column per line (email renders each cell on its own line) ──
+  // Detect by finding a run of header-like lines near the top:
+  // e.g. GROWER / SHED # / AGE / BIRD # / ESTIMATE / ACTUAL / TOTAL KG each on their own line.
+  const HEADER_KEYWORDS = ['GROWER', 'SHED', 'AGE', 'BIRD', 'ESTIMATE', 'ACTUAL', 'TOTAL'];
+  let colPerLineStart = -1;
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const upper = lines[i].toUpperCase();
+    if (HEADER_KEYWORDS.some(kw => upper.includes(kw))) { colPerLineStart = i; break; }
+  }
+  if (colPerLineStart >= 0) {
+    // Collect consecutive header lines
+    const headerCols: string[] = [];
+    let i = colPerLineStart;
+    while (i < lines.length) {
+      const upper = lines[i].toUpperCase();
+      // Stop when we hit a line that looks like data (a pure number, or "Double B" type farm name that comes after headers)
+      // We'll just collect until we see a line that contains none of the header keywords AND isn't "#"
+      const isHeaderLike = HEADER_KEYWORDS.some(kw => upper.includes(kw)) || upper === '#' || upper === 'SHED #';
+      if (!isHeaderLike && headerCols.length >= 3) break;
+      if (isHeaderLike) headerCols.push(lines[i]);
+      i++;
+    }
+    if (headerCols.length >= 4) {
+      const numCols = headerCols.length;
+      const dataLines = lines.slice(i);
+      let dataIdx = 0;
+      const results = buildResults(headerCols, 0, () => {
+        if (dataIdx + numCols > dataLines.length) return [];
+        const row = dataLines.slice(dataIdx, dataIdx + numCols);
+        dataIdx += numCols;
+        return row;
       });
+      if (results.length > 0) return results;
     }
   }
-  return results;
+
+  return [];
 }
 
 function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch, onSummaryLoaded, onCatchMapChange, cleared }: { sheets: SheetParsed[]; edits: Map<string, string>[]; farmConfig: FarmConfigData; shedPlacement: Map<number, number>; onEobCatch?: (shedNum: number, totalCaught: number) => void; onSummaryLoaded?: (s: BatchSummary) => void; onCatchMapChange?: (m: CatchMap) => void; cleared?: boolean }) {
@@ -2979,7 +3034,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               {/* Instructions */}
               <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontSize: 13, color: "#333", lineHeight: 1.6 }}>
                 <strong>How to paste:</strong> Open the Adelaide Weighbridge email → select all the table text → copy → paste below.<br/>
-                <span style={{ color: "#666", fontSize: 12 }}>Works with the Baiada format: GROWER · SHED # · AGE · BIRD # · ESTIMATE · ACTUAL · TOTAL KG</span>
+                <span style={{ color: "#666", fontSize: 12 }}>Works with the Baiada format: GROWER · SHED # · AGE · BIRD # · ESTIMATE · ACTUAL · TOTAL KG</span><br/>
+                <span style={{ color: "#666", fontSize: 12 }}>✓ Supports tab-separated, space-separated, and one-value-per-line formats (all work automatically)</span>
               </div>
 
               {/* Paste area */}
