@@ -2314,7 +2314,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const [emailParsed, setEmailParsed] = useState<ParsedEmailRow[] | null>(null);
   const [emailParseError, setEmailParseError] = useState("");
   const [emailImportMode, setEmailImportMode] = useState<"add" | "replace">("add");
-  const [emailCatchDate, setEmailCatchDate] = useState("");
+  const todayDateStr = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; };
+  const [emailCatchDate, setEmailCatchDate] = useState(todayDateStr);
 
   useEffect(() => {
     if (cleared) {
@@ -2555,7 +2556,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           </div>
         )}
         <button
-          onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setShowEmailImport(true); }}
+          onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setEmailCatchDate(todayDateStr()); setShowEmailImport(true); }}
           style={{ marginLeft: "auto", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
           title="Import catch data from a Baiada weighbridge email"
         >
