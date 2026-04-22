@@ -4605,14 +4605,16 @@ export default function App() {
                     const [rStr, cStr] = k.split(",");
                     if (cStr === String(COL_B) && parseInt(rStr) >= 12) return;
                   }
-                  // Silo reading columns (K/L/M/J) are intentionally excluded from the
-                  // autosave restore.  These values are owned by the live Silo Mate sync
-                  // (which re-applies on every page load because lastSyncHashRef is reset
-                  // to "" at init) or by manual handleEdit during the session.  Restoring
-                  // old autosaved values would bake in stale readings from previous code
-                  // versions that seeded these columns from the previous batch's template.
+                  // Silo reading columns (K/L/M/J): restore non-empty values only.
+                  // Non-empty values are either manually entered readings or values that
+                  // were applied by a previous Silo Mate sync — both are valid to keep.
+                  // Empty values (cleared by buildInitialEditsForSheet) are skipped so we
+                  // don't overwrite blank-column initialisation with stale empty strings.
+                  // The live Silo Mate auto-sync will overwrite these with current data
+                  // when it runs after load.  New-batch imports clear the autosave
+                  // entirely, so cross-batch bleed is not possible.
                   const cNum = parseInt(k.split(",")[1]);
-                  if (cNum === COL_K || cNum === COL_L || cNum === COL_M || cNum === COL_J) return;
+                  if ((cNum === COL_K || cNum === COL_L || cNum === COL_M || cNum === COL_J) && !v) return;
                   // Skip stale date-string values that were accidentally autosaved into
                   // allocation cells (H2-H5 = rows 1-4, col 7).  These appear when a
                   // previous buggy version displayed a date-formatted kg value and the
