@@ -159,6 +159,7 @@ function deserializeEdits(json: string): Map<string, string>[] {
 }
 const FLOCK_WEIGHIN_KEY   = "feedmate-flock-weighins";
 const FLOCK_BREEDS_KEY    = "feedmate-flock-breeds";
+const FEED_ORDERS_KEY     = "feedmate-feed-orders";
 interface BatchHistoryEntry {
   batchNum: number;
   date: string;
@@ -3981,6 +3982,364 @@ const BREED_STANDARDS: Record<string, { name: string; data: BreedPoint[] }> = {
   ]},
 };
 
+// ── Feed Delivery Strip ───────────────────────────────────────────────────────
+interface FeedOrder {
+  id: string;
+  ration: string;
+  deliveryDate: string;   // YYYY-MM-DD
+  totalTons: number;
+  allocations: { sgId: number; tons: number }[];
+  emergency: boolean;
+  notes: string;
+}
+
+function loadFeedOrders(): FeedOrder[] {
+  try { return JSON.parse(localStorage.getItem(FEED_ORDERS_KEY) ?? "[]"); } catch { return []; }
+}
+function saveFeedOrders(orders: FeedOrder[]) {
+  localStorage.setItem(FEED_ORDERS_KEY, JSON.stringify(orders));
+}
+function getThursdayStart(ref: Date): Date {
+  const d = new Date(ref); d.setHours(0, 0, 0, 0);
+  const back = (d.getDay() + 3) % 7; // Thu=0, Fri=1, …, Wed=6
+  d.setDate(d.getDate() - back);
+  return d;
+}
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d); r.setDate(d.getDate() + n); return r;
+}
+function toYMD(d: Date) { return d.toISOString().slice(0, 10); }
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+const RATION_COLOURS: Record<string, string> = {
+  "STARTER":    "#2980b9",
+  "GROWER":     "#27ae60",
+  "FINISHER":   "#8e44ad",
+  "WITHDRAWAL": "#c0392b",
+  "EMERGENCY":  "#e67e22",
+};
+function rationColour(ration: string) {
+  const up = ration.toUpperCase();
+  for (const [k, v] of Object.entries(RATION_COLOURS)) if (up.includes(k)) return v;
+  return "#555";
+}
+
+function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
+  const [orders, setOrders]       = useState<FeedOrder[]>(loadFeedOrders);
+  const [cycleOff, setCycleOff]   = useState(0);     // 0 = this week, 1 = next, -1 = last
+  const [modal, setModal]         = useState<{ date: string; order?: FeedOrder } | null>(null);
+  const [showAll, setShowAll]     = useState(false);
+
+  // Current cycle: 7 days from Thursday
+  const today    = new Date(); today.setHours(0, 0, 0, 0);
+  const baseThur = getThursdayStart(today);
+  const cycleStart = addDays(baseThur, cycleOff * 7);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(cycleStart, i));
+
+  const ordersOnDay = (d: Date) => orders.filter(o => o.deliveryDate === toYMD(d));
+
+  // Modal state
+  const [mDate,      setMDate]      = useState("");
+  const [mRation,    setMRation]    = useState("");
+  const [mTons,      setMTons]      = useState("");
+  const [mEmergency, setMEmergency] = useState(false);
+  const [mNotes,     setMNotes]     = useState("");
+  const [mAllocs,    setMAllocs]    = useState<{ sgId: number; tons: string }[]>([]);
+
+  const shedGroups = farmConfig.shedGroups?.filter(g => g.active !== false) ?? [];
+
+  const openModal = (date: string, order?: FeedOrder) => {
+    setMDate(date);
+    setMRation(order?.ration ?? "");
+    setMTons(order ? String(order.totalTons) : "");
+    setMEmergency(order?.emergency ?? false);
+    setMNotes(order?.notes ?? "");
+    const allocs = shedGroups.map(g => ({
+      sgId: g.shedGroupId,
+      tons: String(order?.allocations.find(a => a.sgId === g.shedGroupId)?.tons ?? ""),
+    }));
+    setMAllocs(allocs.length ? allocs : [{ sgId: 1, tons: "" }]);
+    setModal({ date, order });
+  };
+  const closeModal = () => setModal(null);
+
+  const saveOrder = () => {
+    if (!mDate || !mRation || !mTons) return;
+    const allocs = mAllocs
+      .filter(a => parseFloat(a.tons) > 0)
+      .map(a => ({ sgId: a.sgId, tons: parseFloat(a.tons) }));
+    const newOrder: FeedOrder = {
+      id: modal?.order?.id ?? `fo-${Date.now()}`,
+      ration: mRation.trim(),
+      deliveryDate: mDate,
+      totalTons: parseFloat(mTons),
+      allocations: allocs,
+      emergency: mEmergency,
+      notes: mNotes.trim(),
+    };
+    const updated = modal?.order
+      ? orders.map(o => o.id === modal.order!.id ? newOrder : o)
+      : [...orders, newOrder];
+    setOrders(updated);
+    saveFeedOrders(updated);
+    closeModal();
+  };
+
+  const deleteOrder = (id: string) => {
+    const updated = orders.filter(o => o.id !== id);
+    setOrders(updated);
+    saveFeedOrders(updated);
+    closeModal();
+  };
+
+  const totalAllocd = mAllocs.reduce((s, a) => s + (parseFloat(a.tons) || 0), 0);
+  const allocWarning = mTons && Math.abs(totalAllocd - parseFloat(mTons)) > 0.5;
+
+  // Upcoming orders (next 30 days) for the "All Orders" panel
+  const upcomingOrders = [...orders]
+    .filter(o => o.deliveryDate >= toYMD(today))
+    .sort((a, b) => a.deliveryDate.localeCompare(b.deliveryDate));
+
+  const cycleLabel = `${DAY_NAMES[cycleStart.getDay()]} ${cycleStart.getDate()} ${MONTH_SHORT[cycleStart.getMonth()]} → ${DAY_NAMES[addDays(cycleStart,6).getDay()]} ${addDays(cycleStart,6).getDate()} ${MONTH_SHORT[addDays(cycleStart,6).getMonth()]}`;
+
+  return (
+    <>
+      {/* ── Strip ── */}
+      <div style={{ background: "#0f3d23", borderBottom: "2px solid #C9A227", padding: "4px 0 0", userSelect: "none", flexShrink: 0 }}>
+        {/* Cycle header row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px 3px" }}>
+          <button onClick={() => setCycleOff(v => v - 1)} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 7px", cursor: "pointer", fontSize: 13 }}>‹</button>
+          <span style={{ fontSize: 10, color: "#a8d5b5", fontWeight: 700, letterSpacing: 0.4, flex: 1, textAlign: "center" }}>{cycleLabel}</span>
+          <button onClick={() => setCycleOff(v => v + 1)} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 7px", cursor: "pointer", fontSize: 13 }}>›</button>
+          <button onClick={() => { setCycleOff(0); }} style={{ background: cycleOff === 0 ? "#C9A227" : "rgba(255,255,255,0.12)", border: "none", color: cycleOff === 0 ? "#000" : "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>Today</button>
+          <button onClick={() => setShowAll(v => !v)} style={{ background: showAll ? "#C9A227" : "rgba(255,255,255,0.12)", border: "none", color: showAll ? "#000" : "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>📋 Orders</button>
+        </div>
+
+        {/* Day columns */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, padding: "0 6px 6px" }}>
+          {days.map(day => {
+            const ymd = toYMD(day);
+            const isToday = ymd === toYMD(today);
+            const isThur = day.getDay() === 4;
+            const dayOrders = ordersOnDay(day);
+            return (
+              <div
+                key={ymd}
+                style={{
+                  background: isToday ? "rgba(201,162,39,0.18)" : "rgba(255,255,255,0.05)",
+                  border: isToday ? "1.5px solid #C9A227" : isThur ? "1px solid rgba(255,255,255,0.25)" : "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 6,
+                  padding: "3px 4px",
+                  minHeight: 56,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  cursor: "pointer",
+                }}
+                onClick={() => openModal(ymd)}
+              >
+                {/* Day label */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: isToday ? "#C9A227" : isThur ? "#a8d5b5" : "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: 0.3 }}>
+                    {DAY_NAMES[day.getDay()]}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: isToday ? "#C9A227" : "#fff" }}>{day.getDate()}</span>
+                </div>
+                {/* Delivery pills */}
+                {dayOrders.map(o => (
+                  <div
+                    key={o.id}
+                    onClick={e => { e.stopPropagation(); openModal(ymd, o); }}
+                    style={{
+                      background: rationColour(o.ration),
+                      borderRadius: 3,
+                      padding: "1px 4px",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: "#fff",
+                      lineHeight: 1.3,
+                      cursor: "pointer",
+                    }}
+                    title={`${o.ration} — ${o.totalTons}T${o.emergency ? " ⚡ EMERGENCY" : ""}`}
+                  >
+                    {o.totalTons}T
+                    <span style={{ fontWeight: 400, opacity: 0.85, marginLeft: 2 }}>
+                      {o.ration.replace(/\d+\s*/,"").split(" ").map(w => w[0]).join("").slice(0,3)}
+                    </span>
+                    {o.emergency && <span style={{ marginLeft: 2 }}>⚡</span>}
+                  </div>
+                ))}
+                {/* Add hint */}
+                {dayOrders.length === 0 && (
+                  <div style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", textAlign: "center", marginTop: "auto" }}>＋</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── All Orders panel ── */}
+      {showAll && (
+        <div style={{ background: "#fff", borderBottom: "2px solid var(--pm-primary-border)", padding: "10px 12px", flexShrink: 0, maxHeight: 220, overflowY: "auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+              Upcoming Deliveries ({upcomingOrders.length})
+            </span>
+            <button
+              onClick={() => openModal(toYMD(today))}
+              style={{ background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            >
+              + Add Order
+            </button>
+          </div>
+          {upcomingOrders.length === 0 ? (
+            <p style={{ fontSize: 12, color: "#aaa", margin: 0 }}>No upcoming deliveries logged. Click any day in the strip above to add one.</p>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: "#f5f5f5" }}>
+                  {["Delivery Date","Ration","Tons","Sheds","Emergency","Notes"].map(h => (
+                    <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, borderBottom: "1px solid #e5e5e5" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {upcomingOrders.map(o => {
+                  const d = new Date(o.deliveryDate + "T00:00:00");
+                  return (
+                    <tr key={o.id} onClick={() => openModal(o.deliveryDate, o)} style={{ cursor: "pointer", borderBottom: "1px solid #eee" }} className="hover:bg-green-50">
+                      <td style={{ padding: "5px 8px", fontWeight: 700, color: "var(--pm-primary)", whiteSpace: "nowrap" }}>
+                        {DAY_NAMES[d.getDay()]} {d.getDate()} {MONTH_SHORT[d.getMonth()]}
+                      </td>
+                      <td style={{ padding: "5px 8px" }}>
+                        <span style={{ background: rationColour(o.ration), color: "#fff", borderRadius: 4, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{o.ration}</span>
+                      </td>
+                      <td style={{ padding: "5px 8px", fontWeight: 800 }}>{o.totalTons}T</td>
+                      <td style={{ padding: "5px 8px", color: "#555", fontSize: 11 }}>
+                        {o.allocations.length > 0 ? o.allocations.map(a => `Shed ${a.sgId*2-1}&${a.sgId*2}: ${a.tons}T`).join(", ") : "—"}
+                      </td>
+                      <td style={{ padding: "5px 8px", textAlign: "center" }}>{o.emergency ? "⚡ Yes" : "—"}</td>
+                      <td style={{ padding: "5px 8px", color: "#777", fontStyle: "italic" }}>{o.notes || "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ── Add / Edit Order Modal ── */}
+      {modal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 999, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={closeModal}>
+          <div style={{ background: "#fff", borderRadius: "14px 14px 0 0", width: "100%", maxWidth: 520, padding: "20px 18px 28px", boxSizing: "border-box", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <span style={{ fontSize: 16, fontWeight: 800, color: "var(--pm-primary)" }}>{modal.order ? "Edit" : "Add"} Feed Order</span>
+              <button onClick={closeModal} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#888" }}>✕</button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {/* Date */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4 }}>Delivery Date</label>
+                <input type="date" value={mDate} onChange={e => setMDate(e.target.value)}
+                  style={{ display: "block", width: "100%", marginTop: 4, border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "9px 10px", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+
+              {/* Ration */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4 }}>Ration</label>
+                <input
+                  type="text" placeholder="e.g. 130 BROILER WITHDRAWAL" value={mRation} onChange={e => setMRation(e.target.value)}
+                  list="ration-list"
+                  style={{ display: "block", width: "100%", marginTop: 4, border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "9px 10px", fontSize: 14, boxSizing: "border-box" }} />
+                <datalist id="ration-list">
+                  {["120 BROILER STARTER","130 BROILER GROWER","120 BROILER FINISHER","130 BROILER FINISHER","120 BROILER WITHDRAWAL","130 BROILER WITHDRAWAL"].map(r => <option key={r} value={r} />)}
+                </datalist>
+              </div>
+
+              {/* Total Tons */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4 }}>Total Tons Ordered</label>
+                <input type="number" min={1} max={999} step={0.5} placeholder="e.g. 132" value={mTons} onChange={e => setMTons(e.target.value)}
+                  style={{ display: "block", width: "100%", marginTop: 4, border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "9px 10px", fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+
+              {/* Shed Allocations */}
+              {shedGroups.length > 0 && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4 }}>Split Across Sheds</label>
+                    {mTons && (
+                      <span style={{ fontSize: 11, color: allocWarning ? "#c0392b" : "#27ae60", fontWeight: 700 }}>
+                        {totalAllocd.toFixed(1)}T / {mTons}T {allocWarning ? "⚠ doesn't match" : "✓"}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {mAllocs.map((a, i) => (
+                      <div key={a.sgId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#333", minWidth: 80 }}>
+                          Shed {a.sgId * 2 - 1} & {a.sgId * 2}
+                        </span>
+                        <input type="number" min={0} max={999} step={0.5} placeholder="Tons" value={a.tons}
+                          onChange={e => setMAllocs(prev => prev.map((x, j) => j === i ? { ...x, tons: e.target.value } : x))}
+                          style={{ flex: 1, border: "1.5px solid var(--pm-primary-border)", borderRadius: 6, padding: "7px 8px", fontSize: 13 }} />
+                        <span style={{ fontSize: 12, color: "#888" }}>T</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Quick-split helper */}
+                  {mTons && mAllocs.length > 1 && (
+                    <button
+                      onClick={() => {
+                        const each = (parseFloat(mTons) / mAllocs.length).toFixed(1);
+                        setMAllocs(prev => prev.map(a => ({ ...a, tons: each })));
+                      }}
+                      style={{ marginTop: 6, background: "#eee", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}
+                    >
+                      Split evenly ({(parseFloat(mTons) / mAllocs.length).toFixed(1)}T each)
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Emergency */}
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input type="checkbox" checked={mEmergency} onChange={e => setMEmergency(e.target.checked)} style={{ width: 18, height: 18 }} />
+                <span style={{ fontSize: 14, fontWeight: 600 }}>⚡ Emergency Order</span>
+              </label>
+
+              {/* Notes */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4 }}>Notes</label>
+                <textarea rows={2} placeholder="e.g. split load, delivery before 7am" value={mNotes} onChange={e => setMNotes(e.target.value)}
+                  style={{ display: "block", width: "100%", marginTop: 4, border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "9px 10px", fontSize: 13, boxSizing: "border-box", resize: "vertical" }} />
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                {modal.order && (
+                  <button onClick={() => deleteOrder(modal.order!.id)}
+                    style={{ flex: 1, background: "#fee2e2", color: "#c0392b", border: "1px solid #fca5a5", borderRadius: 8, padding: "12px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                    Delete
+                  </button>
+                )}
+                <button onClick={saveOrder} disabled={!mDate || !mRation || !mTons}
+                  style={{ flex: 2, background: (!mDate || !mRation || !mTons) ? "#ccc" : "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "12px 0", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+                  {modal.order ? "Save Changes" : "Add Delivery"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Bird Weighing (AI Camera) ─────────────────────────────────────────────────
 interface WeighAiResult {
   estimatedWeightKg: number | null;
@@ -5967,6 +6326,9 @@ export default function App() {
         </button>
 
       </div>
+
+      {/* Feed Delivery Strip */}
+      <FeedOrderStrip farmConfig={farmConfig} />
 
       {/* Spreadsheet / Summary */}
       <div className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border-t-2" style={{ borderColor: "var(--pm-primary-mid)" }}>
