@@ -1269,6 +1269,7 @@ function SheetView({
                   c === 13 || c === 14
                 );
                 const displayVal = (isAnyHeader && info.isDateCell) ? ""
+                  : (isAnyHeader && rawVal !== "" && !isNaN(Number(rawVal)) && !/[A-Za-z]/.test(rawVal)) ? ""
                   : (isShedData && c === 14 && birdsLeft !== null)
                     ? birdsLeft.toLocaleString()
                   : (isShedData && c === 13 && (rawVal === "" || rawVal === "0")) ? "—"
