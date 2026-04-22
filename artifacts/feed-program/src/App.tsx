@@ -3981,6 +3981,317 @@ const BREED_STANDARDS: Record<string, { name: string; data: BreedPoint[] }> = {
   ]},
 };
 
+// ── Bird Weighing (AI Camera) ─────────────────────────────────────────────────
+interface WeighAiResult {
+  estimatedWeightKg: number | null;
+  confidenceLevel: "low" | "medium" | "high";
+  weightRangeMin: number;
+  weightRangeMax: number;
+  visualCues: string;
+  notes: string;
+}
+interface WeighSessionEntry {
+  shedLabel: string;
+  sgId: number;
+  age: number;
+  weightKg: number;
+  confidence: string;
+  time: string;
+  logged: boolean;
+}
+
+function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
+  const videoRef  = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const [cameraActive,  setCameraActive]  = useState(false);
+  const [cameraError,   setCameraError]   = useState<string | null>(null);
+  const [capturedImg,   setCapturedImg]   = useState<string | null>(null);
+  const [analyzing,     setAnalyzing]     = useState(false);
+  const [aiResult,      setAiResult]      = useState<WeighAiResult | null>(null);
+  const [aiError,       setAiError]       = useState<string | null>(null);
+  const [sessionLog,    setSessionLog]    = useState<WeighSessionEntry[]>([]);
+
+  // Shed + age selection
+  const shedGroups = farmConfig.shedGroups?.filter(g => g.active !== false) ?? [];
+  const defaultSgId = shedGroups[0]?.shedGroupId ?? 1;
+  const [selectedSgId, setSelectedSgId] = useState(defaultSgId);
+  const [manualAge,    setManualAge]    = useState("");
+
+  // Stop camera on unmount
+  useEffect(() => () => { streamRef.current?.getTracks().forEach(t => t.stop()); }, []);
+
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      setCameraActive(true);
+      setCapturedImg(null);
+      setAiResult(null);
+    } catch {
+      setCameraError("Camera access was denied or is unavailable. Please allow camera access and try again.");
+    }
+  };
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const v = videoRef.current, c = canvasRef.current;
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext("2d")?.drawImage(v, 0, 0);
+    setCapturedImg(c.toDataURL("image/jpeg", 0.85));
+    setAiResult(null); setAiError(null);
+    stopCamera();
+  };
+
+  const retake = () => { setCapturedImg(null); setAiResult(null); setAiError(null); startCamera(); };
+
+  const analysePhoto = async () => {
+    if (!capturedImg) return;
+    setAnalyzing(true); setAiError(null);
+    try {
+      const res = await fetch("/api/weigh-bird", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: capturedImg, ageDays: parseInt(manualAge) || undefined, shedNum: selectedSgId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Analysis failed");
+      setAiResult(data);
+    } catch (err) {
+      setAiError(String(err));
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const logToForecast = () => {
+    if (!aiResult?.estimatedWeightKg || !manualAge) return;
+    const age   = parseInt(manualAge);
+    const grams = Math.round(aiResult.estimatedWeightKg * 1000);
+    const existing: WeighInData = (() => { try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}"); } catch { return {}; } })();
+    if (!existing[selectedSgId]) existing[selectedSgId] = {};
+    const cur = existing[selectedSgId][age];
+    existing[selectedSgId][age] = cur ? Math.round((cur + grams) / 2) : grams;
+    localStorage.setItem(FLOCK_WEIGHIN_KEY, JSON.stringify(existing));
+    const shedLabel = shedGroups.find(g => g.shedGroupId === selectedSgId)
+      ? `Shed ${selectedSgId * 2 - 1}/${selectedSgId * 2}`
+      : `Shed Group ${selectedSgId}`;
+    setSessionLog(prev => [...prev, {
+      shedLabel, sgId: selectedSgId, age,
+      weightKg: aiResult.estimatedWeightKg!,
+      confidence: aiResult.confidenceLevel,
+      time: new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" }),
+      logged: true,
+    }]);
+    setCapturedImg(null); setAiResult(null); setAiError(null);
+    startCamera();
+  };
+
+  const confColor = (c: string) => c === "high" ? "#27ae60" : c === "medium" ? "#e67e22" : "#c0392b";
+  const confBg    = (c: string) => c === "high" ? "#eafaf1" : c === "medium" ? "#fef9ec" : "#fdf0ee";
+
+  return (
+    <div style={{ padding: "16px 16px 40px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 14 }}>
+
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg,var(--pm-primary) 0%,var(--pm-primary-mid) 100%)", color: "#fff", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: "3px solid #C9A227" }}>
+        <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 14 }}>AI BIRD WEIGH</div>
+        <span style={{ fontSize: 12, opacity: 0.85 }}>Take a photo — AI estimates live weight</span>
+      </div>
+
+      {/* Tip banner */}
+      <div style={{ background: "#fffde7", border: "1px solid #ffe082", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#555", lineHeight: 1.55 }}>
+        <strong>Tip for best results:</strong> Hold the bird steady against a plain background. Include your hand or a reference object (feed bag, crate) in frame so the AI has a size reference. Accuracy improves with age entered below.
+      </div>
+
+      {/* Shed + Age selectors */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 130 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>Shed Group</label>
+          <select
+            value={selectedSgId}
+            onChange={e => setSelectedSgId(parseInt(e.target.value))}
+            style={{ width: "100%", border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "9px 10px", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff" }}
+          >
+            {shedGroups.length > 0
+              ? shedGroups.map(g => <option key={g.shedGroupId} value={g.shedGroupId}>Shed {g.shedGroupId * 2 - 1}/{g.shedGroupId * 2}</option>)
+              : Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={i + 1}>Shed {i * 2 + 1}/{i * 2 + 2}</option>)
+            }
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: 100 }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>Bird Age (days)</label>
+          <input
+            type="number" min={1} max={70} placeholder="e.g. 42"
+            value={manualAge}
+            onChange={e => setManualAge(e.target.value)}
+            style={{ width: "100%", border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "9px 10px", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}
+          />
+        </div>
+      </div>
+
+      {/* Camera area */}
+      <div style={{ background: "#111", borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+
+        {/* Live video */}
+        <video ref={videoRef} playsInline muted style={{ width: "100%", height: "100%", objectFit: "cover", display: cameraActive ? "block" : "none" }} />
+
+        {/* Captured photo */}
+        {capturedImg && !cameraActive && (
+          <img src={capturedImg} alt="Captured" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        )}
+
+        {/* Idle placeholder */}
+        {!cameraActive && !capturedImg && (
+          <div style={{ textAlign: "center", color: "#888" }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>📷</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Tap Start Camera</div>
+          </div>
+        )}
+
+        {/* Capture button overlay */}
+        {cameraActive && (
+          <button
+            onClick={capturePhoto}
+            style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)", background: "#fff", border: "4px solid var(--pm-primary)", borderRadius: "50%", width: 64, height: 64, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, boxShadow: "0 3px 12px rgba(0,0,0,0.35)" }}
+            title="Capture photo"
+          >📸</button>
+        )}
+      </div>
+
+      {/* Camera error */}
+      {cameraError && (
+        <div style={{ background: "#fff0f0", border: "1px solid #fbc9c9", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#c0392b" }}>⚠️ {cameraError}</div>
+      )}
+
+      {/* Action buttons */}
+      <div style={{ display: "flex", gap: 10 }}>
+        {!cameraActive && !capturedImg && (
+          <button onClick={startCamera} style={{ flex: 1, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+            📷 Start Camera
+          </button>
+        )}
+        {cameraActive && (
+          <button onClick={stopCamera} style={{ flex: 1, background: "#888", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+            Cancel
+          </button>
+        )}
+        {capturedImg && !cameraActive && (
+          <>
+            <button onClick={retake} style={{ flex: 1, background: "#888", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              🔄 Retake
+            </button>
+            {!aiResult && (
+              <button onClick={analysePhoto} disabled={analyzing} style={{ flex: 2, background: analyzing ? "#aaa" : "#C9A227", color: "#000", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 800, fontSize: 15, cursor: analyzing ? "default" : "pointer" }}>
+                {analyzing ? "⏳ Analysing…" : "🤖 Analyse Bird"}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* AI error */}
+      {aiError && (
+        <div style={{ background: "#fff0f0", border: "1px solid #fbc9c9", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#c0392b" }}>⚠️ {aiError}</div>
+      )}
+
+      {/* AI Result */}
+      {aiResult && (
+        <div style={{ background: "#fff", border: "2px solid var(--pm-primary-border)", borderRadius: 12, overflow: "hidden" }}>
+          {/* Weight display */}
+          <div style={{ background: "linear-gradient(135deg,var(--pm-primary) 0%,var(--pm-primary-mid) 100%)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Estimated Live Weight</div>
+              {aiResult.estimatedWeightKg ? (
+                <div style={{ color: "#fff", fontSize: 36, fontWeight: 900, lineHeight: 1 }}>
+                  {aiResult.estimatedWeightKg.toFixed(2)} <span style={{ fontSize: 18, fontWeight: 600 }}>kg</span>
+                </div>
+              ) : (
+                <div style={{ color: "#ffcc00", fontSize: 18, fontWeight: 700 }}>Could not estimate</div>
+              )}
+              {aiResult.weightRangeMin > 0 && (
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 3 }}>
+                  Range: {aiResult.weightRangeMin.toFixed(2)}–{aiResult.weightRangeMax.toFixed(2)} kg
+                </div>
+              )}
+            </div>
+            <div style={{ background: confBg(aiResult.confidenceLevel), color: confColor(aiResult.confidenceLevel), border: `1px solid ${confColor(aiResult.confidenceLevel)}`, borderRadius: 8, padding: "6px 14px", fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              {aiResult.confidenceLevel} confidence
+            </div>
+          </div>
+
+          {/* Details */}
+          <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {aiResult.visualCues && (
+              <div style={{ fontSize: 12, color: "#555", background: "#f8f9fa", borderRadius: 6, padding: "8px 12px" }}>
+                <strong style={{ color: "#333" }}>AI observed:</strong> {aiResult.visualCues}
+              </div>
+            )}
+            {aiResult.notes && (
+              <div style={{ fontSize: 12, color: "#777", fontStyle: "italic" }}>{aiResult.notes}</div>
+            )}
+
+            {/* Log button */}
+            {aiResult.estimatedWeightKg && (
+              <button
+                onClick={logToForecast}
+                disabled={!manualAge}
+                style={{ background: manualAge ? "#27ae60" : "#ccc", color: "#fff", border: "none", borderRadius: 8, padding: "12px 0", fontWeight: 800, fontSize: 14, cursor: manualAge ? "pointer" : "default", marginTop: 4 }}
+                title={!manualAge ? "Enter bird age above to log" : ""}
+              >
+                ✅ Log to Flock Forecast {!manualAge ? "(enter age first)" : `— ${aiResult.estimatedWeightKg.toFixed(2)} kg at day ${manualAge}`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Session log */}
+      {sessionLog.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", overflow: "hidden" }}>
+          <div style={{ background: "var(--pm-primary)", color: "#fff", padding: "8px 14px", fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            This Session — {sessionLog.length} weigh{sessionLog.length !== 1 ? "s" : ""} logged
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f5f5f5" }}>
+                {["Time", "Shed", "Age", "Weight", "Confidence"].map(h => (
+                  <th key={h} style={{ padding: "6px 10px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...sessionLog].reverse().map((e, i) => (
+                <tr key={i} style={{ borderTop: "1px solid #eee" }}>
+                  <td style={{ padding: "7px 10px", textAlign: "center", color: "#888", fontSize: 12 }}>{e.time}</td>
+                  <td style={{ padding: "7px 10px", textAlign: "center", fontWeight: 700, color: "var(--pm-primary)" }}>{e.shedLabel}</td>
+                  <td style={{ padding: "7px 10px", textAlign: "center" }}>{e.age}d</td>
+                  <td style={{ padding: "7px 10px", textAlign: "center", fontWeight: 800 }}>{e.weightKg.toFixed(2)} kg</td>
+                  <td style={{ padding: "7px 10px", textAlign: "center" }}>
+                    <span style={{ color: confColor(e.confidence), fontWeight: 700, fontSize: 11 }}>{e.confidence}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
   sheets: SheetParsed[];
   edits: Map<string, string>[];
@@ -4393,7 +4704,7 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
-  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "flockForecast" | "eggProduction" | "bodyWeight">(null);
+  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "flockForecast" | "eggProduction" | "bodyWeight" | "weighBirds">(null);
   const [batchResultsSummary, setBatchResultsSummary] = useState<BatchSummary | null>(null);
   const [batchKey, setBatchKey] = useState(0);
   const [batchCleared, setBatchCleared] = useState<boolean>(() => localStorage.getItem("silo-batch-cleared") === "1");
@@ -5624,6 +5935,11 @@ export default function App() {
             style={{ backgroundColor: activeView === "flockForecast" ? "#fff" : "#8b3fc8", color: activeView === "flockForecast" ? "#4e1a6e" : "#fff", borderColor: activeView === "flockForecast" ? "#ccc" : "#6a2faa00", transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             🔮 Flock Forecast
           </button>
+          <button onClick={() => setActiveView("weighBirds")}
+            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+            style={{ backgroundColor: activeView === "weighBirds" ? "#fff" : "#C9A227", color: activeView === "weighBirds" ? "#7a5500" : "#000", borderColor: activeView === "weighBirds" ? "#ccc" : "#a8780000", transform: activeView === "weighBirds" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            ⚖️ Weigh Birds
+          </button>
         </>)}
 
         {/* ── Breeder-only tabs ── */}
@@ -5663,6 +5979,10 @@ export default function App() {
         ) : activeView === "bodyWeight" ? (
           <div className="flex-1 overflow-auto safe-bottom">
             <BodyWeightView farmConfig={farmConfig} shedPlacement={shedPlacement} />
+          </div>
+        ) : activeView === "weighBirds" ? (
+          <div className="flex-1 overflow-auto safe-bottom">
+            <BirdWeighView farmConfig={farmConfig} />
           </div>
         ) : activeView === "flockForecast" ? (
           <div className="flex-1 overflow-auto safe-bottom">

@@ -8,6 +8,7 @@ import exportRouter from "./export";
 import batchRouter from "./batch";
 import paypalRouter from "./paypal";
 import sponsorsRouter from "./sponsors";
+import weighBirdRouter from "./weigh-bird";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(onedriveRouter);
 router.use(batchRouter);
 router.use(paypalRouter);
 router.use(sponsorsRouter);
+router.use(weighBirdRouter);
 
 export default router;
