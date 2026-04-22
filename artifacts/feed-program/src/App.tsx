@@ -2277,6 +2277,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const [emailParsed, setEmailParsed] = useState<ParsedEmailRow[] | null>(null);
   const [emailParseError, setEmailParseError] = useState("");
   const [emailImportMode, setEmailImportMode] = useState<"add" | "replace">("add");
+  const [emailCatchDate, setEmailCatchDate] = useState("");
 
   useEffect(() => {
     if (cleared) {
@@ -2396,10 +2397,11 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
     return cfg ? cfg.active !== false : true;
   };
 
-  // All active shed numbers (union of xlsx sheds + live placement)
+  // All active shed numbers (union of xlsx sheds + live placement + any catch data entered)
   const xlShedNums = new Set(xlSheds.map(s => s.shedNum));
   const allShedNums = new Set([...xlShedNums]);
   shedPlacement.forEach((_, n) => allShedNums.add(n));
+  Object.keys(catchMap).forEach(k => { const n = parseInt(k, 10); if (!isNaN(n) && n > 0) allShedNums.add(n); });
   const activeShedNums = [...allShedNums].filter(n => isGroupActive(n)).sort((a, b) => a - b);
 
   // Per-shed derived stats
@@ -3038,6 +3040,20 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                 <span style={{ color: "#666", fontSize: 12 }}>✓ Supports tab-separated, space-separated, and one-value-per-line formats (all work automatically)</span>
               </div>
 
+              {/* Catch date */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 5 }}>
+                  Catch Date
+                </label>
+                <input
+                  type="text"
+                  placeholder="dd/mm/yyyy"
+                  value={emailCatchDate}
+                  onChange={e => setEmailCatchDate(e.target.value)}
+                  style={{ width: "100%", border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "9px 12px", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box", color: "#222" }}
+                />
+              </div>
+
               {/* Paste area */}
               <textarea
                 value={emailText}
@@ -3136,7 +3152,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                         if (!emailParsed) return;
                         const next = { ...catchMap };
                         emailParsed.forEach(row => {
-                          const newCatch: EditableCatch = { date: "", age: row.age, birds: row.birds, aveWgt: row.aveWgt, totalWgt: row.totalWgt };
+                          const newCatch: EditableCatch = { date: emailCatchDate.trim(), age: row.age, birds: row.birds, aveWgt: row.aveWgt, totalWgt: row.totalWgt };
                           if (emailImportMode === "replace") {
                             next[row.shedNum] = [newCatch];
                           } else {
