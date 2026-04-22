@@ -4554,6 +4554,7 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  const [mode,          setMode]          = useState<"camera" | "manual">("camera");
   const [cameraActive,  setCameraActive]  = useState(false);
   const [cameraError,   setCameraError]   = useState<string | null>(null);
   const [capturedImg,   setCapturedImg]   = useState<string | null>(null);
@@ -4561,6 +4562,7 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
   const [aiResult,      setAiResult]      = useState<WeighAiResult | null>(null);
   const [aiError,       setAiError]       = useState<string | null>(null);
   const [sessionLog,    setSessionLog]    = useState<WeighSessionEntry[]>([]);
+  const [manualWeightKg, setManualWeightKg] = useState("");
 
   // Shed + age selection
   const shedGroups = farmConfig.shedGroups?.filter(g => g.active !== false) ?? [];
@@ -4646,8 +4648,30 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
     startCamera();
   };
 
-  const confColor = (c: string) => c === "high" ? "#27ae60" : c === "medium" ? "#e67e22" : "#c0392b";
-  const confBg    = (c: string) => c === "high" ? "#eafaf1" : c === "medium" ? "#fef9ec" : "#fdf0ee";
+  const logManualWeight = () => {
+    const kg = parseFloat(manualWeightKg);
+    if (isNaN(kg) || kg <= 0 || !manualAge) return;
+    const age   = parseInt(manualAge);
+    const grams = Math.round(kg * 1000);
+    const sgId  = Math.ceil(selectedShedNum / 2);
+    const existing: WeighInData = (() => { try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}"); } catch { return {}; } })();
+    if (!existing[sgId]) existing[sgId] = {};
+    const cur = existing[sgId][age];
+    existing[sgId][age] = cur ? Math.round((cur + grams) / 2) : grams;
+    localStorage.setItem(FLOCK_WEIGHIN_KEY, JSON.stringify(existing));
+    const shedLabel = `Shed ${selectedShedNum}`;
+    setSessionLog(prev => [...prev, {
+      shedLabel, sgId, age,
+      weightKg: kg,
+      confidence: "manual",
+      time: new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" }),
+      logged: true,
+    }]);
+    setManualWeightKg("");
+  };
+
+  const confColor = (c: string) => c === "high" ? "#27ae60" : c === "medium" ? "#e67e22" : c === "manual" ? "#2980b9" : "#c0392b";
+  const confBg    = (c: string) => c === "high" ? "#eafaf1" : c === "medium" ? "#fef9ec" : c === "manual" ? "#eaf4fb" : "#fdf0ee";
 
   return (
     <div style={{ padding: "16px 16px 40px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -4658,10 +4682,27 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
         <span style={{ fontSize: 12, opacity: 0.85 }}>Take a photo — AI estimates live weight</span>
       </div>
 
-      {/* Tip banner */}
-      <div style={{ background: "#fffde7", border: "1px solid #ffe082", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#555", lineHeight: 1.55 }}>
-        <strong>Tip for best results:</strong> Hold the bird steady against a plain background. Include your hand or a reference object (feed bag, crate) in frame so the AI has a size reference. Accuracy improves with age entered below.
+      {/* Mode toggle */}
+      <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 9, padding: 3, gap: 3 }}>
+        {(["camera", "manual"] as const).map(m => (
+          <button
+            key={m}
+            onClick={() => { setMode(m); setCapturedImg(null); setAiResult(null); setAiError(null); if (m === "manual") stopCamera(); }}
+            style={{ flex: 1, border: "none", borderRadius: 7, padding: "9px 0", fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "background 0.15s, color 0.15s",
+              background: mode === m ? "var(--pm-primary)" : "transparent",
+              color: mode === m ? "#fff" : "#666" }}
+          >
+            {m === "camera" ? "📷 AI Camera" : "✏️ Manual Entry"}
+          </button>
+        ))}
       </div>
+
+      {/* Tip banner — camera only */}
+      {mode === "camera" && (
+        <div style={{ background: "#fffde7", border: "1px solid #ffe082", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#555", lineHeight: 1.55 }}>
+          <strong>Tip for best results:</strong> Hold the bird steady against a plain background. Include your hand or a reference object (feed bag, crate) in frame so the AI has a size reference. Accuracy improves with age entered below.
+        </div>
+      )}
 
       {/* Shed + Age selectors */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -4688,7 +4729,53 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
         </div>
       </div>
 
+      {/* Manual entry panel */}
+      {mode === "manual" && (
+        <div style={{ background: "#fff", border: "2px solid var(--pm-primary-border)", borderRadius: 12, padding: "20px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: 13, color: "#555", lineHeight: 1.5 }}>
+            Enter the weight from your scale. Each reading is averaged with existing readings for that shed and age.
+          </div>
+
+          {/* Weight input */}
+          <div>
+            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>
+              Live Weight (kg)
+            </label>
+            <input
+              type="number" step="0.001" min="0.1" max="15"
+              placeholder="e.g. 1.850"
+              value={manualWeightKg}
+              onChange={e => setManualWeightKg(e.target.value)}
+              style={{ width: "100%", border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "13px 14px", fontSize: 22, fontWeight: 800, outline: "none", boxSizing: "border-box", textAlign: "center", letterSpacing: 1 }}
+              autoFocus
+            />
+            {manualWeightKg && !isNaN(parseFloat(manualWeightKg)) && parseFloat(manualWeightKg) > 0 && (
+              <div style={{ textAlign: "center", fontSize: 13, color: "#888", marginTop: 5 }}>
+                = {Math.round(parseFloat(manualWeightKg) * 1000)} g
+              </div>
+            )}
+          </div>
+
+          {/* Log button */}
+          <button
+            onClick={logManualWeight}
+            disabled={!manualWeightKg || isNaN(parseFloat(manualWeightKg)) || parseFloat(manualWeightKg) <= 0 || !manualAge}
+            style={{
+              background: (manualWeightKg && parseFloat(manualWeightKg) > 0 && manualAge) ? "#27ae60" : "#ccc",
+              color: "#fff", border: "none", borderRadius: 8, padding: "14px 0", fontWeight: 800, fontSize: 16,
+              cursor: (manualWeightKg && parseFloat(manualWeightKg) > 0 && manualAge) ? "pointer" : "default"
+            }}
+            title={!manualAge ? "Enter bird age above to log" : ""}
+          >
+            ✅ Log Weight{manualAge && manualWeightKg && parseFloat(manualWeightKg) > 0
+              ? ` — ${parseFloat(manualWeightKg).toFixed(3)} kg at day ${manualAge}`
+              : !manualAge ? " (enter age above)" : ""}
+          </button>
+        </div>
+      )}
+
       {/* Camera area */}
+      {mode === "camera" && (
       <div style={{ background: "#111", borderRadius: 12, overflow: "hidden", position: "relative", aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
@@ -4717,45 +4804,48 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
           >📸</button>
         )}
       </div>
+      )} {/* end mode === camera wrapper for camera div */}
 
       {/* Camera error */}
-      {cameraError && (
+      {mode === "camera" && cameraError && (
         <div style={{ background: "#fff0f0", border: "1px solid #fbc9c9", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#c0392b" }}>⚠️ {cameraError}</div>
       )}
 
-      {/* Action buttons */}
-      <div style={{ display: "flex", gap: 10 }}>
-        {!cameraActive && !capturedImg && (
-          <button onClick={startCamera} style={{ flex: 1, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
-            📷 Start Camera
-          </button>
-        )}
-        {cameraActive && (
-          <button onClick={stopCamera} style={{ flex: 1, background: "#888", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-            Cancel
-          </button>
-        )}
-        {capturedImg && !cameraActive && (
-          <>
-            <button onClick={retake} style={{ flex: 1, background: "#888", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
-              🔄 Retake
+      {/* Action buttons — camera mode only */}
+      {mode === "camera" && (
+        <div style={{ display: "flex", gap: 10 }}>
+          {!cameraActive && !capturedImg && (
+            <button onClick={startCamera} style={{ flex: 1, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
+              📷 Start Camera
             </button>
-            {!aiResult && (
-              <button onClick={analysePhoto} disabled={analyzing} style={{ flex: 2, background: analyzing ? "#aaa" : "#C9A227", color: "#000", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 800, fontSize: 15, cursor: analyzing ? "default" : "pointer" }}>
-                {analyzing ? "⏳ Analysing…" : "🤖 Analyse Bird"}
+          )}
+          {cameraActive && (
+            <button onClick={stopCamera} style={{ flex: 1, background: "#888", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              Cancel
+            </button>
+          )}
+          {capturedImg && !cameraActive && (
+            <>
+              <button onClick={retake} style={{ flex: 1, background: "#888", color: "#fff", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                🔄 Retake
               </button>
-            )}
-          </>
-        )}
-      </div>
+              {!aiResult && (
+                <button onClick={analysePhoto} disabled={analyzing} style={{ flex: 2, background: analyzing ? "#aaa" : "#C9A227", color: "#000", border: "none", borderRadius: 8, padding: "13px 0", fontWeight: 800, fontSize: 15, cursor: analyzing ? "default" : "pointer" }}>
+                  {analyzing ? "⏳ Analysing…" : "🤖 Analyse Bird"}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* AI error */}
-      {aiError && (
+      {mode === "camera" && aiError && (
         <div style={{ background: "#fff0f0", border: "1px solid #fbc9c9", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#c0392b" }}>⚠️ {aiError}</div>
       )}
 
-      {/* AI Result */}
-      {aiResult && (
+      {/* AI Result — camera mode only */}
+      {mode === "camera" && aiResult && (
         <div style={{ background: "#fff", border: "2px solid var(--pm-primary-border)", borderRadius: 12, overflow: "hidden" }}>
           {/* Weight display */}
           <div style={{ background: "linear-gradient(135deg,var(--pm-primary) 0%,var(--pm-primary-mid) 100%)", padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -4814,7 +4904,7 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#f5f5f5" }}>
-                {["Time", "Shed", "Age", "Weight", "Confidence"].map(h => (
+                {["Time", "Shed", "Age", "Weight", "Source"].map(h => (
                   <th key={h} style={{ padding: "6px 10px", textAlign: "center", fontSize: 11, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{h}</th>
                 ))}
               </tr>
@@ -4825,9 +4915,12 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
                   <td style={{ padding: "7px 10px", textAlign: "center", color: "#888", fontSize: 12 }}>{e.time}</td>
                   <td style={{ padding: "7px 10px", textAlign: "center", fontWeight: 700, color: "var(--pm-primary)" }}>{e.shedLabel}</td>
                   <td style={{ padding: "7px 10px", textAlign: "center" }}>{e.age}d</td>
-                  <td style={{ padding: "7px 10px", textAlign: "center", fontWeight: 800 }}>{e.weightKg.toFixed(2)} kg</td>
+                  <td style={{ padding: "7px 10px", textAlign: "center", fontWeight: 800 }}>{e.weightKg.toFixed(3)} kg</td>
                   <td style={{ padding: "7px 10px", textAlign: "center" }}>
-                    <span style={{ color: confColor(e.confidence), fontWeight: 700, fontSize: 11 }}>{e.confidence}</span>
+                    {e.confidence === "manual"
+                      ? <span style={{ background: "#eaf4fb", color: "#2980b9", border: "1px solid #aad4f0", borderRadius: 5, padding: "2px 7px", fontWeight: 700, fontSize: 10 }}>MANUAL</span>
+                      : <span style={{ color: confColor(e.confidence), fontWeight: 700, fontSize: 11 }}>{e.confidence}</span>
+                    }
                   </td>
                 </tr>
               ))}
@@ -5825,7 +5918,7 @@ export default function App() {
 
           // Match shed numbers to sheet numbers (e.g. "1","2" → "SHED 1 & 2")
           const sheetIdx = sheets.findIndex(s => {
-            const sNums = s.name.match(/\d+/g) ?? [];
+            const sNums: string[] = s.name.match(/\d+/g) ?? [];
             return nums.length > 0 && nums.every(n => sNums.includes(n));
           });
           if (sheetIdx === -1) continue;
