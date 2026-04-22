@@ -205,7 +205,7 @@ export function EobQrScanner({ onClose, onResult }: EobQrScannerProps) {
               </div>
               {nothingParsed && (
                 <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>
-                  The QR code was read but no docket data could be extracted. You can still proceed — the row will be added with today's date so you can fill in the details manually.
+                  The QR code was read but no docket data could be extracted. You can still proceed — you'll be able to type in the date, docket number, and kilograms on the next screen.
                 </div>
               )}
               {[

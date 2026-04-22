@@ -40,6 +40,10 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   const [showScanner, setShowScanner] = useState(false);
   const [pendingDocket, setPendingDocket] = useState<DocketData | null>(null);
   const [selectedFeedType, setSelectedFeedType] = useState<number | null>(null);
+  // Editable fields for the pending docket — user can correct QR parse errors
+  const [docketDate, setDocketDate]     = useState("");
+  const [docketDocNo, setDocketDocNo]   = useState("");
+  const [docketKg, setDocketKg]         = useState("");
 
   const g = (r: number, c: number): string => {
     const key = `${r},${c}`;
@@ -119,9 +123,20 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
     return 35;
   }
 
+  function todayStr(): string {
+    const d = new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+
   function handleQrResult(data: DocketData) {
     setPendingDocket(data);
     setShowScanner(false);
+    // Pre-fill editable fields from scanned data
+    setDocketDate(data.deliveryDate ?? todayStr());
+    setDocketDocNo(data.docNumber ?? "");
+    setDocketKg(data.amountKg != null ? String(data.amountKg) : "");
     // Auto-select feed type if detected from QR
     if (data.feedType) {
       const idx = feedTypes.findIndex(ft =>
@@ -132,23 +147,20 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
     }
   }
 
-  function todayStr(): string {
-    const d = new Date();
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    return `${dd}/${mm}/${d.getFullYear()}`;
-  }
-
   function applyDocket() {
     if (!pendingDocket || selectedFeedType === null) return;
     const ft = feedTypes[selectedFeedType];
     const nextRow = getNextEmptyRow(ft.cols[0]);
-    // Always write a date — fall back to today if QR didn't contain one
-    onEdit(`${nextRow},${ft.cols[0]}`, pendingDocket.deliveryDate ?? todayStr());
-    if (pendingDocket.docNumber)        onEdit(`${nextRow},${ft.cols[1]}`, pendingDocket.docNumber);
-    if (pendingDocket.amountKg != null) onEdit(`${nextRow},${ft.cols[2]}`, String(pendingDocket.amountKg));
+    // Always write date (editable field, defaults to today)
+    onEdit(`${nextRow},${ft.cols[0]}`, docketDate || todayStr());
+    if (docketDocNo.trim()) onEdit(`${nextRow},${ft.cols[1]}`, docketDocNo.trim());
+    const kgNum = parseFloat(docketKg.replace(/,/g, ""));
+    if (!isNaN(kgNum) && kgNum > 0) onEdit(`${nextRow},${ft.cols[2]}`, String(kgNum));
     setPendingDocket(null);
     setSelectedFeedType(null);
+    setDocketDate("");
+    setDocketDocNo("");
+    setDocketKg("");
   }
 
   const birdRows: number[] = [];
@@ -184,21 +196,49 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
       {pendingDocket && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div style={{ background: "#fff", borderRadius: 16, padding: "22px 22px 18px", width: "100%", maxWidth: 400, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-            <div style={{ fontWeight: 700, fontSize: 17, color: "#111", marginBottom: 4 }}>Docket Scanned ✓</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Select which feed type this delivery belongs to</div>
+            <div style={{ fontWeight: 700, fontSize: 17, color: "#111", marginBottom: 4 }}>
+              {pendingDocket?.rawText ? "Docket Scanned ✓" : "Add Delivery"}
+            </div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
+              {pendingDocket?.rawText
+                ? "Check or fill in the details below, then select the feed type"
+                : "Enter delivery details and select the feed type"}
+            </div>
 
-            {/* Scanned data summary */}
-            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13 }}>
-              {[
-                { label: "Doc No", value: pendingDocket.docNumber },
-                { label: "Date", value: pendingDocket.deliveryDate },
-                { label: "Kilos", value: pendingDocket.amountKg != null ? `${pendingDocket.amountKg.toLocaleString()} kg` : undefined },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #f1f5f9" }}>
-                  <span style={{ color: "#64748b" }}>{label}</span>
-                  <span style={{ fontWeight: 700, color: value ? "#111" : "#cbd5e1" }}>{value ?? "—"}</span>
-                </div>
-              ))}
+            {/* Editable docket fields — pre-filled from QR, user can correct */}
+            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Delivery Date</span>
+                <input
+                  type="text"
+                  placeholder="DD/MM/YYYY"
+                  value={docketDate}
+                  onChange={e => setDocketDate(e.target.value)}
+                  style={{ border: "1px solid #e2e8f0", borderRadius: 6, padding: "7px 10px", fontSize: 14, fontWeight: 600, background: docketDate ? "#fff" : "#fff8dc", outline: "none", width: "100%", boxSizing: "border-box" }}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Docket / Doc No</span>
+                <input
+                  type="text"
+                  placeholder="e.g. DOC-12345 (optional)"
+                  value={docketDocNo}
+                  onChange={e => setDocketDocNo(e.target.value)}
+                  style={{ border: "1px solid #e2e8f0", borderRadius: 6, padding: "7px 10px", fontSize: 14, fontWeight: 600, background: "#fff", outline: "none", width: "100%", boxSizing: "border-box" }}
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ color: "#64748b", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Kilograms</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="e.g. 5000 (required)"
+                  value={docketKg}
+                  onChange={e => setDocketKg(e.target.value)}
+                  style={{ border: `1px solid ${docketKg ? "#e2e8f0" : "#fbbf24"}`, borderRadius: 6, padding: "7px 10px", fontSize: 14, fontWeight: 600, background: docketKg ? "#fff" : "#fff8dc", outline: "none", width: "100%", boxSizing: "border-box" }}
+                />
+                {!docketKg && <span style={{ fontSize: 11, color: "#d97706" }}>Enter kg amount (not found in QR)</span>}
+              </label>
             </div>
 
             {/* Feed type selector */}
@@ -222,15 +262,15 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
 
             <div style={{ display: "flex", gap: 10 }}>
               <button
-                onClick={() => { setPendingDocket(null); setSelectedFeedType(null); }}
+                onClick={() => { setPendingDocket(null); setSelectedFeedType(null); setDocketDate(""); setDocketDocNo(""); setDocketKg(""); }}
                 style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#374151", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
               >
                 Cancel
               </button>
               <button
                 onClick={applyDocket}
-                disabled={selectedFeedType === null}
-                style={{ flex: 2, padding: "11px 0", borderRadius: 10, border: "none", background: selectedFeedType !== null ? GREEN : "#d1d5db", color: "#fff", fontWeight: 700, fontSize: 14, cursor: selectedFeedType !== null ? "pointer" : "not-allowed" }}
+                disabled={selectedFeedType === null || !docketKg.trim()}
+                style={{ flex: 2, padding: "11px 0", borderRadius: 10, border: "none", background: selectedFeedType !== null && docketKg.trim() ? GREEN : "#d1d5db", color: "#fff", fontWeight: 700, fontSize: 14, cursor: selectedFeedType !== null && docketKg.trim() ? "pointer" : "not-allowed" }}
               >
                 Add to {selectedFeedType !== null ? feedTypes[selectedFeedType].name : "…"}
               </button>
@@ -245,6 +285,18 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
           Feed Deliveries
         </span>
         <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+        <button
+          onClick={() => {
+            setPendingDocket({ rawText: "" });
+            setDocketDate(todayStr());
+            setDocketDocNo("");
+            setDocketKg("");
+            setSelectedFeedType(null);
+          }}
+          style={{ display: "flex", alignItems: "center", gap: 5, background: "#fff", color: GREEN, border: `1.5px solid ${GREEN}`, borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          + Manual
+        </button>
         <button
           onClick={() => setShowScanner(true)}
           style={{ display: "flex", alignItems: "center", gap: 6, background: GREEN, color: "#fff", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
