@@ -4015,9 +4015,9 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
 
   // Shed + age selection
   const shedGroups = farmConfig.shedGroups?.filter(g => g.active !== false) ?? [];
-  const defaultSgId = shedGroups[0]?.shedGroupId ?? 1;
-  const [selectedSgId, setSelectedSgId] = useState(defaultSgId);
-  const [manualAge,    setManualAge]    = useState("");
+  const totalSheds = shedGroups.length > 0 ? shedGroups.length * 2 : 20;
+  const [selectedShedNum, setSelectedShedNum] = useState(1);
+  const [manualAge,       setManualAge]       = useState("");
 
   // Stop camera on unmount
   useEffect(() => () => { streamRef.current?.getTracks().forEach(t => t.stop()); }, []);
@@ -4063,7 +4063,7 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
       const res = await fetch("/api/weigh-bird", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: capturedImg, ageDays: parseInt(manualAge) || undefined, shedNum: selectedSgId }),
+        body: JSON.stringify({ imageBase64: capturedImg, ageDays: parseInt(manualAge) || undefined, shedNum: selectedShedNum }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analysis failed");
@@ -4079,16 +4079,15 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
     if (!aiResult?.estimatedWeightKg || !manualAge) return;
     const age   = parseInt(manualAge);
     const grams = Math.round(aiResult.estimatedWeightKg * 1000);
+    const sgId  = Math.ceil(selectedShedNum / 2);
     const existing: WeighInData = (() => { try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}"); } catch { return {}; } })();
-    if (!existing[selectedSgId]) existing[selectedSgId] = {};
-    const cur = existing[selectedSgId][age];
-    existing[selectedSgId][age] = cur ? Math.round((cur + grams) / 2) : grams;
+    if (!existing[sgId]) existing[sgId] = {};
+    const cur = existing[sgId][age];
+    existing[sgId][age] = cur ? Math.round((cur + grams) / 2) : grams;
     localStorage.setItem(FLOCK_WEIGHIN_KEY, JSON.stringify(existing));
-    const shedLabel = shedGroups.find(g => g.shedGroupId === selectedSgId)
-      ? `Shed ${selectedSgId * 2 - 1}/${selectedSgId * 2}`
-      : `Shed Group ${selectedSgId}`;
+    const shedLabel = `Shed ${selectedShedNum}`;
     setSessionLog(prev => [...prev, {
-      shedLabel, sgId: selectedSgId, age,
+      shedLabel, sgId, age,
       weightKg: aiResult.estimatedWeightKg!,
       confidence: aiResult.confidenceLevel,
       time: new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" }),
@@ -4118,16 +4117,15 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
       {/* Shed + Age selectors */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 130 }}>
-          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>Shed Group</label>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 4 }}>Shed</label>
           <select
-            value={selectedSgId}
-            onChange={e => setSelectedSgId(parseInt(e.target.value))}
+            value={selectedShedNum}
+            onChange={e => setSelectedShedNum(parseInt(e.target.value))}
             style={{ width: "100%", border: "1.5px solid var(--pm-primary-border)", borderRadius: 8, padding: "9px 10px", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff" }}
           >
-            {shedGroups.length > 0
-              ? shedGroups.map(g => <option key={g.shedGroupId} value={g.shedGroupId}>Shed {g.shedGroupId * 2 - 1}/{g.shedGroupId * 2}</option>)
-              : Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={i + 1}>Shed {i * 2 + 1}/{i * 2 + 2}</option>)
-            }
+            {Array.from({ length: totalSheds }, (_, i) => (
+              <option key={i + 1} value={i + 1}>Shed {i + 1}</option>
+            ))}
           </select>
         </div>
         <div style={{ flex: 1, minWidth: 100 }}>
