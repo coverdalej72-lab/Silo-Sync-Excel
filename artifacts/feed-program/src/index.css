@@ -84,3 +84,54 @@ a, button { -webkit-tap-highlight-color: transparent; }
   max-width: 300px;
   text-overflow: ellipsis;
 }
+
+/* ── Print styles ──────────────────────────────────────────────── */
+@media print {
+  /* Force the browser to print background colours and images exactly */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Darken all sheet cell borders so grid lines are visible on paper.
+     Use individual properties to override inline borderTop/Left/etc styles. */
+  .sheet-table td,
+  .sheet-table th {
+    border-top:    1px solid #333 !important;
+    border-right:  1px solid #333 !important;
+    border-bottom: 1px solid #333 !important;
+    border-left:   1px solid #333 !important;
+  }
+
+  /* Remove sticky positioning — it breaks multi-page print layout */
+  .sheet-table td,
+  .sheet-table th {
+    position: static !important;
+  }
+
+  /* Show full cell content on print — no clipping */
+  .sheet-table td,
+  .sheet-table th {
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    max-width: none !important;
+  }
+
+  /* Expand table to full page width */
+  .sheet-table {
+    width: 100% !important;
+    font-size: 9pt !important;
+  }
+
+  /* Try to keep rows together and avoid orphaned header rows */
+  .sheet-table tr {
+    page-break-inside: avoid;
+  }
+
+  /* Header rows: keep with the following data rows */
+  .sheet-table tr:nth-child(-n+3) {
+    page-break-after: avoid;
+  }
+}

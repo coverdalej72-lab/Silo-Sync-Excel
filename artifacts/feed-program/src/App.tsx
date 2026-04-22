@@ -1199,7 +1199,7 @@ function SheetView({
   // EOB header row 3 is sticky at top=0
 
   return (
-    <table style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "100%", minWidth: "max-content" }}>
+    <table className="sheet-table" style={{ borderCollapse: "collapse", fontFamily: "Calibri,'Segoe UI',sans-serif", tableLayout: "fixed", width: "100%", minWidth: "max-content" }}>
       <colgroup>
         {Array.from({ length: displayMaxCol - minCol + 1 }, (_, i) => {
           const c = minCol + i;
