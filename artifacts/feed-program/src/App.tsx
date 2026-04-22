@@ -5150,6 +5150,7 @@ export default function App() {
       `}</style>
       {/* Header — paddingTop accounts for iPhone notch */}
       <div className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Poultry Mate" style={{ height: 32, width: "auto", objectFit: "contain", flexShrink: 0 }} />
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — {(farmConfig.farmType ?? "broiler") === "breeder" ? "Breeder Program" : "Feed Program"}</span>
         <div className="ml-auto flex items-center gap-2">
           {autoSaveFlash

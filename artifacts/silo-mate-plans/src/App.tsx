@@ -1401,7 +1401,7 @@ export default function App() {
       }}>
         <div style={{ display: "flex", alignItems: "center" }}>
           <img
-            src="/plans/logo-white.png"
+            src="/plans/logo.png"
             alt="Poultry Mate"
             style={{ height: 40, width: "auto", objectFit: "contain" }}
           />

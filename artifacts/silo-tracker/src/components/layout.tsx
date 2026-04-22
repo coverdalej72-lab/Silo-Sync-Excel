@@ -114,9 +114,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shrink-0">
-              {SILO_ICON}
-            </div>
+            <img src="/logo.png" alt="Silo Mate" className="h-10 w-auto object-contain shrink-0" />
             <div>
               <div className="font-bold text-base text-foreground leading-tight">{config.farmName || "Silo Mate"}</div>
               <div className="text-[11px] text-muted-foreground font-medium tracking-wide uppercase">Feed Management</div>
