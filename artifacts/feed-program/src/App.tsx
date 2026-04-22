@@ -2592,6 +2592,10 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         const hasPrimary = chartData.some(d => d[primaryKey] != null);
         const hasCages   = chartData.some(d => d.cages != null);
 
+        // Only include sheds that have at least one value for the metrics being shown
+        // in this chart — prevents blank bars alongside data bars
+        const primaryChartData = chartData.filter(d => d[primaryKey] != null || d.cages != null);
+
         // Custom tooltip
         const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
           if (!active || !payload?.length) return null;
@@ -2621,7 +2625,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               </div>
             </div>
             <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={chartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
+              <ComposedChart data={primaryChartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="shed" tick={{ fontSize: 11, fontWeight: 600 }} />
                 <YAxis yAxisId="fcr" domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: fcrYLabel, angle: -90, position: "insideLeft", fontSize: 11, fill: primaryClr }} />
@@ -2632,21 +2636,24 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               </ComposedChart>
             </ResponsiveContainer>
 
-            {/* Ave weight secondary chart */}
-            {chartData.some(d => d.aveWgt != null) && (
-              <div style={{ marginTop: 16, borderTop: "1px solid #f0f0f0", paddingTop: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#8e44ad", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 8 }}>Avg Live Weight per Shed (kg)</div>
-                <ResponsiveContainer width="100%" height={160}>
-                  <ComposedChart data={chartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="shed" tick={{ fontSize: 11, fontWeight: 600 }} />
-                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: "kg", angle: -90, position: "insideLeft", fontSize: 11, fill: "#8e44ad" }} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="aveWgt" name="Avg Weight (kg)" fill="#8e44ad" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+            {/* Ave weight secondary chart — only sheds with actual weight data */}
+            {chartData.some(d => d.aveWgt != null) && (() => {
+              const wgtChartData = chartData.filter(d => d.aveWgt != null);
+              return (
+                <div style={{ marginTop: 16, borderTop: "1px solid #f0f0f0", paddingTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#8e44ad", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 8 }}>Avg Live Weight per Shed (kg)</div>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <ComposedChart data={wgtChartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="shed" tick={{ fontSize: 11, fontWeight: 600 }} />
+                      <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: "kg", angle: -90, position: "insideLeft", fontSize: 11, fill: "#8e44ad" }} />
+                      <Tooltip content={<ChartTooltip />} />
+                      <Bar dataKey="aveWgt" name="Avg Weight (kg)" fill="#8e44ad" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
