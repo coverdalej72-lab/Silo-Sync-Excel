@@ -1136,6 +1136,24 @@ function SheetView({
     return 12; // fallback
   }, [isShedSheet, cells]);
 
+  // Detect which row corresponds to today in this shed sheet
+  const todayRow = useMemo(() => {
+    if (!isShedSheet) return null;
+    const pd = findPlacementDate({ cells }, edits)?.date ?? null;
+    if (!pd) return null;
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const dayNum = Math.floor((now.getTime() - pd.getTime()) / 86400000) + 1;
+    if (dayNum < 1 || dayNum > 65) return null;
+    return shedDataStartRow + dayNum - 1;
+  }, [isShedSheet, cells, edits, shedDataStartRow]);
+
+  // Which col has the day number? Scan shedDataStartRow to find "1"
+  const dayNumCol = useMemo(() => {
+    if (!isShedSheet) return 0;
+    const v0 = String(cells.get(`${shedDataStartRow},0`)?.value ?? "").trim();
+    return v0 === "1" ? 0 : 1;
+  }, [isShedSheet, cells, shedDataStartRow]);
+
   // Clip shed rendering: 60 data rows + 5 rows for summary (Total Morts, Total Birds Caught)
   // Hides junk formula rows that extend past the template's useful area
   const shedDisplayEndRow = useMemo(() => {
@@ -1197,10 +1215,13 @@ function SheetView({
           const isShedSummary = isShedSheet && r >= shedDataStartRow + 60;
           const isEobHeader   = isEobSheet  && r === 3;
           const isAnyHeader   = isShedHeader || isEobHeader;
+          const isTodayRow    = isShedData && todayRow !== null && r === todayRow;
           const rowBg = isAnyHeader
             ? "var(--pm-primary)"
             : isShedSpacer
             ? "#ffffff"
+            : isTodayRow
+            ? "#fff9c4"
             : isShedSummary
             ? "#eef4ee"
             : isShedData
@@ -1332,9 +1353,9 @@ function SheetView({
                       overflow: isAnyHeader ? "visible" : "hidden",
                       textOverflow: (isAnyHeader || isEditing) ? "clip" : "ellipsis",
                       padding: isEditing ? 0 : isAnyHeader ? "2px 5px" : "1px 3px",
-                      borderTop: isAnyHeader ? "none" : (info.borderTop ?? borderStyle),
-                      borderBottom: isAnyHeader ? "none" : (info.borderBottom ?? borderStyle),
-                      borderLeft: isAnyHeader ? borderStyle : (info.borderLeft ?? borderStyle),
+                      borderTop: isAnyHeader ? "none" : isTodayRow ? "1px solid #f97316" : (info.borderTop ?? borderStyle),
+                      borderBottom: isAnyHeader ? "none" : isTodayRow ? "1px solid #f97316" : (info.borderBottom ?? borderStyle),
+                      borderLeft: isAnyHeader ? borderStyle : (isTodayRow && c === minCol) ? "3px solid #f97316" : (info.borderLeft ?? borderStyle),
                       borderRight: isAnyHeader ? borderStyle : (info.borderRight ?? borderStyle),
                       height: rowH,
                       maxWidth: 400,
@@ -1381,6 +1402,11 @@ function SheetView({
                           padding: "1px 3px", boxSizing: "border-box",
                         }}
                       />
+                    ) : (isTodayRow && c === dayNumCol) ? (
+                      <span style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                        <span>{displayVal}</span>
+                        <span style={{ background: "#f97316", color: "#fff", fontSize: 8, borderRadius: 3, padding: "1px 4px", fontWeight: 800, letterSpacing: 0.3, lineHeight: 1.5, flexShrink: 0 }}>TODAY</span>
+                      </span>
                     ) : displayVal}
                   </td>
                 );
