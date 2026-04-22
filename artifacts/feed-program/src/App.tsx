@@ -3547,44 +3547,183 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
 }
 
 // ── HistoryView ───────────────────────────────────────────────────────────────
-function BarChart({ entries, getValue, label, format, color }: {
+function BarChart({ entries, getValue, label, format, color, lowerIsBetter = false }: {
   entries: BatchHistoryEntry[];
   getValue: (e: BatchHistoryEntry) => number | null;
   label: string;
   format: (n: number) => string;
   color: string;
+  lowerIsBetter?: boolean;
 }) {
   const vals = entries.map(getValue);
-  const max = Math.max(...vals.filter((v): v is number => v !== null), 0.001);
-  const W = 56, H = 90, gap = 8;
-  const PAD_TOP = 18;
+  const defined = vals.filter((v): v is number => v !== null);
+  const max = Math.max(...defined, 0.001);
+  const W = 52, H = 88, gap = 8;
+  const PAD_TOP = 20;
   const totalW = entries.length * (W + gap) - gap;
+
+  // Trend line: (x, y) for each bar with a value
+  const pts = vals.map((v, i) => {
+    if (v === null) return null;
+    const x = i * (W + gap) + W / 2;
+    const y = PAD_TOP + H - Math.max((v / max) * H, 2);
+    return { x, y };
+  }).filter((p): p is { x: number; y: number } => p !== null);
+
+  // Direction: compare last defined to first defined
+  const first = defined[0];
+  const last  = defined[defined.length - 1];
+  const delta = defined.length >= 2 ? last - first : null;
+  const goingUp   = delta !== null && delta > 0;
+  const improving = delta === null ? null : lowerIsBetter ? !goingUp : goingUp;
+  const trendColor = improving === null ? "#bbb" : improving ? "#27ae60" : "#e74c3c";
+  const arrow = delta === null ? null : goingUp ? "↑" : "↓";
+  const trendWord = improving === null ? "" : improving ? "Improving" : "Worsening";
+
+  const polyline = pts.length >= 2 ? pts.map(p => `${p.x},${p.y}`).join(" ") : null;
+
   return (
-    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", padding: "14px 16px 10px", overflow: "hidden" }}>
-      <div style={{ fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>{label}</div>
-      <svg width={totalW} height={PAD_TOP + H + 22} style={{ display: "block" }}>
+    <div style={{ background: "#fff", borderRadius: 10, border: `1px solid ${improving === false ? "#fce4e4" : "#e5e5e5"}`, padding: "12px 14px 8px", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ fontWeight: 700, fontSize: 11, color: "var(--pm-primary)", textTransform: "uppercase" as const, letterSpacing: 0.4 }}>{label}</div>
+        {arrow && (
+          <div style={{ fontSize: 11, fontWeight: 700, color: trendColor, display: "flex", alignItems: "center", gap: 2 }}>
+            <span style={{ fontSize: 13 }}>{arrow}</span> {trendWord}
+          </div>
+        )}
+      </div>
+      <svg width={totalW} height={PAD_TOP + H + 22} style={{ display: "block", overflow: "visible" }}>
         {vals.map((v, i) => {
           const x = i * (W + gap);
           const pct = v !== null ? v / max : 0;
           const barH = Math.max(pct * H, 2);
           const barY = PAD_TOP + H - barH;
+          const isLatest = i === vals.length - 1;
           const bn = entries[i].batchNum;
           return (
             <g key={i}>
-              <rect x={x} y={barY} width={W} height={barH} rx={4} fill={v !== null ? color : "#e5e5e5"} opacity={i === 0 ? 1 : 0.65 + (i / vals.length) * 0.2} />
+              <rect x={x} y={barY} width={W} height={barH} rx={4}
+                fill={v !== null ? color : "#e5e5e5"}
+                opacity={isLatest ? 1 : 0.45 + (i / Math.max(vals.length - 1, 1)) * 0.35} />
+              {isLatest && v !== null && (
+                <rect x={x - 1} y={barY - 1} width={W + 2} height={barH + 2} rx={5}
+                  fill="none" stroke={color} strokeWidth={1.5} />
+              )}
               {v !== null && (
                 <text x={x + W / 2} y={barY - 4} textAnchor="middle" fontSize={10} fontWeight={700} fill="#333">{format(v)}</text>
               )}
               {v === null && (
                 <text x={x + W / 2} y={PAD_TOP + H / 2 + 5} textAnchor="middle" fontSize={10} fill="#aaa">—</text>
               )}
-              <text x={x + W / 2} y={PAD_TOP + H + 16} textAnchor="middle" fontSize={10} fill="#666" fontWeight={600}>#{bn || "?"}</text>
+              <text x={x + W / 2} y={PAD_TOP + H + 16} textAnchor="middle" fontSize={10} fill={isLatest ? "#333" : "#888"} fontWeight={isLatest ? 800 : 600}>#{bn || "?"}</text>
             </g>
           );
         })}
+        {polyline && (
+          <polyline points={polyline} fill="none" stroke={trendColor} strokeWidth={2}
+            strokeDasharray="5 3" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+        )}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={3.5} fill={trendColor} stroke="#fff" strokeWidth={1.5} />
+        ))}
       </svg>
+      <div style={{ fontSize: 9, color: "#bbb", marginTop: 1, textAlign: "right" }}>
+        {lowerIsBetter ? "Lower = better" : "Higher = better"}
+      </div>
     </div>
   );
+}
+
+// Detect factors that helped or hurt a batch vs the rest of history
+function detectFactors(latest: BatchHistoryEntry, history: BatchHistoryEntry[]): { label: string; impact: "hurting" | "helping"; detail: string }[] {
+  const others = history.filter(e => e.batchNum !== latest.batchNum);
+  if (others.length === 0) return [];
+
+  const avg = <K extends keyof BatchHistoryEntry>(key: K) => {
+    const vals = others.map(e => e[key] as number | null).filter((v): v is number => v !== null);
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+
+  const factors: { label: string; impact: "hurting" | "helping"; detail: string }[] = [];
+
+  const avgCage  = avg("cage");
+  const avgMort  = avg("mortalityPct");
+  const avgWgt   = avg("aveWeight");
+  const avgCfcr  = avg("cfcr");
+
+  // Cage age: catching early reduces liveweight → hurts cFCR; too late = poor conversion too
+  if (latest.cage !== null && avgCage !== null) {
+    const diff = latest.cage - avgCage;
+    if (diff < -0.7) {
+      factors.push({
+        label: `Early catch (${latest.cage.toFixed(1)}d vs ${avgCage.toFixed(1)}d avg)`,
+        impact: "hurting",
+        detail: `Birds were caught ${Math.abs(diff).toFixed(1)} days earlier than your usual average. Catching early means less liveweight per bird — more feed used per kg of meat, which pushes cFCR up.`,
+      });
+    } else if (diff > 1.2) {
+      factors.push({
+        label: `Later catch (${latest.cage.toFixed(1)}d vs ${avgCage.toFixed(1)}d avg)`,
+        impact: "hurting",
+        detail: `Birds were caught ${diff.toFixed(1)} days later than usual. Older birds convert feed less efficiently, which can increase FCR even with good weights.`,
+      });
+    }
+  }
+
+  // Catch weight: low weight means more feed per kg out
+  if (latest.aveWeight !== null && avgWgt !== null) {
+    const diff = latest.aveWeight - avgWgt;
+    if (diff < -0.06) {
+      factors.push({
+        label: `Low catch weight (${latest.aveWeight.toFixed(2)} kg vs ${avgWgt.toFixed(2)} kg avg)`,
+        impact: "hurting",
+        detail: `Average bird weight was ${Math.abs(diff).toFixed(2)} kg below your usual. Lighter birds at catch means more feed was consumed per kg of saleable meat — a direct hit to cFCR.`,
+      });
+    } else if (diff > 0.06) {
+      factors.push({
+        label: `Good catch weight (${latest.aveWeight.toFixed(2)} kg vs ${avgWgt.toFixed(2)} kg avg)`,
+        impact: "helping",
+        detail: `Birds averaged ${diff.toFixed(2)} kg heavier than usual at catch — more meat per bird for the feed consumed improves FCR efficiency.`,
+      });
+    }
+  }
+
+  // Mortality: dead birds consumed feed but weren't caught
+  if (latest.mortalityPct !== null && avgMort !== null) {
+    const diff = latest.mortalityPct - avgMort;
+    if (diff > 0.4) {
+      factors.push({
+        label: `Higher mortality (${latest.mortalityPct.toFixed(1)}% vs ${avgMort.toFixed(1)}% avg)`,
+        impact: "hurting",
+        detail: `Mortality was ${diff.toFixed(1)}% above your average. Every bird that died still consumed feed but didn't contribute to liveweight — this inflates your FCR and cFCR.`,
+      });
+    } else if (diff < -0.4) {
+      factors.push({
+        label: `Lower mortality (${latest.mortalityPct.toFixed(1)}% vs ${avgMort.toFixed(1)}% avg)`,
+        impact: "helping",
+        detail: `Mortality dropped ${Math.abs(diff).toFixed(1)}% vs your average — fewer losses means more birds converting feed into saleable weight.`,
+      });
+    }
+  }
+
+  // cFCR overall vs history average
+  if (latest.cfcr !== null && avgCfcr !== null) {
+    const diff = latest.cfcr - avgCfcr;
+    if (diff > 0.015) {
+      factors.push({
+        label: `cFCR above average (${latest.cfcr.toFixed(3)} vs ${avgCfcr.toFixed(3)} avg)`,
+        impact: "hurting",
+        detail: `This batch used ${diff.toFixed(3)} more feed per kg of meat than your typical result. Check cage age, catch weight and mortality above for the likely cause.`,
+      });
+    } else if (diff < -0.015) {
+      factors.push({
+        label: `cFCR below average (${latest.cfcr.toFixed(3)} vs ${avgCfcr.toFixed(3)} avg)`,
+        impact: "helping",
+        detail: `cFCR was ${Math.abs(diff).toFixed(3)} better than your average — overall feed efficiency improved this batch.`,
+      });
+    }
+  }
+
+  return factors;
 }
 
 function HistoryView() {
@@ -3593,9 +3732,9 @@ function HistoryView() {
 
   const fmtNum  = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n);
   const fmtFeed = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(0)}t` : `${n}kg`;
-  const fmtDec  = (n: number) => n.toFixed(2);
+  const fmtDec  = (n: number) => n.toFixed(3);
   const fmtMort = (n: number) => `${n.toFixed(1)}%`;
-  const fmtKg   = (n: number) => `${n.toFixed(2)}kg`;
+  const fmtKg   = (n: number) => `${n.toFixed(2)} kg`;
 
   const clearHistory = () => {
     if (!confirm("Clear all batch history? This cannot be undone.")) return;
@@ -3621,6 +3760,10 @@ function HistoryView() {
     );
   }
 
+  // Factor analysis on the most recent batch
+  const latestBatch = recent[recent.length - 1];
+  const factors = recent.length >= 2 ? detectFactors(latestBatch, recent) : [];
+
   return (
     <div style={{ padding: "20px 20px 40px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
       {/* Header */}
@@ -3634,33 +3777,76 @@ function HistoryView() {
         </button>
       </div>
 
+      {/* ── Performance Factors panel (latest batch vs average) ── */}
+      {factors.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", padding: "16px 18px", marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <div style={{ background: "var(--pm-primary)", color: "#fff", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 13 }}>
+              PERFORMANCE FACTORS — Batch #{latestBatch.batchNum || "?"}
+            </div>
+            <span style={{ fontSize: 12, color: "#888" }}>What hurt or helped your last batch vs history</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {factors.map((f, i) => (
+              <div key={i} style={{
+                display: "flex", gap: 12, alignItems: "flex-start",
+                background: f.impact === "hurting" ? "#fff5f5" : "#f0faf4",
+                border: `1px solid ${f.impact === "hurting" ? "#fbc9c9" : "#a8dfc0"}`,
+                borderLeft: `4px solid ${f.impact === "hurting" ? "#e74c3c" : "#27ae60"}`,
+                borderRadius: 8, padding: "10px 14px",
+              }}>
+                <div style={{ fontSize: 18, lineHeight: 1, marginTop: 1 }}>
+                  {f.impact === "hurting" ? "⚠" : "✓"}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: f.impact === "hurting" ? "#c0392b" : "#1a7a42", marginBottom: 3 }}>
+                    {f.label}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#555", lineHeight: 1.5 }}>{f.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Summary Table */}
       <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e5e5e5", overflow: "auto", marginBottom: 24 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 600 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 620 }}>
           <thead>
             <tr style={{ background: "var(--pm-primary)", color: "#fff" }}>
-              {["Batch", "Date", "Birds Placed", "Feed (kg)", "FCR", "CFCR", "Ave. Age", "Mortality", ""].map(h => (
-                <th key={h} style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
+              {["Batch", "Date", "Birds Placed", "Feed (kg)", "FCR", "cFCR", "Cage Age", "Ave. Weight", "Mortality", ""].map(h => (
+                <th key={h} style={{ padding: "9px 10px", textAlign: "center", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {[...recent].reverse().map((e, i) => {
+              const prev = [...recent].reverse()[i + 1];
+              const cfcrDelta = e.cfcr !== null && prev?.cfcr !== null && prev?.cfcr !== undefined ? e.cfcr - prev.cfcr : null;
               const date = e.date ? new Date(e.date).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }) : "—";
               return (
                 <tr key={i} style={{ background: i % 2 === 0 ? "#f9f9f9" : "#fff", borderBottom: "1px solid #eee" }}>
-                  <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: 800, color: "var(--pm-primary)" }}>#{e.batchNum || "?"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center", color: "#555" }}>{date}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center", fontWeight: 700 }}>{e.totalBirds > 0 ? e.totalBirds.toLocaleString() : "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.totalFeedKg > 0 ? e.totalFeedKg.toLocaleString() : "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.fcr !== null ? e.fcr.toFixed(3) : "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cfcr !== null ? e.cfcr.toFixed(3) : "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center" }}>{e.cage !== null ? `${e.cage.toFixed(2)} days` : "—"}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "center", color: e.mortalityPct !== null && e.mortalityPct > 5 ? "#c0392b" : "inherit" }}>{e.mortalityPct !== null ? `${e.mortalityPct.toFixed(2)}%` : "—"}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "center", fontWeight: 800, color: "var(--pm-primary)" }}>#{e.batchNum || "?"}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "center", color: "#555" }}>{date}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "center", fontWeight: 700 }}>{e.totalBirds > 0 ? e.totalBirds.toLocaleString() : "—"}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "center" }}>{e.totalFeedKg > 0 ? e.totalFeedKg.toLocaleString() : "—"}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "center" }}>{e.fcr !== null ? e.fcr.toFixed(3) : "—"}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "center", fontWeight: 700 }}>
+                    <span style={{ color: cfcrDelta === null ? "#333" : cfcrDelta > 0.005 ? "#c0392b" : cfcrDelta < -0.005 ? "#27ae60" : "#333" }}>
+                      {e.cfcr !== null ? e.cfcr.toFixed(3) : "—"}
+                    </span>
+                    {cfcrDelta !== null && Math.abs(cfcrDelta) > 0.005 && (
+                      <span style={{ fontSize: 10, marginLeft: 3, color: cfcrDelta > 0 ? "#c0392b" : "#27ae60" }}>
+                        {cfcrDelta > 0 ? "↑" : "↓"}{Math.abs(cfcrDelta).toFixed(3)}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: "9px 10px", textAlign: "center" }}>{e.cage !== null ? `${e.cage.toFixed(1)}d` : "—"}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "center" }}>{e.aveWeight !== null ? `${e.aveWeight.toFixed(2)} kg` : "—"}</td>
+                  <td style={{ padding: "9px 10px", textAlign: "center", color: e.mortalityPct !== null && e.mortalityPct > 5 ? "#c0392b" : "inherit" }}>{e.mortalityPct !== null ? `${e.mortalityPct.toFixed(2)}%` : "—"}</td>
                   <td style={{ padding: "9px 8px", textAlign: "center" }}>
-                    <button
-                      onClick={() => deleteEntry(i)}
-                      title={`Remove Batch #${e.batchNum || "?"}`}
+                    <button onClick={() => deleteEntry(i)} title={`Remove Batch #${e.batchNum || "?"}`}
                       style={{ background: "none", border: "1px solid #ddd", borderRadius: 5, padding: "2px 7px", cursor: "pointer", color: "#c0392b", fontSize: 13, fontWeight: 700, lineHeight: 1 }}>
                       ✕
                     </button>
@@ -3672,14 +3858,17 @@ function HistoryView() {
         </table>
       </div>
 
-      {/* Charts */}
+      {/* Trend Charts */}
+      <div style={{ fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+        Batch Trends — dashed line shows direction, latest batch highlighted
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-        <BarChart entries={recent} getValue={e => e.totalBirds || null} label="Birds Placed" format={fmtNum} color="var(--pm-primary)" />
-        <BarChart entries={recent} getValue={e => e.totalFeedKg || null} label="Feed Ordered (kg)" format={fmtFeed} color="var(--pm-primary-mid)" />
-        <BarChart entries={recent} getValue={e => e.fcr} label="FCR" format={fmtDec} color="#2980b9" />
-        <BarChart entries={recent} getValue={e => e.cfcr} label="CFCR" format={fmtDec} color="#8e44ad" />
-        <BarChart entries={recent} getValue={e => e.cage} label="Average Age (days)" format={v => `${v.toFixed(1)}d`} color="#C9A227" />
-        <BarChart entries={recent} getValue={e => e.mortalityPct} label="Mortality %" format={fmtMort} color="#c0392b" />
+        <BarChart entries={recent} getValue={e => e.cfcr}             label="cFCR"              format={fmtDec}  color="#8e44ad" lowerIsBetter />
+        <BarChart entries={recent} getValue={e => e.cage}             label="Cage Age (days)"   format={v => `${v.toFixed(1)}d`} color="#C9A227" lowerIsBetter />
+        <BarChart entries={recent} getValue={e => e.mortalityPct}     label="Mortality %"       format={fmtMort} color="#c0392b" lowerIsBetter />
+        <BarChart entries={recent} getValue={e => e.aveWeight}        label="Ave. Catch Weight" format={fmtKg}   color="#16a085" />
+        <BarChart entries={recent} getValue={e => e.fcr}              label="FCR"               format={fmtDec}  color="#2980b9" lowerIsBetter />
+        <BarChart entries={recent} getValue={e => e.totalBirds || null} label="Birds Placed"   format={fmtNum}  color="var(--pm-primary)" />
       </div>
     </div>
   );
