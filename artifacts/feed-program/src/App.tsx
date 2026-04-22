@@ -4726,7 +4726,8 @@ export default function App() {
       m.set(key, value);
       const [r, c] = key.split(",").map(Number);
       const sheet = sheets[sheetIdx];
-      const recalculated = sheet ? recalculate(sheet.cells, m, r, c, sheet.maxRow) : m;
+      const isEobSheet = sheet ? /end.{0,4}batch/i.test(sheet.name.trim()) : false;
+      const recalculated = (sheet && !isEobSheet) ? recalculate(sheet.cells, m, r, c, sheet.maxRow) : m;
 
       // When the placement date ("2,2") changes, re-derive the date column
       // (COL_B) for all data rows so dates stay consistent in the current

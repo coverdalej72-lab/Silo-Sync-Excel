@@ -176,6 +176,11 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   const totalCatched   = g(16, 23);
   const totalMorts     = g(16, 24);
 
+  const totalBirdsPlaced = birdRows.reduce((sum, r) => {
+    const v = parseFloat(g(r, 22).replace(/,/g, ""));
+    return sum + (isNaN(v) ? 0 : v);
+  }, 0);
+
   const thStyle: React.CSSProperties = {
     padding: "6px 10px", fontWeight: 600, fontSize: 11, color: "#64748b",
     textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap",
@@ -306,9 +311,12 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 18 }}>
-        {feedTypes.map(({ name, cols, totalRow, color, bg }) => {
+        {feedTypes.map(({ name, cols, color, bg }) => {
           const rows  = getDeliveryRows(cols[0]);
-          const total = parseFloat(g(totalRow, cols[2]).replace(/,/g, "")) || 0;
+          const total = rows.reduce((sum, r) => {
+            const v = parseFloat(g(r, cols[2]).replace(/,/g, ""));
+            return sum + (isNaN(v) ? 0 : v);
+          }, 0);
           return (
             <div key={name} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0",
               overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
@@ -416,12 +424,14 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
                 );
               })}
             </tbody>
-            {(totalCatched || totalMorts) && (
+            {(totalCatched || totalMorts || totalBirdsPlaced > 0) && (
               <tfoot>
                 <tr style={{ background: "#f0fdf4", borderTop: "2px solid #e2e8f0" }}>
                   <td style={{ padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#1a5c36",
                     textTransform: "uppercase", letterSpacing: 0.5 }}>Total</td>
-                  <td style={{ padding: "5px 10px", textAlign: "right" }}></td>
+                  <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1a5c36", fontSize: 12 }}>
+                    {totalBirdsPlaced > 0 ? totalBirdsPlaced.toLocaleString() : "—"}
+                  </td>
                   <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1a5c36", fontSize: 12 }}>
                     {fmtNum(totalCatched)}
                   </td>
