@@ -5460,7 +5460,49 @@ export default function App() {
                 setBatchCleared(false);
                 localStorage.removeItem("silo-batch-cleared");
               }}
-              onCatchMapChange={setCatchMap}
+              onCatchMapChange={(next: CatchMap) => {
+                setCatchMap(next);
+                // Build shedNum → sheet index map (same logic as shedPlacement)
+                const shedSheetIdx = new Map<number, number>();
+                let _sc = 0;
+                for (let i = 0; i < sheets.length; i++) {
+                  const tab = sheets[i].name.trim().toUpperCase();
+                  if (tab === "WEEKLY STOCK TAKE" || tab === "CONSUMPTION GUIDE") continue;
+                  if (tab.includes("SHED")) {
+                    const gid = SHED_SHEET_ORDER[_sc] ?? (_sc + 1);
+                    shedSheetIdx.set(gid * 2 - 1, i);
+                    shedSheetIdx.set(gid * 2, i);
+                    _sc++;
+                  }
+                }
+                // Compute ages to write (new) and ages to clear (removed from old)
+                const toWrite = new Map<number, Map<number, number>>(); // sheetIdx → age → birds sum
+                const toClear = new Map<number, Set<number>>();         // sheetIdx → ages to clear
+                Object.entries(catchMap).forEach(([sn, rows]) => {
+                  const si = shedSheetIdx.get(Number(sn)); if (si === undefined) return;
+                  if (!toClear.has(si)) toClear.set(si, new Set());
+                  rows.forEach(r => { const age = parseInt(r.age, 10); if (age > 0) toClear.get(si)!.add(age); });
+                });
+                Object.entries(next).forEach(([sn, rows]) => {
+                  const si = shedSheetIdx.get(Number(sn)); if (si === undefined) return;
+                  if (!toWrite.has(si)) toWrite.set(si, new Map());
+                  const ageMap = toWrite.get(si)!;
+                  rows.forEach(r => { const age = parseInt(r.age, 10); const birds = parseFloat(r.birds) || 0; if (age > 0 && birds > 0) ageMap.set(age, (ageMap.get(age) ?? 0) + birds); });
+                });
+                // Apply edits to shed sheets
+                new Set([...toWrite.keys(), ...toClear.keys()]).forEach(si => {
+                  const sh = sheets[si]; if (!sh) return;
+                  let ds = 12;
+                  for (let r = 9; r <= 16; r++) {
+                    const v0 = String(sh.cells.get(`${r},0`)?.value ?? "").trim();
+                    const v1 = String(sh.cells.get(`${r},1`)?.value ?? "").trim();
+                    if (v0 === "1" || v1 === "1") { ds = r; break; }
+                  }
+                  const ageMap = toWrite.get(si);
+                  toClear.get(si)?.forEach(age => { if (!ageMap?.has(age)) handleEdit(si, `${ds + age - 1},13`, ""); });
+                  ageMap?.forEach((birds, age) => handleEdit(si, `${ds + age - 1},13`, String(Math.round(birds))));
+                });
+              }}
               onEobCatch={(shedNum, totalCaught) => {
                 const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
                 if (eobIdx < 0) return;
