@@ -14,10 +14,31 @@ const router: IRouter = Router();
 // ─── Today's progress ────────────────────────────────────────────────────────
 
 router.get("/readings/today", async (req, res): Promise<void> => {
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  // Determine "today" in Australian Eastern Time (UTC+10 base).
+  // This covers AEST (UTC+10) and is within 1 hour of AEDT (UTC+11),
+  // ensuring the correct local day is used even when the server clock is UTC.
+  const localDateParam = typeof req.query.localDate === "string" ? req.query.localDate : null;
+
+  let todayStart: Date;
+  let todayEnd: Date;
+
+  if (localDateParam && /^\d{4}-\d{2}-\d{2}$/.test(localDateParam)) {
+    // Client sent its local YYYY-MM-DD — use it directly with a ±14h UTC window
+    // so we capture readings no matter what timezone offset the server used at save time.
+    todayStart = new Date(localDateParam + "T00:00:00.000Z");
+    todayStart.setTime(todayStart.getTime() - 14 * 3600_000);
+    todayEnd = new Date(localDateParam + "T23:59:59.999Z");
+    todayEnd.setTime(todayEnd.getTime() + 14 * 3600_000);
+  } else {
+    // Fallback: derive "today" from AEST (UTC+10)
+    const AEST_MS = 10 * 3600_000;
+    const nowAEST = new Date(Date.now() + AEST_MS);
+    const aestDate = nowAEST.toISOString().slice(0, 10); // YYYY-MM-DD in AEST
+    todayStart = new Date(aestDate + "T00:00:00.000Z");
+    todayStart.setTime(todayStart.getTime() - AEST_MS);
+    todayEnd = new Date(aestDate + "T23:59:59.999Z");
+    todayEnd.setTime(todayEnd.getTime() - AEST_MS);
+  }
 
   const groups = await db
     .select()
@@ -64,7 +85,9 @@ router.get("/readings/today", async (req, res): Promise<void> => {
   });
 
   const savedCount = sheds.filter((s) => s.allSaved).length;
-  const date = new Date().toISOString().slice(0, 10);
+  // Return the date as it appears in Australian Eastern Time
+  const AEST_MS = 10 * 3600_000;
+  const date = localDateParam ?? new Date(Date.now() + AEST_MS).toISOString().slice(0, 10);
 
   res.json({
     date,

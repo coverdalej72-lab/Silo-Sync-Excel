@@ -191,7 +191,10 @@ export function useListShedGroups<
  * @summary Get today's reading progress per shed group
  */
 export const getGetTodayProgressUrl = () => {
-  return `/api/readings/today`;
+  // Pass the device's local date (YYYY-MM-DD) so the server can filter
+  // on the correct Australian day regardless of its UTC clock.
+  const localDate = new Date().toLocaleDateString("en-CA"); // en-CA gives YYYY-MM-DD
+  return `/api/readings/today?localDate=${localDate}`;
 };
 
 export const getTodayProgress = async (
@@ -204,7 +207,9 @@ export const getTodayProgress = async (
 };
 
 export const getGetTodayProgressQueryKey = () => {
-  return [`/api/readings/today`] as const;
+  // Include the local date in the query key so React Query refetches on a new day.
+  const localDate = new Date().toLocaleDateString("en-CA");
+  return [`/api/readings/today`, localDate] as const;
 };
 
 export const getGetTodayProgressQueryOptions = <
