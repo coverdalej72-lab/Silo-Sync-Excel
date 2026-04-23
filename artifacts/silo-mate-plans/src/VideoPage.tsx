@@ -418,7 +418,7 @@ function CloserScene() {
       <motion.div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}
         initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: p >= 1 ? 1 : 0, scale: p >= 1 ? 1 : 0.85 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
         <div style={{ width: 52, height: 52, borderRadius: 14, background: GREEN, border: `2px solid ${GOLD}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>🐔</div>
-        <span style={{ fontWeight: 900, fontSize: "clamp(18px,3vw,28px)", color: "#fff", letterSpacing: "-0.02em" }}>Farm Buddy</span>
+        <span style={{ fontWeight: 900, fontSize: "clamp(18px,3vw,28px)", color: "#fff", letterSpacing: "-0.02em" }}>Farm Buddy™</span>
       </motion.div>
 
       <motion.h2 style={{ fontSize: "clamp(24px,5vw,56px)", fontWeight: 900, color: "#fff", textAlign: "center", margin: "0 0 16px", letterSpacing: "-0.04em", lineHeight: 1.05, maxWidth: 700 }}

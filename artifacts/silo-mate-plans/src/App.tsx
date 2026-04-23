@@ -16,7 +16,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
     const win = window.open("", "_blank", "width=700,height=900");
     if (!win) return;
     win.document.write(`
-      <html><head><title>Donation Receipt — Farm Buddy</title>
+      <html><head><title>Donation Receipt — Farm Buddy™</title>
       <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 40px; color: #111; }
         .header { background: ${GREEN}; color: #fff; padding: 28px 32px; border-radius: 10px 10px 0 0; }
@@ -35,7 +35,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
         @media print { body { padding: 20px; } }
       </style></head><body>
       <div class="header">
-        <h1>🌾 Farm Buddy — Donation Acknowledgment</h1>
+        <h1>🌾 Farm Buddy™ — Donation Acknowledgment</h1>
         <p>In partnership with Rural Aid Australia · ruralaid.org.au</p>
       </div>
       <div class="body">
@@ -50,13 +50,13 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
         </div>
         <div class="row"><span class="label">Charity</span><span class="value">Rural Aid Australia</span></div>
         <div class="row"><span class="label">Purpose</span><span class="value">General Donation — Farmer Support</span></div>
-        <div class="row"><span class="label">Facilitated by</span><span class="value">Farm Buddy Australia</span></div>
+        <div class="row"><span class="label">Facilitated by</span><span class="value">Appcovi</span></div>
         <div class="notice">
           ⚠️ <strong>Tax Deductibility Notice:</strong> Rural Aid Australia holds Deductible Gift Recipient (DGR) status with the Australian Tax Office. For an official tax-deductible receipt, please contact Rural Aid directly at <strong>1300 327 624</strong> or <strong>info@ruralaid.org.au</strong>. This document is an acknowledgment of your charitable contribution facilitated through Farm Buddy and does not constitute an official tax receipt.
         </div>
         <div class="footer">
           Thank you for supporting Australian farmers. <span class="gold">Every dollar makes a difference.</span><br/>
-          Farm Buddy Australia · silomate.com.au · Generated ${new Date().toLocaleDateString("en-AU")}
+          Appcovi · silomate.com.au · Generated ${new Date().toLocaleDateString("en-AU")}
         </div>
       </div>
       </body></html>
@@ -137,7 +137,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
               border: `2px solid ${GREEN}`, borderRadius: 12, overflow: "hidden", marginBottom: 20,
             }}>
               <div style={{ background: GREEN, color: "#fff", padding: "20px 24px" }}>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>🌾 Farm Buddy — Donation Acknowledgment</div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>🌾 Farm Buddy™ — Donation Acknowledgment</div>
                 <div style={{ fontSize: 12, opacity: 0.8, marginTop: 3 }}>In partnership with Rural Aid Australia</div>
               </div>
               <div style={{ padding: "20px 24px" }}>
@@ -391,7 +391,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
     const win = window.open("", "_blank", "width=720,height=960");
     if (!win) return;
     win.document.write(`
-      <html><head><title>Sponsor Tax Invoice — Farm Buddy</title>
+      <html><head><title>Sponsor Tax Invoice — Farm Buddy™</title>
       <style>
         * { box-sizing: border-box; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 40px; color: #111; font-size: 14px; }
@@ -421,7 +421,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
       </style></head><body><div class="page">
         <div class="header">
           <div>
-            <div class="brand">🌾 Farm Buddy Australia</div>
+            <div class="brand">🌾 Appcovi</div>
             <div class="brand-sub">ABN: (pending registration) · coverdalej72@gmail.com</div>
           </div>
           <div class="invoice-label">
@@ -433,7 +433,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
         <div class="parties">
           <div class="party">
             <div class="party-label">Supplier</div>
-            <div class="party-name">Farm Buddy Australia</div>
+            <div class="party-name">Appcovi</div>
             <div class="party-detail">ABN: (pending registration)<br/>coverdalej72@gmail.com<br/>Australia</div>
           </div>
           <div class="party">
@@ -470,7 +470,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
         </div>
         <div class="footer-note">
           Thank you for supporting Farm Buddy and Australian farmers. <span class="gold">Your sponsorship makes a real difference.</span><br/>
-          Farm Buddy Australia · coverdalej72@gmail.com · Invoice generated ${new Date().toLocaleDateString("en-AU")}
+          Appcovi · coverdalej72@gmail.com · Invoice generated ${new Date().toLocaleDateString("en-AU")}
         </div>
       </div></body></html>
     `);
@@ -568,7 +568,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
                   <div style={{ fontSize: 11, opacity: 0.8 }}>{invoiceNum.current}</div>
                 </div>
                 <div style={{ textAlign: "right", fontSize: 12, opacity: 0.85 }}>
-                  <div>Farm Buddy Australia</div>
+                  <div>Appcovi</div>
                   <div>{new Date(form.date).toLocaleDateString("en-AU")}</div>
                 </div>
               </div>
@@ -1357,7 +1357,7 @@ export default function App() {
   const handleShare = async () => {
     const url = window.location.href;
     const shareData = {
-      title: "Farm Buddy — Plans & Pricing",
+      title: "Farm Buddy™ — Plans & Pricing",
       text: "Check out Farm Buddy — feed tracking & silo management for poultry producers.",
       url,
     };
@@ -2639,9 +2639,9 @@ export default function App() {
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
           <SiloIcon />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Farm Buddy</span>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Farm Buddy™</span>
         </div>
-        <p>© {new Date().getFullYear()} Farm Buddy Australia · ABN registered · <a href="mailto:coverdalej72@gmail.com" style={{ color: GOLD }}>coverdalej72@gmail.com</a></p>
+        <p>© {new Date().getFullYear()} Appcovi · ABN registered · <a href="mailto:coverdalej72@gmail.com" style={{ color: GOLD }}>coverdalej72@gmail.com</a></p>
         <p style={{ marginTop: 6 }}>Proudly built for Australian broiler growers.</p>
       </footer>
     </div>
