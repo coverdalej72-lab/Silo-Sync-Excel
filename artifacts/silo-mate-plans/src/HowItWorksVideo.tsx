@@ -20,7 +20,7 @@ const STEPS = [
   },
   {
     id: "mobile",
-    label: "Silo Mate",
+    label: "Silo Buddy",
     icon: "📱",
     duration: 4500,
   },
@@ -220,7 +220,7 @@ function FeedProgramScene() {
   );
 }
 
-function SiloMateScene() {
+function SiloBuddyScene() {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
     const t1 = setTimeout(() => setPhase(1), 200);
@@ -260,7 +260,7 @@ function SiloMateScene() {
             <div style={{ borderRadius: 20, overflow: "hidden" }}>
               <img
                 src={`${BASE}screenshot-silo-mate.jpg`}
-                alt="Silo Mate"
+                alt="Silo Buddy"
                 style={{ width: "100%", display: "block" }}
               />
             </div>
@@ -384,7 +384,7 @@ function SyncScene() {
           }}>
             📱
           </div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#374151" }}>Silo Mate</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#374151" }}>Silo Buddy</div>
           <div style={{ fontSize: 10, color: "#9ca3af" }}>In the shed</div>
         </div>
 
@@ -539,7 +539,7 @@ function ResultsScene() {
   );
 }
 
-const SCENES = [HookScene, FeedProgramScene, SiloMateScene, SyncScene, ResultsScene];
+const SCENES = [HookScene, FeedProgramScene, SiloBuddyScene, SyncScene, ResultsScene];
 
 export function HowItWorksVideo() {
   const [step, setStep] = useState(0);

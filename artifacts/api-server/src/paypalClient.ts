@@ -36,14 +36,14 @@ export async function ensurePlansTable() {
 }
 
 const PLAN_DEFS = [
-  { tier: 'bronze',   interval: 'month', amount: '30.00',   name: 'Poultry Mate Bronze — Monthly' },
-  { tier: 'bronze',   interval: 'year',  amount: '216.00',  name: 'Poultry Mate Bronze — Yearly' },
-  { tier: 'silver',   interval: 'month', amount: '60.00',   name: 'Poultry Mate Silver — Monthly' },
-  { tier: 'silver',   interval: 'year',  amount: '540.00',  name: 'Poultry Mate Silver — Yearly' },
-  { tier: 'gold',     interval: 'month', amount: '100.00',  name: 'Poultry Mate Gold — Monthly' },
-  { tier: 'gold',     interval: 'year',  amount: '1080.00', name: 'Poultry Mate Gold — Yearly' },
-  { tier: 'platinum', interval: 'month', amount: '150.00',  name: 'Poultry Mate Platinum — Monthly' },
-  { tier: 'platinum', interval: 'year',  amount: '1620.00', name: 'Poultry Mate Platinum — Yearly' },
+  { tier: 'bronze',   interval: 'month', amount: '30.00',   name: 'Farm Buddy Bronze — Monthly' },
+  { tier: 'bronze',   interval: 'year',  amount: '216.00',  name: 'Farm Buddy Bronze — Yearly' },
+  { tier: 'silver',   interval: 'month', amount: '60.00',   name: 'Farm Buddy Silver — Monthly' },
+  { tier: 'silver',   interval: 'year',  amount: '540.00',  name: 'Farm Buddy Silver — Yearly' },
+  { tier: 'gold',     interval: 'month', amount: '100.00',  name: 'Farm Buddy Gold — Monthly' },
+  { tier: 'gold',     interval: 'year',  amount: '1080.00', name: 'Farm Buddy Gold — Yearly' },
+  { tier: 'platinum', interval: 'month', amount: '150.00',  name: 'Farm Buddy Platinum — Monthly' },
+  { tier: 'platinum', interval: 'year',  amount: '1620.00', name: 'Farm Buddy Platinum — Yearly' },
 ];
 
 async function getOrCreatePlanId(tier: string, interval: string, amount: string, name: string): Promise<string> {
@@ -57,7 +57,7 @@ async function getOrCreatePlanId(tier: string, interval: string, amount: string,
   const productRes = await fetch(`${PAYPAL_API()}/v1/catalogs/products`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: 'Poultry Mate', type: 'SERVICE', category: 'SOFTWARE' }),
+    body: JSON.stringify({ name: 'Farm Buddy', type: 'SERVICE', category: 'SOFTWARE' }),
   });
   const product = await productRes.json() as any;
   if (!product.id) throw new Error(`Failed to create PayPal product: ${JSON.stringify(product)}`);
@@ -114,7 +114,7 @@ export async function createSubscription(
       application_context: {
         return_url: returnUrl,
         cancel_url: cancelUrl,
-        brand_name: 'Poultry Mate',
+        brand_name: 'Farm Buddy',
         user_action: 'SUBSCRIBE_NOW',
       },
     }),
@@ -144,7 +144,7 @@ export async function createOrder(
       application_context: {
         return_url: returnUrl,
         cancel_url: cancelUrl,
-        brand_name: 'Poultry Mate',
+        brand_name: 'Farm Buddy',
         user_action: 'PAY_NOW',
       },
     }),

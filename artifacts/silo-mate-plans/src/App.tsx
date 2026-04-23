@@ -16,7 +16,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
     const win = window.open("", "_blank", "width=700,height=900");
     if (!win) return;
     win.document.write(`
-      <html><head><title>Donation Receipt — Poultry Mate</title>
+      <html><head><title>Donation Receipt — Farm Buddy</title>
       <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 40px; color: #111; }
         .header { background: ${GREEN}; color: #fff; padding: 28px 32px; border-radius: 10px 10px 0 0; }
@@ -35,7 +35,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
         @media print { body { padding: 20px; } }
       </style></head><body>
       <div class="header">
-        <h1>🌾 Poultry Mate — Donation Acknowledgment</h1>
+        <h1>🌾 Farm Buddy — Donation Acknowledgment</h1>
         <p>In partnership with Rural Aid Australia · ruralaid.org.au</p>
       </div>
       <div class="body">
@@ -50,13 +50,13 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
         </div>
         <div class="row"><span class="label">Charity</span><span class="value">Rural Aid Australia</span></div>
         <div class="row"><span class="label">Purpose</span><span class="value">General Donation — Farmer Support</span></div>
-        <div class="row"><span class="label">Facilitated by</span><span class="value">Poultry Mate Australia</span></div>
+        <div class="row"><span class="label">Facilitated by</span><span class="value">Farm Buddy Australia</span></div>
         <div class="notice">
-          ⚠️ <strong>Tax Deductibility Notice:</strong> Rural Aid Australia holds Deductible Gift Recipient (DGR) status with the Australian Tax Office. For an official tax-deductible receipt, please contact Rural Aid directly at <strong>1300 327 624</strong> or <strong>info@ruralaid.org.au</strong>. This document is an acknowledgment of your charitable contribution facilitated through Poultry Mate and does not constitute an official tax receipt.
+          ⚠️ <strong>Tax Deductibility Notice:</strong> Rural Aid Australia holds Deductible Gift Recipient (DGR) status with the Australian Tax Office. For an official tax-deductible receipt, please contact Rural Aid directly at <strong>1300 327 624</strong> or <strong>info@ruralaid.org.au</strong>. This document is an acknowledgment of your charitable contribution facilitated through Farm Buddy and does not constitute an official tax receipt.
         </div>
         <div class="footer">
           Thank you for supporting Australian farmers. <span class="gold">Every dollar makes a difference.</span><br/>
-          Poultry Mate Australia · silomate.com.au · Generated ${new Date().toLocaleDateString("en-AU")}
+          Farm Buddy Australia · silomate.com.au · Generated ${new Date().toLocaleDateString("en-AU")}
         </div>
       </div>
       </body></html>
@@ -137,7 +137,7 @@ function ReceiptModal({ onClose }: { onClose: () => void }) {
               border: `2px solid ${GREEN}`, borderRadius: 12, overflow: "hidden", marginBottom: 20,
             }}>
               <div style={{ background: GREEN, color: "#fff", padding: "20px 24px" }}>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>🌾 Poultry Mate — Donation Acknowledgment</div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>🌾 Farm Buddy — Donation Acknowledgment</div>
                 <div style={{ fontSize: 12, opacity: 0.8, marginTop: 3 }}>In partnership with Rural Aid Australia</div>
               </div>
               <div style={{ padding: "20px 24px" }}>
@@ -391,7 +391,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
     const win = window.open("", "_blank", "width=720,height=960");
     if (!win) return;
     win.document.write(`
-      <html><head><title>Sponsor Tax Invoice — Poultry Mate</title>
+      <html><head><title>Sponsor Tax Invoice — Farm Buddy</title>
       <style>
         * { box-sizing: border-box; }
         body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 40px; color: #111; font-size: 14px; }
@@ -421,7 +421,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
       </style></head><body><div class="page">
         <div class="header">
           <div>
-            <div class="brand">🌾 Poultry Mate Australia</div>
+            <div class="brand">🌾 Farm Buddy Australia</div>
             <div class="brand-sub">ABN: (pending registration) · coverdalej72@gmail.com</div>
           </div>
           <div class="invoice-label">
@@ -433,7 +433,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
         <div class="parties">
           <div class="party">
             <div class="party-label">Supplier</div>
-            <div class="party-name">Poultry Mate Australia</div>
+            <div class="party-name">Farm Buddy Australia</div>
             <div class="party-detail">ABN: (pending registration)<br/>coverdalej72@gmail.com<br/>Australia</div>
           </div>
           <div class="party">
@@ -453,7 +453,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
           </tr></thead>
           <tbody>
             <tr>
-              <td><strong>${tierLabel}</strong><br/><span style="font-size:11px;color:#6b7280;">Sponsorship services — advertising &amp; brand exposure across Poultry Mate platform</span></td>
+              <td><strong>${tierLabel}</strong><br/><span style="font-size:11px;color:#6b7280;">Sponsorship services — advertising &amp; brand exposure across Farm Buddy platform</span></td>
               <td>${form.months}</td>
               <td>$${form.tier.toFixed(2)}</td>
               <td>$${exGst.toFixed(2)}</td>
@@ -469,8 +469,8 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
           ✅ <strong>Tax Deductibility:</strong> Sponsorship payments are generally deductible as a business marketing or advertising expense under Australian tax law (ITAA 1997 s 8-1). Please retain this tax invoice for your records. We recommend confirming deductibility with your accountant based on your specific circumstances. This invoice includes GST — please claim your GST credit accordingly if registered for GST.
         </div>
         <div class="footer-note">
-          Thank you for supporting Poultry Mate and Australian farmers. <span class="gold">Your sponsorship makes a real difference.</span><br/>
-          Poultry Mate Australia · coverdalej72@gmail.com · Invoice generated ${new Date().toLocaleDateString("en-AU")}
+          Thank you for supporting Farm Buddy and Australian farmers. <span class="gold">Your sponsorship makes a real difference.</span><br/>
+          Farm Buddy Australia · coverdalej72@gmail.com · Invoice generated ${new Date().toLocaleDateString("en-AU")}
         </div>
       </div></body></html>
     `);
@@ -568,7 +568,7 @@ function SponsorReceiptModal({ onClose }: { onClose: () => void }) {
                   <div style={{ fontSize: 11, opacity: 0.8 }}>{invoiceNum.current}</div>
                 </div>
                 <div style={{ textAlign: "right", fontSize: 12, opacity: 0.85 }}>
-                  <div>Poultry Mate Australia</div>
+                  <div>Farm Buddy Australia</div>
                   <div>{new Date(form.date).toLocaleDateString("en-AU")}</div>
                 </div>
               </div>
@@ -623,7 +623,7 @@ const PLANS = [
     monthlyPrice: 50,
     yearlyPrice: 480,
     features: [
-      "Silo Mate mobile app",
+      "Silo Buddy mobile app",
       "Up to 6 sheds / silos",
       "Daily feed readings & alerts",
       "30-day reading history",
@@ -728,7 +728,7 @@ const FAQS = [
   },
   {
     q: "Do I need to install an app?",
-    a: "No. Poultry Mate is a Progressive Web App (PWA) — it works in any browser on any phone. You can add it to your home screen for an app-like experience.",
+    a: "No. Farm Buddy is a Progressive Web App (PWA) — it works in any browser on any phone. You can add it to your home screen for an app-like experience.",
   },
   {
     q: "What happens to my data if I cancel?",
@@ -1157,7 +1157,7 @@ const SUPPORTER_TIERS = [
     tagline: "Help plant the seed",
     perks: [
       "Name listed as a Seed Supporter",
-      "Lifetime access to Poultry Mate (once live)",
+      "Lifetime access to Farm Buddy (once live)",
       "Founding backer recognition",
     ],
   },
@@ -1171,7 +1171,7 @@ const SUPPORTER_TIERS = [
     featured: true,
     perks: [
       "Name listed as a Project Backer",
-      "Lifetime access to Poultry Mate (once live)",
+      "Lifetime access to Farm Buddy (once live)",
       "Founding backer recognition",
       "Early access to new features",
       "Direct input on feature roadmap",
@@ -1186,12 +1186,12 @@ const SUPPORTER_TIERS = [
     tagline: "Shape the future",
     perks: [
       "Name listed as a Foundation Partner",
-      "Lifetime access to Poultry Mate (once live)",
+      "Lifetime access to Farm Buddy (once live)",
       "Founding backer recognition",
       "Early access to new features",
       "Direct input on feature roadmap",
       "Priority support & personal onboarding",
-      "Logo on the Poultry Mate website",
+      "Logo on the Farm Buddy website",
     ],
   },
 ];
@@ -1294,7 +1294,7 @@ function CheckoutSuccessModal({ onClose }: { onClose: () => void }) {
         <div style={{ fontSize: 52, marginBottom: 12 }}>🎉</div>
         <h2 style={{ fontSize: 24, fontWeight: 900, color: GREEN, marginBottom: 8 }}>You're all set!</h2>
         <p style={{ color: "#444", lineHeight: 1.6, marginBottom: 24 }}>
-          Thanks for subscribing to Poultry Mate. Your account is active — click below to open the app and start tracking your farm.
+          Thanks for subscribing to Farm Buddy. Your account is active — click below to open the app and start tracking your farm.
         </p>
         <a
           href={appUrl}
@@ -1357,8 +1357,8 @@ export default function App() {
   const handleShare = async () => {
     const url = window.location.href;
     const shareData = {
-      title: "Poultry Mate — Plans & Pricing",
-      text: "Check out Poultry Mate — feed tracking & silo management for poultry producers.",
+      title: "Farm Buddy — Plans & Pricing",
+      text: "Check out Farm Buddy — feed tracking & silo management for poultry producers.",
       url,
     };
     if (navigator.share) {
@@ -1402,7 +1402,7 @@ export default function App() {
         <div style={{ display: "flex", alignItems: "center" }}>
           <img
             src="/plans/logo.png"
-            alt="Poultry Mate"
+            alt="Farm Buddy"
             style={{ height: 40, width: "auto", objectFit: "contain" }}
           />
         </div>
@@ -1496,7 +1496,7 @@ export default function App() {
             lineHeight: 1.6,
             marginBottom: 36,
           }}>
-            Poultry Mate is a complete farm management platform for <strong style={{ color: GOLD }}>broiler</strong> and <strong style={{ color: GOLD }}>breeder</strong> farms — replacing paper & Excel with live silo tracking, batch results, egg production logs, body weight curves, and real-time feed alerts across every device on your farm.
+            Farm Buddy is a complete farm management platform for <strong style={{ color: GOLD }}>broiler</strong> and <strong style={{ color: GOLD }}>breeder</strong> farms — replacing paper & Excel with live silo tracking, batch results, egg production logs, body weight curves, and real-time feed alerts across every device on your farm.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <a
@@ -1623,7 +1623,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Silo Mate mobile screenshot */}
+            {/* Silo Buddy mobile screenshot */}
             <div style={{ flex: "1 1 220px", maxWidth: 300 }}>
               <div style={{ background: "#1f2937", borderRadius: 40, boxShadow: "0 4px 6px rgba(0,0,0,0.1), 0 25px 70px rgba(0,0,0,0.2)", overflow: "hidden", border: "6px solid #374151", padding: "12px 6px 6px" }}>
                 {/* Phone notch */}
@@ -1631,13 +1631,13 @@ export default function App() {
                 <div style={{ borderRadius: 28, overflow: "hidden" }}>
                   <img
                     src="/plans/screenshot-silo-mate.jpg"
-                    alt="Silo Mate mobile app showing silo readings entry"
+                    alt="Silo Buddy mobile app showing silo readings entry"
                     style={{ width: "100%", display: "block" }}
                   />
                 </div>
               </div>
               <div style={{ marginTop: 20, paddingLeft: 4 }}>
-                <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>📱 Silo Mate — iPhone & Android</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>📱 Silo Buddy — iPhone & Android</div>
                 <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
                   Record silo readings and scan delivery dockets right from the shed — no paper, no re-keying. Syncs instantly to the Feed Program.
                 </p>
@@ -2038,7 +2038,7 @@ export default function App() {
               Giving back — your way
             </h2>
             <p style={{ color: "#6b7280", fontSize: 16, lineHeight: 1.65, maxWidth: 600, margin: "0 auto" }}>
-              For every active Poultry Mate subscription, <strong style={{ color: GREEN }}>$1 per month</strong> goes to charity.
+              For every active Farm Buddy subscription, <strong style={{ color: GREEN }}>$1 per month</strong> goes to charity.
               Choose which cause matters most to you — local farmers, global emergencies, or children in need.
             </p>
           </div>
@@ -2153,7 +2153,7 @@ export default function App() {
             }}>
               <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>How it works</div>
               {[
-                { icon: "📱", text: "Subscribe to any Poultry Mate plan" },
+                { icon: "📱", text: "Subscribe to any Farm Buddy plan" },
                 { icon: "💰", text: "$1 from your monthly fee is set aside for your chosen charity" },
                 { icon: "📅", text: "Every 3 months we total it up and donate the full amount" },
                 { icon: "🎥", text: "We film the cheque handover and post it publicly — full transparency" },
@@ -2180,7 +2180,7 @@ export default function App() {
               <div style={{ fontSize: 36, textAlign: "center" }}>🧾</div>
               <div style={{ fontWeight: 800, fontSize: 16, color: "#111827", textAlign: "center" }}>Donation Receipt</div>
               <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.65, textAlign: "center", margin: 0 }}>
-                Generate a printable acknowledgment of your charitable contribution through Poultry Mate.
+                Generate a printable acknowledgment of your charitable contribution through Farm Buddy.
               </p>
               <button
                 onClick={() => setShowReceipt(true)}
@@ -2204,7 +2204,7 @@ export default function App() {
           </div>
 
           <p style={{ textAlign: "center", color: "#9ca3af", fontSize: 13, marginTop: 32 }}>
-            You can donate directly to any of these charities at any time — no Poultry Mate subscription required.
+            You can donate directly to any of these charities at any time — no Farm Buddy subscription required.
           </p>
         </div>
       </section>
@@ -2232,12 +2232,12 @@ export default function App() {
 
           {/* Heading */}
           <div style={{ textAlign: "center", marginBottom: 56 }}>
-            <span style={{ background: `${GOLD}22`, color: GOLD, fontWeight: 800, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 14px", borderRadius: 20, display: "inline-block", marginBottom: 16 }}>Sponsor Poultry Mate</span>
+            <span style={{ background: `${GOLD}22`, color: GOLD, fontWeight: 800, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 14px", borderRadius: 20, display: "inline-block", marginBottom: 16 }}>Sponsor Farm Buddy</span>
             <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 900, color: "#111827", margin: "0 0 16px", letterSpacing: "-0.02em" }}>
               Help us keep building for Australian growers
             </h2>
             <p style={{ fontSize: 16, color: "#6b7280", maxWidth: 600, margin: "0 auto", lineHeight: 1.7 }}>
-              Poultry Mate is independently built by a broiler grower, for broiler growers. Sponsorship keeps the app free to develop, supports rural charities, and helps cover the AI tools that power it.
+              Farm Buddy is independently built by a broiler grower, for broiler growers. Sponsorship keeps the app free to develop, supports rural charities, and helps cover the AI tools that power it.
             </p>
           </div>
 
@@ -2268,7 +2268,7 @@ export default function App() {
                 price: "$10/mo",
                 colour: "#16a34a",
                 perks: [
-                  "10% off your Poultry Mate subscription",
+                  "10% off your Farm Buddy subscription",
                   "Name or logo in app footer",
                   "Mentioned in our social media posts",
                   "Our genuine thanks 🙏",
@@ -2281,7 +2281,7 @@ export default function App() {
                 colour: GOLD,
                 featured: true,
                 perks: [
-                  "20% off your Poultry Mate subscription",
+                  "20% off your Farm Buddy subscription",
                   "Logo on Plans & Pricing page",
                   "Dedicated thank-you social post",
                   "Priority support response",
@@ -2294,7 +2294,7 @@ export default function App() {
                 price: "$50/mo",
                 colour: "#dc2626",
                 perks: [
-                  "30% off your Poultry Mate subscription",
+                  "30% off your Farm Buddy subscription",
                   "Featured banner across all pages",
                   "Company bio & backlink on site",
                   "Co-branding in app header",
@@ -2332,7 +2332,7 @@ export default function App() {
                   ))}
                 </ul>
                 <a
-                  href={`mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry — ${name}&body=Hi, I'm interested in becoming a ${name} of Poultry Mate.`}
+                  href={`mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry — ${name}&body=Hi, I'm interested in becoming a ${name} of Farm Buddy.`}
                   style={{
                     display: "block",
                     textAlign: "center",
@@ -2389,7 +2389,7 @@ export default function App() {
             </div>
             <div style={{ marginTop: 20, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
               <p style={{ fontSize: 13, color: "#9ca3af", margin: 0, alignSelf: "center" }}>
-                {sponsors.length === 0 ? <>Be one of the first to support Poultry Mate — <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>get in touch</a></> : <>Want your business here? <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>Become a sponsor</a></>}
+                {sponsors.length === 0 ? <>Be one of the first to support Farm Buddy — <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>get in touch</a></> : <>Want your business here? <a href="mailto:coverdalej72@gmail.com?subject=Sponsorship Enquiry" style={{ color: GREEN, fontWeight: 700 }}>Become a sponsor</a></>}
               </p>
             </div>
             <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
@@ -2561,8 +2561,8 @@ export default function App() {
                   fontSize: 16,
                 }}>▶</div>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: "#111827" }}>How Poultry Mate works</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>A walkthrough of the Feed Program & Silo Mate</div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: "#111827" }}>How Farm Buddy works</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>A walkthrough of the Feed Program & Silo Buddy</div>
                 </div>
               </div>
               <button
@@ -2639,9 +2639,9 @@ export default function App() {
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
           <SiloIcon />
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Poultry Mate</span>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>Farm Buddy</span>
         </div>
-        <p>© {new Date().getFullYear()} Poultry Mate Australia · ABN registered · <a href="mailto:coverdalej72@gmail.com" style={{ color: GOLD }}>coverdalej72@gmail.com</a></p>
+        <p>© {new Date().getFullYear()} Farm Buddy Australia · ABN registered · <a href="mailto:coverdalej72@gmail.com" style={{ color: GOLD }}>coverdalej72@gmail.com</a></p>
         <p style={{ marginTop: 6 }}>Proudly built for Australian broiler growers.</p>
       </footer>
     </div>

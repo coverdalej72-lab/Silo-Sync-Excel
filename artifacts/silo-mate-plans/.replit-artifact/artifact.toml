@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/plans/"
-title = "Silo Mate — Plans & Pricing"
+title = "Farm Buddy — Plans & Pricing"
 version = "1.0.0"
 id = "artifacts/silo-mate-plans"
 router = "path"

@@ -1,6 +1,6 @@
 kind = "video"
 previewPath = "/how-to-video/"
-title = "Poultry Mate — How It Works"
+title = "Farm Buddy — How It Works"
 version = "1.0.0"
 id = "artifacts/how-to-video"
 router = "path"

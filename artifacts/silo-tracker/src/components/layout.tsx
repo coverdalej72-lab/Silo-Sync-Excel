@@ -60,7 +60,7 @@ function InstallBanner() {
         {isIos ? (
           <span>Add to Home Screen — tap <Share className="inline w-4 h-4 mb-0.5" /> then <strong>"Add to Home Screen"</strong></span>
         ) : (
-          <span>Add Silo Mate to your home screen for quick access</span>
+          <span>Add Silo Buddy to your home screen for quick access</span>
         )}
       </div>
       {!isIos && (
@@ -114,9 +114,9 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Silo Mate" className="h-10 w-auto object-contain shrink-0" />
+            <img src="/logo.png" alt="Silo Buddy" className="h-10 w-auto object-contain shrink-0" />
             <div>
-              <div className="font-bold text-base text-foreground leading-tight">{config.farmName || "Silo Mate"}</div>
+              <div className="font-bold text-base text-foreground leading-tight">{config.farmName || "Silo Buddy"}</div>
               <div className="text-[11px] text-muted-foreground font-medium tracking-wide uppercase">Feed Management</div>
             </div>
           </div>

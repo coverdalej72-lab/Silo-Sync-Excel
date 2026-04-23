@@ -157,7 +157,7 @@ function AddToHomeScreenSection() {
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === "accepted") {
       setInstalled(true);
-      toast({ title: "App installed!", description: "Find Silo Mate on your home screen." });
+      toast({ title: "App installed!", description: "Find Silo Buddy on your home screen." });
     }
     setDeferredPrompt(null);
   };
@@ -173,7 +173,7 @@ function AddToHomeScreenSection() {
             </div>
             <div>
               <p className="font-semibold text-sm text-foreground">Already installed</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Silo Mate is on your home screen</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Silo Buddy is on your home screen</p>
             </div>
           </div>
         ) : isIos ? (
@@ -615,7 +615,7 @@ export default function Settings() {
             );
           })()}
 
-          {/* Silo Mate link */}
+          {/* Silo Buddy link */}
           {(() => {
             const siloUrl = `${window.location.origin}/`;
             const siloCopied = copiedLink === "silo";
@@ -625,7 +625,7 @@ export default function Settings() {
                   <LayoutGrid className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground">Silo Mate</p>
+                  <p className="font-semibold text-sm text-foreground">Silo Buddy</p>
                   <p className="text-xs text-muted-foreground truncate">{siloUrl}</p>
                 </div>
                 <button
@@ -712,7 +712,7 @@ export default function Settings() {
       <div>
         <SectionLabel title="About" />
         <div className="bg-card border border-border/50 rounded-2xl px-4 py-4 space-y-1">
-          <p className="font-bold text-foreground">Silo Mate</p>
+          <p className="font-bold text-foreground">Silo Buddy</p>
           <p className="text-sm text-muted-foreground">Daily silo reading tracker — {config.farmName}</p>
           <p className="text-xs text-muted-foreground pt-1">
             {config.shedGroups.filter(g => g.active).length} active shed groups ·{" "}

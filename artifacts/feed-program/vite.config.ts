@@ -47,7 +47,7 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: "PoultryMate Feed Program",
+        name: "FarmBuddy Feed Program",
         short_name: "Feed Program",
         description: "Feed program management for Australian poultry producers.",
         start_url: "/feed-program/",

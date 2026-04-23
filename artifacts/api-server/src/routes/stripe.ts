@@ -139,10 +139,10 @@ router.post('/stripe/supporter-checkout', async (req, res) => {
     }
 
     const TIERS: Record<string, { name: string; description: string; amount: number }> = {
-      seed:       { name: 'Seed Supporter',      description: 'Help get the ideas off the ground — early backer of Poultry Mate.',          amount: 10000  },
+      seed:       { name: 'Seed Supporter',      description: 'Help get the ideas off the ground — early backer of Farm Buddy.',          amount: 10000  },
       backer:     { name: 'Project Backer',      description: 'A meaningful contribution to building the future of farm management tech.',  amount: 50000  },
-      founder:    { name: 'Founding Supporter',  description: 'Founding supporter of Poultry Mate — your name in our founding story.',      amount: 100000 },
-      foundation: { name: 'Foundation Partner',  description: 'Foundation Partner of Poultry Mate — logo on site, priority support, and a direct role in shaping the product.', amount: 100000 },
+      founder:    { name: 'Founding Supporter',  description: 'Founding supporter of Farm Buddy — your name in our founding story.',      amount: 100000 },
+      foundation: { name: 'Foundation Partner',  description: 'Foundation Partner of Farm Buddy — logo on site, priority support, and a direct role in shaping the product.', amount: 100000 },
     };
 
     const selected = TIERS[tier];
@@ -209,7 +209,7 @@ router.post('/stripe/subscribe', async (req, res) => {
         price_data: {
           currency: 'aud',
           product_data: {
-            name: `Poultry Mate — ${planName} Plan`,
+            name: `Farm Buddy — ${planName} Plan`,
             description: `${planName} subscription billed ${interval === 'year' ? 'annually' : 'monthly'}.`,
           },
           unit_amount: Math.round(amountAUD * 100),

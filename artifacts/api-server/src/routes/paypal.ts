@@ -39,9 +39,9 @@ router.post('/paypal/create-order', async (req, res) => {
   const { tier, successUrl, cancelUrl } = req.body;
 
   const TIERS: Record<string, { amount: number; description: string }> = {
-    seed:    { amount: 100,  description: 'Seed Supporter — Poultry Mate' },
-    backer:  { amount: 500,  description: 'Project Backer — Poultry Mate' },
-    founder: { amount: 1000, description: 'Founding Supporter — Poultry Mate' },
+    seed:    { amount: 100,  description: 'Seed Supporter — Farm Buddy' },
+    backer:  { amount: 500,  description: 'Project Backer — Farm Buddy' },
+    founder: { amount: 1000, description: 'Founding Supporter — Farm Buddy' },
   };
 
   const selected = TIERS[tier];

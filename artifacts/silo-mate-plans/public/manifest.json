@@ -1,7 +1,7 @@
 {
-  "name": "Poultry Mate — Plans",
-  "short_name": "Poultry Mate",
-  "description": "Poultry Mate plans and pricing",
+  "name": "Farm Buddy — Plans",
+  "short_name": "Farm Buddy",
+  "description": "Farm Buddy plans and pricing",
   "start_url": "/plans/",
   "display": "standalone",
   "background_color": "#ffffff",

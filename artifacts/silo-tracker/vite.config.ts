@@ -56,8 +56,8 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: "PoultryMate",
-        short_name: "PoultryMate",
+        name: "FarmBuddy",
+        short_name: "FarmBuddy",
         description: "Farm management for Australian poultry producers — silo tracking, feed programs, batch results and QR delivery scanning.",
         start_url: "/",
         scope: "/",
@@ -98,13 +98,13 @@ export default defineConfig({
             src: "/opengraph.jpg",
             sizes: "1200x630",
             type: "image/jpeg",
-            label: "PoultryMate silo tracker",
+            label: "FarmBuddy silo tracker",
           },
         ],
         related_applications: [
           {
             platform: "play",
-            id: "com.appcovi.poultrymate",
+            id: "com.appcovi.farmbuddy",
           },
         ],
       },

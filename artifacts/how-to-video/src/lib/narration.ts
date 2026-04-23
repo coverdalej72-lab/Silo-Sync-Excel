@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 
 const NARRATION_SCRIPTS: Record<number, string> = {
-  0: "Here's how Poultry Mate works. It replaces all your paper shed records with one simple app on your phone or tablet.",
-  1: "Open your feed program and enter your shed details. Poultry Mate automatically calculates feed rates, adjustments, and tonnages for every age group and weight target.",
+  0: "Here's how Farm Buddy works. It replaces all your paper shed records with one simple app on your phone or tablet.",
+  1: "Open your feed program and enter your shed details. Farm Buddy automatically calculates feed rates, adjustments, and tonnages for every age group and weight target.",
   2: "When a feed delivery arrives, tap Scan Docket and point your camera at the QR code on the delivery docket. The batch, date, and tonnes fill in instantly — no typing needed.",
   3: "Tap Add Reading any time to log your silo levels. The app tracks usage across the whole batch and shows you exactly how much feed is left in each bin.",
-  4: "At the end of the batch, tap Generate Report. Poultry Mate compiles your full feed summary, conversion rate, and batch data — ready to send straight to your grower company.",
-  5: "Download Poultry Mate free at poultrymate.com.au and get your first batch started today.",
+  4: "At the end of the batch, tap Generate Report. Farm Buddy compiles your full feed summary, conversion rate, and batch data — ready to send straight to your grower company.",
+  5: "Download Farm Buddy free at farmbuddy.com.au and get your first batch started today.",
 };
 
 let cachedVoice: SpeechSynthesisVoice | null = null;
