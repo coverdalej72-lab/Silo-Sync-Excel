@@ -143,3 +143,15 @@ id = "7Dw-YP1RsmcnVTs96DnY6"
 uri = "file://artifacts/feed-program/public/logo.png"
 type = "image"
 title = "Feed Program logo"
+
+[[outputs]]
+id = "Nw4Mlg2G-nwYvIg-bzvVk"
+uri = "file://google-ads-logos/farmbuddy-logo-square-1200x1200.png"
+type = "image"
+title = "Square Logo — 1200 × 1200 (1:1)"
+
+[[outputs]]
+id = "MwJndxV39IYeZ90RWD9P1"
+uri = "file://google-ads-logos/farmbuddy-logo-landscape-1200x300.png"
+type = "image"
+title = "Landscape Logo — 1200 × 300 (4:1)"
