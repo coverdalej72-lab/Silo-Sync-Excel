@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
@@ -42,5 +42,17 @@ app.use("/how-to-video", (_req, res) => {
 ensurePlansTable().catch(err =>
   logger.warn({ err: err.message }, 'PayPal plans table setup failed — continuing')
 );
+
+// Global error handler — catches any unhandled errors thrown by routes
+// Must have 4 params for Express to treat it as an error handler
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status ?? err.statusCode ?? 500;
+  const message = err.message ?? "Internal server error";
+  logger.error({ err }, "Unhandled route error");
+  if (!res.headersSent) {
+    res.status(status).json({ error: message });
+  }
+});
 
 export default app;
