@@ -105,7 +105,7 @@ export default function Home() {
           <div className="container mx-auto px-4">
             <div className="text-center max-w-2xl mx-auto mb-16 scroll-reveal opacity-0">
               <h2 className="text-3xl md:text-5xl font-display font-bold mb-4">Everything you need. Nothing you don't.</h2>
-              <p className="text-lg text-muted-foreground">We built Farm Buddy™ on a Queensland broiler farm because existing software was too complicated or built for massive corporate operations. This is just the good stuff.</p>
+              <p className="text-lg text-muted-foreground">We built Farm Buddy™ on a South Australian broiler farm because existing software was too complicated or built for massive corporate operations. This is just the good stuff.</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-12 lg:gap-24 items-center mb-24">
@@ -173,7 +173,7 @@ export default function Home() {
               <div className="scroll-reveal opacity-0">
                 <h2 className="text-3xl md:text-5xl font-display font-bold mb-6 text-white">Born in the dirt, not in a boardroom.</h2>
                 <p className="text-primary-foreground/80 text-lg mb-6 leading-relaxed">
-                  Farm Buddy™ wasn't dreamed up by tech bros in Silicon Valley. It was built by a Queensland broiler grower who was sick of losing paper records, miscalculating feed, and spending hours compiling batch reports for the processor.
+                  Farm Buddy™ wasn't dreamed up by tech bros in Silicon Valley. It was built by a South Australian broiler grower who was sick of losing paper records, miscalculating feed, and spending hours compiling batch reports for the processor.
                 </p>
                 <p className="text-primary-foreground/80 text-lg mb-8 leading-relaxed">
                   We built the tool we wanted to use. It works offline when you're in the back of Shed 4 with no reception. It has big buttons because you're wearing gloves. It's a tool that respects your time.
@@ -182,7 +182,7 @@ export default function Home() {
                   <img src={getAssetUrl("/app-hand.png")} alt="Farmer holding app" className="w-16 h-16 rounded-full border-2 border-primary-foreground/20 object-cover" />
                   <div>
                     <p className="font-bold text-white">Built by Appcovi</p>
-                    <p className="text-primary-foreground/60 text-sm">Queensland, Australia</p>
+                    <p className="text-primary-foreground/60 text-sm">South Australia</p>
                   </div>
                 </div>
               </div>
@@ -263,7 +263,7 @@ export default function Home() {
             <span className="font-display font-bold text-xl tracking-tight text-background">Farm Buddy™</span>
           </div>
           <p className="text-background/60 text-sm text-center md:text-left">
-            &copy; {new Date().getFullYear()} Appcovi. Built in Queensland, Australia.
+            &copy; {new Date().getFullYear()} Appcovi. Built in South Australia.
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-background/60 hover:text-background transition-colors text-sm">Privacy Policy</a>

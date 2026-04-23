@@ -2015,7 +2015,7 @@ export default function App() {
           }}>
             "Finally an app that understands how broiler farms actually work. Silos on the phone, Feed Mate on the desktop — always in sync. The Flock Forecast alone has saved me from being caught short twice this batch."
           </blockquote>
-          <p style={{ fontWeight: 700, color: GREEN, fontSize: 14 }}>— Early access grower, Queensland, Australia</p>
+          <p style={{ fontWeight: 700, color: GREEN, fontSize: 14 }}>— Early access grower, South Australia</p>
         </div>
       </section>
 
