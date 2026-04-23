@@ -155,3 +155,15 @@ id = "MwJndxV39IYeZ90RWD9P1"
 uri = "file://google-ads-logos/farmbuddy-logo-landscape-1200x300.png"
 type = "image"
 title = "Landscape Logo — 1200 × 300 (4:1)"
+
+[[outputs]]
+id = "3qgV9mSeiI2vgknt2HTHK"
+uri = "file://google-ads-logos/appcovi-logo-square-1200x1200.png"
+type = "image"
+title = "Appcovi Square Logo — 1200 × 1200 (1:1)"
+
+[[outputs]]
+id = "4lZF4H1uyDyzQ0hGL_GGg"
+uri = "file://google-ads-logos/appcovi-logo-landscape-1200x300.png"
+type = "image"
+title = "Appcovi Landscape Logo — 1200 × 300 (4:1)"
