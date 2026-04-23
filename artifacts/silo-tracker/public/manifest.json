@@ -1,7 +1,7 @@
 {
-  "name": "FarmBuddy",
-  "short_name": "FarmBuddy",
-  "description": "Farm management for Australian poultry producers — silo tracking, feed programs, batch results and QR delivery scanning.",
+  "name": "Silo Buddy",
+  "short_name": "Silo Buddy",
+  "description": "Silo Buddy by Farm Buddy™ — silo tracking, feed programs, batch results and QR delivery scanning for Australian poultry producers.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -41,7 +41,7 @@
       "src": "/opengraph.jpg",
       "sizes": "1200x630",
       "type": "image/jpeg",
-      "label": "FarmBuddy silo tracker"
+      "label": "Silo Buddy — silo tracking app"
     }
   ],
   "related_applications": [

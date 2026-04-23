@@ -18,7 +18,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Artifacts
 
-### Silo Feed Tracker (`artifacts/silo-tracker`)
+### Silo Buddy (`artifacts/silo-tracker`)
 A mobile-friendly web app for recording silo readings in the field.
 - Record silo name/number, feed type, and amount remaining
 - View latest reading summary per silo on the dashboard
