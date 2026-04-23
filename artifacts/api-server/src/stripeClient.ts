@@ -5,9 +5,9 @@ let connectionSettings: any;
 async function getCredentials() {
   // Fallback: use STRIPE_SECRET_KEY env var directly (for production deployments
   // where the Replit Stripe connector only provides a sandbox/development connection)
-  const envSecretKey = process.env.STRIPE_SECRET_KEY;
-  const envPublishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
-  if (envSecretKey) {
+  const envSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  const envPublishableKey = process.env.STRIPE_PUBLISHABLE_KEY?.trim();
+  if (envSecretKey?.startsWith('sk_')) {
     return {
       publishableKey: envPublishableKey ?? '',
       secretKey: envSecretKey,
