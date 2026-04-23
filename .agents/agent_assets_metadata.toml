@@ -60,6 +60,30 @@ uri = "file://artifacts/how-to-video/public/data-bg.png"
 type = "image"
 title = "abstract data nodes"
 
+[[generated]]
+id = "uyY0YTjh-Z1ss8HaghWrr"
+uri = "file://artifacts/farm-buddy-home/public/hero.png"
+type = "image"
+title = "Australian farmer checking phone"
+
+[[generated]]
+id = "7Gu-pFBwY1uwxvdIpulVp"
+uri = "file://artifacts/farm-buddy-home/public/shed.png"
+type = "image"
+title = "Modern poultry shed interior"
+
+[[generated]]
+id = "zTBuPObUwvMdSL3jCbV5D"
+uri = "file://artifacts/farm-buddy-home/public/silos.png"
+type = "image"
+title = "Feed silos under blue sky"
+
+[[generated]]
+id = "qP34kAeNLRYmCBBJsXo3n"
+uri = "file://artifacts/farm-buddy-home/public/app-hand.png"
+type = "image"
+title = "Farmer hand holding phone"
+
 [[outputs]]
 id = "BjxMPq3OLSZYscXJ3BSpp"
 uri = "file://attached_assets/generated_images/poultry-mate-logo-horizontal.png"
