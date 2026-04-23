@@ -172,8 +172,6 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   const lastBatchLeft  = g(7,  18);
   const feedUsed       = g(18, 18);
   const feedLeft       = g(15, 18);
-  const totalCatched   = g(16, 23);
-  const totalMorts     = g(16, 24);
 
   // Live-compute Total Purchased by summing all delivery kg columns (3, 8, 12, 16) rows 6-35.
   // The formula cell at row 11 col 18 doesn't recalculate in-app, so we derive it ourselves.
@@ -192,6 +190,24 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
     const v = parseFloat(g(r, 22).replace(/,/g, ""));
     return sum + (isNaN(v) ? 0 : v);
   }, 0);
+
+  // Live-compute Birds Caught total — formula cells don't recalculate in-app
+  const totalBirdsCatched = birdRows.reduce((sum, r) => {
+    const v = parseFloat(g(r, 23).replace(/,/g, ""));
+    return sum + (isNaN(v) ? 0 : v);
+  }, 0);
+
+  // Helper: morts for a row — use spreadsheet cell if populated, else compute placed - caught
+  function getMortsForRow(r: number): number {
+    const mortsCell = parseFloat(g(r, 24).replace(/,/g, ""));
+    if (!isNaN(mortsCell) && mortsCell > 0) return mortsCell;
+    const placed = parseFloat(g(r, 22).replace(/,/g, "")) || 0;
+    const caught = parseFloat(g(r, 23).replace(/,/g, "")) || 0;
+    return Math.max(0, placed - caught);
+  }
+
+  // Live-compute total morts
+  const totalBirdsMorts = birdRows.reduce((sum, r) => sum + getMortsForRow(r), 0);
 
   const thStyle: React.CSSProperties = {
     padding: "6px 10px", fontWeight: 600, fontSize: 11, color: "#64748b",
@@ -392,16 +408,16 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
           <div style={{ background: "#1a5c36", padding: "8px 14px", display: "flex",
             alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>Bird Summary</span>
-            {(totalCatched || totalMorts) && (
+            {(totalBirdsCatched > 0 || totalBirdsMorts > 0) && (
               <div style={{ display: "flex", gap: 14 }}>
-                {totalCatched && (
+                {totalBirdsCatched > 0 && (
                   <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 11 }}>
-                    <strong style={{ color: "#fff" }}>{fmtNum(totalCatched)}</strong> catched
+                    <strong style={{ color: "#fff" }}>{totalBirdsCatched.toLocaleString()}</strong> caught
                   </span>
                 )}
-                {totalMorts && (
+                {totalBirdsMorts > 0 && (
                   <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 11 }}>
-                    <strong style={{ color: "#fca5a5" }}>{fmtNum(totalMorts)}</strong> morts
+                    <strong style={{ color: "#fca5a5" }}>{totalBirdsMorts.toLocaleString()}</strong> morts
                   </span>
                 )}
               </div>
@@ -418,7 +434,7 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
             </thead>
             <tbody>
               {birdRows.map((r, i) => {
-                const morts = parseFloat(g(r, 24)) || 0;
+                const morts = getMortsForRow(r);
                 return (
                   <tr key={r} style={{ borderBottom: "1px solid #f1f5f9",
                     background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
@@ -427,16 +443,16 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
                     </td>
                     <td style={{ padding: "1px 0" }}><Cell r={r} c={22} align="right" muted /></td>
                     <td style={{ padding: "1px 0" }}><Cell r={r} c={23} align="right" muted /></td>
-                    <td style={{ padding: "1px 0" }}>
-                      <span style={{ display: "block", color: morts > 0 ? "#dc2626" : undefined, fontWeight: morts > 500 ? 700 : 400 }}>
-                        <Cell r={r} c={24} align="right" muted />
+                    <td style={{ padding: "3px 10px", textAlign: "right" }}>
+                      <span style={{ color: morts > 0 ? "#dc2626" : "#94a3b8", fontWeight: morts > 500 ? 700 : 400, fontSize: 12 }}>
+                        {morts > 0 ? morts.toLocaleString() : "—"}
                       </span>
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-            {(totalCatched || totalMorts || totalBirdsPlaced > 0) && (
+            {(totalBirdsCatched > 0 || totalBirdsMorts > 0 || totalBirdsPlaced > 0) && (
               <tfoot>
                 <tr style={{ background: "#f0fdf4", borderTop: "2px solid #e2e8f0" }}>
                   <td style={{ padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#1a5c36",
@@ -445,10 +461,10 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
                     {totalBirdsPlaced > 0 ? totalBirdsPlaced.toLocaleString() : "—"}
                   </td>
                   <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1a5c36", fontSize: 12 }}>
-                    {fmtNum(totalCatched)}
+                    {totalBirdsCatched > 0 ? totalBirdsCatched.toLocaleString() : "—"}
                   </td>
                   <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#dc2626", fontSize: 12 }}>
-                    {fmtNum(totalMorts)}
+                    {totalBirdsMorts > 0 ? totalBirdsMorts.toLocaleString() : "—"}
                   </td>
                 </tr>
               </tfoot>
