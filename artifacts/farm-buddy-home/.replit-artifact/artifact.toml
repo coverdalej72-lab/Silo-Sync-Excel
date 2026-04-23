@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/home/"
+title = "Farm Buddy™ — Home"
+version = "1.0.0"
+id = "artifacts/farm-buddy-home"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/home/" ]
+localPort = 19846
+
+[services.development]
+run = "pnpm --filter @workspace/farm-buddy-home run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/farm-buddy-home", "run", "build" ]
+publicDir = "artifacts/farm-buddy-home/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19846"
+BASE_PATH = "/home/"
