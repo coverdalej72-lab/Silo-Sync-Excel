@@ -1505,12 +1505,15 @@ const FEED_ORDER_LEAD_DAYS = 7; // days needed to receive a feed order
 
 interface FeedAlert {
   shedGroupName: string;
-  feedOnHand: number;       // kg currently available
-  dailyUsage: number;       // kg/day (avg recent days)
+  feedOnHand: number;
+  dailyUsage: number;
   daysRemaining: number;
-  urgency: "critical" | "warning" | "watch"; // ≤3d, ≤7d, ≤14d
+  urgency: "critical" | "warning" | "watch";
   sheetIdx: number;
+  currentAge: number;
+  daysToCAatch: number | null; // null if batch end can't be determined
 }
+const ALERT_SNOOZE_KEY = "feedmate-alert-snooze";
 
 function computeFeedAlerts(
   sheets: SheetParsed[],
@@ -1570,6 +1573,21 @@ function computeFeedAlerts(
     // Only surface alerts within 14-day horizon
     if (daysRemaining > 14) continue;
 
+    // Find current age and planned end-of-batch age
+    const currentAge = getV(latestRow, 0);
+    let totalCatchAge = 0;
+    for (let r = maxRow; r >= 3; r--) {
+      const a = getV(r, 0);
+      if (a >= 1) { totalCatchAge = a; break; }
+    }
+    const daysToCAatch = totalCatchAge > 0 && currentAge > 0
+      ? Math.max(0, totalCatchAge - currentAge)
+      : null;
+
+    // KEY IMPROVEMENT: If feed will outlast the batch (+1 day buffer), suppress the alert.
+    // This eliminates false alarms for sheds that are close to catch day.
+    if (daysToCAatch !== null && daysRemaining > daysToCAatch + 1) continue;
+
     const urgency = daysRemaining <= 3 ? "critical"
       : daysRemaining <= FEED_ORDER_LEAD_DAYS ? "warning"
       : "watch";
@@ -1581,6 +1599,8 @@ function computeFeedAlerts(
       daysRemaining,
       urgency,
       sheetIdx: i,
+      currentAge,
+      daysToCAatch,
     });
   }
 
@@ -5696,6 +5716,18 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [newBatchLocked, setNewBatchLocked] = useState(true);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
+  const [alertSnooze, setAlertSnooze] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem(ALERT_SNOOZE_KEY) ?? "{}"); } catch { return {}; }
+  });
+  const snoozeAlert = (name: string, hours: number) => {
+    const next = { ...alertSnooze, [name]: Date.now() + hours * 3600000 };
+    setAlertSnooze(next);
+    localStorage.setItem(ALERT_SNOOZE_KEY, JSON.stringify(next));
+  };
+  const isSnoozed = (name: string) => {
+    const exp = alertSnooze[name];
+    return exp != null && exp > Date.now();
+  };
   const [showSiloSync, setShowSiloSync] = useState(false);
   const [siloSyncReadings, setSiloSyncReadings] = useState<{ shedGroupId: number; shedGroupName: string; allSaved: boolean; silos: { letter: string; amountRemaining: number | null; saved: boolean; unit: string }[] }[]>([]);
   const [siloSyncDay, setSiloSyncDay] = useState("");
@@ -6648,42 +6680,6 @@ export default function App() {
     setHasChanges(false);
   };
 
-  // Scan all shed sheets for low/critical Feed On Hand in their most recent data row
-  // IMPORTANT: must be before early returns to satisfy Rules of Hooks
-  const feedAlertInfo = useMemo(() => {
-    const alerts: { name: string; status: 'critical' | 'warning' }[] = [];
-    for (let si = 0; si < sheets.length; si++) {
-      const sheet = sheets[si];
-      if (!sheet.rawName?.toUpperCase().includes("SHED")) continue;
-      const sheetEdits = edits[si] ?? new Map<string, string>();
-      const getVal = (r: number, c: number): string => {
-        const key = `${r},${c}`;
-        return sheetEdits.has(key) ? sheetEdits.get(key)! : String(sheet.cells?.get(key)?.value ?? "");
-      };
-      // Dynamic data start
-      let dataStart = 12;
-      for (let r = 9; r <= 16; r++) {
-        if (getVal(r, 0).trim() === "1" || getVal(r, 1).trim() === "1") { dataStart = r; break; }
-      }
-      // Find last row with a numeric FOH value (col 8)
-      let lastFoh: number | null = null;
-      let lastUsage = 0;
-      for (let r = dataStart; r < dataStart + 60; r++) {
-        const foh = parseFloat(getVal(r, 8).replace(/,/g, ""));
-        if (!isNaN(foh) && isFinite(foh)) {
-          lastFoh = foh;
-          lastUsage = parseFloat(getVal(r, 7).replace(/,/g, "")) || 0;
-        }
-      }
-      if (lastFoh === null) continue;
-      if (lastFoh <= 0) {
-        alerts.push({ name: sheet.rawName, status: 'critical' });
-      } else if (lastUsage > 0 && lastFoh <= lastUsage * 2) {
-        alerts.push({ name: sheet.rawName, status: 'warning' });
-      }
-    }
-    return alerts;
-  }, [sheets, edits]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-screen bg-green-50">
@@ -6699,8 +6695,6 @@ export default function App() {
       <p className="text-red-700 font-semibold">Failed to load: {error}</p>
     </div>
   );
-
-  const hasCritical = feedAlertInfo.some(a => a.status === 'critical');
 
   const current = sheets[active];
 
@@ -6746,16 +6740,20 @@ export default function App() {
             : hasChanges && <span style={{ color: "#fde68a", fontSize: 12, fontWeight: 600 }}>● Saving…</span>
           }
           {(() => {
-            const isGood = feedAlertInfo.length === 0;
-            const bg    = isGood ? "#16a34a" : hasCritical ? "#dc2626" : "#f59e0b";
-            const fg    = isGood ? "#fff"    : hasCritical ? "#fff"    : "#7c2d12";
-            const shadow = isGood ? "0 0 0 2px #86efac" : hasCritical ? "0 0 0 2px #fca5a5" : "0 0 0 2px #fde68a";
-            const label = isGood ? "Feed OK" : `${feedAlertInfo.length} Feed Alert${feedAlertInfo.length > 1 ? "s" : ""}`;
-            const title = isGood ? "All sheds have sufficient feed" : `${feedAlertInfo.length} shed${feedAlertInfo.length > 1 ? "s" : ""} with low feed — click for details`;
+            const activeAlerts = feedAlerts.filter(a => !isSnoozed(a.shedGroupName));
+            const isGood = activeAlerts.length === 0;
+            const hasCrit = activeAlerts.some(a => a.urgency === "critical");
+            const bg    = isGood ? "#16a34a" : hasCrit ? "#dc2626" : "#f59e0b";
+            const fg    = isGood ? "#fff"    : hasCrit ? "#fff"    : "#7c2d12";
+            const shadow = isGood ? "0 0 0 2px #86efac" : hasCrit ? "0 0 0 2px #fca5a5" : "0 0 0 2px #fde68a";
+            const snoozedCount = feedAlerts.length - activeAlerts.length;
+            const label = isGood
+              ? (snoozedCount > 0 ? `Feed OK (${snoozedCount} snoozed)` : "Feed OK")
+              : `${activeAlerts.length} Feed Alert${activeAlerts.length > 1 ? "s" : ""}`;
             return (
               <button
                 onClick={() => setShowFeedAlert(true)}
-                title={title}
+                title={isGood ? "All sheds have sufficient feed" : `${activeAlerts.length} shed(s) need attention`}
                 style={{ background: bg, color: fg, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, boxShadow: shadow }}
               >
                 <span className={isGood ? "bell-icon-still" : "bell-icon-wiggle"} style={{ fontSize: 16 }}>🔔</span>
@@ -7211,38 +7209,126 @@ export default function App() {
       )}
 
       {/* ── Feed Alert Modal ── */}
-      {showFeedAlert && (
+      {showFeedAlert && (() => {
+        const activeAlerts = feedAlerts.filter(a => !isSnoozed(a.shedGroupName));
+        const snoozedAlerts = feedAlerts.filter(a => isSnoozed(a.shedGroupName));
+        const allGood = feedAlerts.length === 0;
+        const hasCrit = activeAlerts.some(a => a.urgency === "critical");
+        return (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowFeedAlert(false); }}
         >
-          <div style={{ background: "#fff", borderRadius: 12, boxShadow: "0 8px 40px rgba(0,0,0,0.25)", width: 360, maxWidth: "92vw", overflow: "hidden" }}>
-            <div style={{ background: hasCritical ? "#dc2626" : "#f59e0b", color: hasCritical ? "#fff" : "#7c2d12", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontWeight: 800, fontSize: 16 }}>🔔 Feed On Hand Alerts</span>
+          <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 8px 40px rgba(0,0,0,0.25)", width: 420, maxWidth: "96vw", maxHeight: "88vh", overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
+            {/* Header */}
+            <div style={{ background: allGood ? "#16a34a" : hasCrit ? "#dc2626" : "#f59e0b", color: allGood || hasCrit ? "#fff" : "#7c2d12", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: "14px 14px 0 0", flexShrink: 0 }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>🔔 Feed On Hand</div>
+                <div style={{ fontSize: 12, opacity: 0.85 }}>
+                  {allGood ? "All sheds have enough feed through to catch" : `${activeAlerts.length} shed${activeAlerts.length !== 1 ? "s" : ""} need attention`}
+                </div>
+              </div>
               <button onClick={() => setShowFeedAlert(false)} style={{ background: "none", border: "none", color: "inherit", fontSize: 22, cursor: "pointer", lineHeight: 1, opacity: 0.8 }}>×</button>
             </div>
-            <div style={{ padding: "16px 20px" }}>
-              <p style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>
-                Based on the most recent data row per shed:
-              </p>
-              {feedAlertInfo.map((a) => (
-                <div key={a.name} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "10px 14px", borderRadius: 8, background: a.status === 'critical' ? "#fee2e2" : "#fef3c7", border: `1px solid ${a.status === 'critical' ? "#fca5a5" : "#fde68a"}` }}>
-                  <span style={{ fontSize: 20 }}>{a.status === 'critical' ? "🔴" : "🟠"}</span>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: a.status === 'critical' ? "#7f1d1d" : "#78350f" }}>{a.name}</div>
-                    <div style={{ fontSize: 12, color: a.status === 'critical' ? "#b91c1c" : "#92400e" }}>
-                      {a.status === 'critical' ? "FEED RUN OUT — order immediately!" : "Less than 2 days of feed remaining — order soon"}
+
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+              {/* All clear */}
+              {allGood && (
+                <div style={{ textAlign: "center", padding: "20px 0", color: "#16a34a" }}>
+                  <div style={{ fontSize: 36, marginBottom: 6 }}>✅</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>All sheds are covered</div>
+                  <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>Feed on hand will last past each shed's estimated catch day.</div>
+                </div>
+              )}
+
+              {/* Active alerts */}
+              {activeAlerts.map(a => {
+                const urgBg  = a.urgency === "critical" ? "#fee2e2" : a.urgency === "warning" ? "#fff7ed" : "#fefce8";
+                const urgBdr = a.urgency === "critical" ? "#fca5a5" : a.urgency === "warning" ? "#fdba74" : "#fde68a";
+                const urgClr = a.urgency === "critical" ? "#7f1d1d" : a.urgency === "warning" ? "#78350f" : "#713f12";
+                const icon   = a.urgency === "critical" ? "🔴" : a.urgency === "warning" ? "🟠" : "🟡";
+                const catchCtx = a.daysToCAatch != null
+                  ? (a.daysToCAatch <= 0 ? "catch day reached" : `catch in ~${Math.round(a.daysToCAatch)} day${Math.round(a.daysToCAatch) !== 1 ? "s" : ""}`)
+                  : null;
+                return (
+                  <div key={a.shedGroupName} style={{ background: urgBg, border: `1.5px solid ${urgBdr}`, borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                      <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: urgClr, marginBottom: 2 }}>{a.shedGroupName}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, background: "rgba(0,0,0,0.07)", borderRadius: 4, padding: "2px 7px", fontWeight: 600, color: urgClr }}>
+                            {a.daysRemaining.toFixed(1)} days of feed left
+                          </span>
+                          <span style={{ fontSize: 12, background: "rgba(0,0,0,0.07)", borderRadius: 4, padding: "2px 7px", color: "#555" }}>
+                            {(a.feedOnHand / 1000).toFixed(1)} t on hand
+                          </span>
+                          <span style={{ fontSize: 12, background: "rgba(0,0,0,0.07)", borderRadius: 4, padding: "2px 7px", color: "#555" }}>
+                            {(a.dailyUsage / 1000).toFixed(1)} t/day usage
+                          </span>
+                          {catchCtx && (
+                            <span style={{ fontSize: 12, background: "#e0f2fe", borderRadius: 4, padding: "2px 7px", color: "#0369a1", fontWeight: 600 }}>
+                              📅 {catchCtx}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: urgClr, fontWeight: 700, marginBottom: 10 }}>
+                          {a.urgency === "critical"
+                            ? "⚠ CRITICAL — Feed may run out before catch. Order now."
+                            : a.urgency === "warning"
+                            ? "Order needed within next 24–48 hours to avoid shortage."
+                            : "Feed is low — monitor and plan your next order."}
+                        </div>
+                        {/* Snooze buttons */}
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 11, color: "#888", alignSelf: "center" }}>Snooze:</span>
+                          {[8, 24, 48].map(h => (
+                            <button key={h} onClick={() => snoozeAlert(a.shedGroupName, h)}
+                              style={{ background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 5, padding: "3px 9px", fontSize: 11, fontWeight: 700, color: "#374151", cursor: "pointer" }}>
+                              {h}h
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+
+              {/* Snoozed alerts */}
+              {snoozedAlerts.length > 0 && (
+                <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 10 }}>
+                  <div style={{ fontSize: 11, color: "#aaa", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Snoozed</div>
+                  {snoozedAlerts.map(a => {
+                    const expMs = alertSnooze[a.shedGroupName];
+                    const minsLeft = Math.ceil((expMs - Date.now()) / 60000);
+                    const label = minsLeft < 60 ? `${minsLeft}m` : `${Math.ceil(minsLeft/60)}h`;
+                    return (
+                      <div key={a.shedGroupName} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 7, background: "#f9fafb", border: "1px solid #e5e7eb", marginBottom: 6 }}>
+                        <span style={{ fontSize: 14 }}>😴</span>
+                        <span style={{ flex: 1, fontSize: 13, color: "#555", fontWeight: 600 }}>{a.shedGroupName}</span>
+                        <span style={{ fontSize: 11, color: "#aaa" }}>wakes in {label}</span>
+                        <button onClick={() => snoozeAlert(a.shedGroupName, 0)}
+                          style={{ background: "none", border: "1px solid #d1d5db", borderRadius: 5, padding: "2px 8px", fontSize: 11, color: "#374151", cursor: "pointer" }}>
+                          Wake
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-              <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", fontSize: 12, color: "#166534" }}>
-                <strong>Colour guide:</strong> 🔴 Run out &nbsp;|&nbsp; 🟠 &lt; 2 days &nbsp;|&nbsp; 🟡 &lt; 4 days &nbsp;|&nbsp; No colour = plenty of feed
+              )}
+
+              {/* How it works note */}
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", fontSize: 12, color: "#166534", marginTop: 4 }}>
+                <strong>Smart filtering:</strong> Alerts are automatically suppressed when feed will last past the shed's estimated catch day. Only genuine shortfalls are shown.
               </div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── Settings Panel ── */}
       {showSettings && (
