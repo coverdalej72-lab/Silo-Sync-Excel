@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Silo Buddy"
+title = "Farm Buddy"
 version = "1.0.0"
 id = "artifacts/silo-tracker"
 router = "path"

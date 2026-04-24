@@ -18,7 +18,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Artifacts
 
-### Silo Buddy (`artifacts/silo-tracker`)
+### Farm Buddy (`artifacts/silo-tracker`)
 A mobile-friendly web app for recording silo readings in the field.
 - Record silo name/number, feed type, and amount remaining
 - View latest reading summary per silo on the dashboard
@@ -29,7 +29,7 @@ A mobile-friendly web app for recording silo readings in the field.
 - **Light/Dark mode toggle** in Settings → Appearance; persists to `silo-theme` localStorage
 - Configurable farm name, shed groups (up to 10 groups / 20 sheds), silo tonnages
 - Farm Setup Lock to prevent accidental edits
-- Share App Links section for copying Feed Program and Silo Buddy URLs
+- Share App Links section for copying Feed Program and Farm Buddy URLs
 
 ### Feed Program (`artifacts/feed-program`)
 An Excel-like spreadsheet viewer/editor with full inline editing and live formula recalculation.

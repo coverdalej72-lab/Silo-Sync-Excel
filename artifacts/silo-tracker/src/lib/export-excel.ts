@@ -54,7 +54,7 @@ export async function exportToExcel(
   }[]
 ) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Silo Buddy";
+  wb.creator = "Farm Buddy";
   wb.created = new Date();
 
   // ── Readings sheet ──────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ export async function exportToExcel(
   // Title row
   ws.mergeCells("B1:G1");
   const titleCell = ws.getCell("B1");
-  titleCell.value = "Silo Buddy — Daily Readings";
+  titleCell.value = "Farm Buddy — Daily Readings";
   titleCell.font = { bold: true, size: 14, color: { argb: WHITE } };
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_GREEN } };
   titleCell.alignment = { vertical: "middle", horizontal: "left" };
@@ -112,7 +112,7 @@ export async function exportToExcel(
 
   ws2.mergeCells("B1:F1");
   const t2 = ws2.getCell("B1");
-  t2.value = "Silo Buddy — Deliveries";
+  t2.value = "Farm Buddy — Deliveries";
   t2.font = { bold: true, size: 14, color: { argb: WHITE } };
   t2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_GREEN } };
   t2.alignment = { vertical: "middle", horizontal: "left" };

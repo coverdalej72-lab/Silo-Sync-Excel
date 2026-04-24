@@ -623,7 +623,7 @@ const PLANS = [
     monthlyPrice: 50,
     yearlyPrice: 480,
     features: [
-      "Silo Buddy mobile app",
+      "Farm Buddy mobile app",
       "Up to 6 sheds / silos",
       "Daily feed readings & alerts",
       "30-day reading history",
@@ -1623,7 +1623,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Silo Buddy mobile screenshot */}
+            {/* Farm Buddy mobile screenshot */}
             <div style={{ flex: "1 1 220px", maxWidth: 300 }}>
               <div style={{ background: "#1f2937", borderRadius: 40, boxShadow: "0 4px 6px rgba(0,0,0,0.1), 0 25px 70px rgba(0,0,0,0.2)", overflow: "hidden", border: "6px solid #374151", padding: "12px 6px 6px" }}>
                 {/* Phone notch */}
@@ -1631,13 +1631,13 @@ export default function App() {
                 <div style={{ borderRadius: 28, overflow: "hidden" }}>
                   <img
                     src="/plans/screenshot-silo-mate.jpg"
-                    alt="Silo Buddy mobile app showing silo readings entry"
+                    alt="Farm Buddy mobile app showing silo readings entry"
                     style={{ width: "100%", display: "block" }}
                   />
                 </div>
               </div>
               <div style={{ marginTop: 20, paddingLeft: 4 }}>
-                <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>📱 Silo Buddy — iPhone & Android</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>📱 Farm Buddy — iPhone & Android</div>
                 <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
                   Record silo readings and scan delivery dockets right from the shed — no paper, no re-keying. Syncs instantly to the Feed Program.
                 </p>
@@ -2562,7 +2562,7 @@ export default function App() {
                 }}>▶</div>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 15, color: "#111827" }}>How Farm Buddy works</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>A walkthrough of the Feed Program & Silo Buddy</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>A walkthrough of the Feed Program & Farm Buddy</div>
                 </div>
               </div>
               <button

@@ -56,9 +56,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: "Silo Buddy",
-        short_name: "Silo Buddy",
-        description: "Silo Buddy by Farm Buddy™ — silo tracking, feed programs, batch results and QR delivery scanning for Australian poultry producers.",
+        name: "Farm Buddy",
+        short_name: "Farm Buddy",
+        description: "Farm Buddy™ by Appcovi — silo tracking, feed programs, batch results and QR delivery scanning for Australian poultry producers.",
         start_url: "/",
         scope: "/",
         display: "standalone",

@@ -107,7 +107,7 @@ const SCENES = [
   { id: "hook",     label: "The problem",   icon: "📋", dur: 3500 },
   { id: "benefits", label: "Benefits",       icon: "✅", dur: 5000 },
   { id: "feed",     label: "Feed Program",   icon: "🖥️", dur: 4000 },
-  { id: "silo",     label: "Silo Buddy",      icon: "📱", dur: 4000 },
+  { id: "silo",     label: "Farm Buddy",      icon: "📱", dur: 4000 },
   { id: "install",  label: "Get started",    icon: "🚀", dur: 5000 },
   { id: "closer",   label: "The result",     icon: "🏆", dur: 4000 },
 ];
@@ -302,7 +302,7 @@ function SiloScene() {
           <div style={{ width: 170, background: "#1f2937", borderRadius: 28, border: "5px solid #374151", padding: "10px 4px 4px", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
             <div style={{ width: 50, height: 14, background: "#1f2937", borderRadius: 7, margin: "0 auto 4px" }} />
             <div style={{ borderRadius: 20, overflow: "hidden" }}>
-              <img src={`${BASE}screenshot-silo-mate.jpg`} alt="Silo Buddy" style={{ width: "100%", display: "block" }} />
+              <img src={`${BASE}screenshot-silo-mate.jpg`} alt="Farm Buddy" style={{ width: "100%", display: "block" }} />
             </div>
           </div>
         </motion.div>
@@ -346,7 +346,7 @@ function InstallScene() {
   const steps = [
     { n: "1", icon: "🌐", title: "Sign up", desc: "Create your account at farmbuddy.com.au — no credit card to start." },
     { n: "2", icon: "📤", title: "Upload your spreadsheet", desc: "Drop in your existing Excel feed program. It loads instantly — all your sheds, history, formulas." },
-    { n: "3", icon: "📱", title: "Add Silo Buddy to your phone", desc: "Open the link on your phone, tap 'Add to Home Screen'. No App Store needed." },
+    { n: "3", icon: "📱", title: "Add Farm Buddy to your phone", desc: "Open the link on your phone, tap 'Add to Home Screen'. No App Store needed." },
   ];
 
   return (

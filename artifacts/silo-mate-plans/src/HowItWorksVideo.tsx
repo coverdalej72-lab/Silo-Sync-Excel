@@ -20,7 +20,7 @@ const STEPS = [
   },
   {
     id: "mobile",
-    label: "Silo Buddy",
+    label: "Farm Buddy",
     icon: "📱",
     duration: 4500,
   },
@@ -260,7 +260,7 @@ function SiloBuddyScene() {
             <div style={{ borderRadius: 20, overflow: "hidden" }}>
               <img
                 src={`${BASE}screenshot-silo-mate.jpg`}
-                alt="Silo Buddy"
+                alt="Farm Buddy"
                 style={{ width: "100%", display: "block" }}
               />
             </div>
@@ -384,7 +384,7 @@ function SyncScene() {
           }}>
             📱
           </div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#374151" }}>Silo Buddy</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#374151" }}>Farm Buddy</div>
           <div style={{ fontSize: 10, color: "#9ca3af" }}>In the shed</div>
         </div>
 

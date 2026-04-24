@@ -118,7 +118,7 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
                   <Activity className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-3xl font-display font-bold mb-4">Silo Buddy</h3>
+                <h3 className="text-3xl font-display font-bold mb-4">Farm Buddy</h3>
                 <p className="text-lg text-muted-foreground mb-6">Stop climbing ladders or guessing levels. Track your feed silos directly from your pocket.</p>
                 <ul className="space-y-4">
                   {[
