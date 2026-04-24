@@ -27,7 +27,7 @@ export default defineConfig({
     tailwindcss(),
     runtimeErrorOverlay(),
     VitePWA({
-      registerType: "prompt",
+      registerType: "autoUpdate",
       injectRegister: "auto",
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}"],
@@ -56,9 +56,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: "FarmBuddy",
-        short_name: "FarmBuddy",
-        description: "Farm management for Australian poultry producers — silo tracking, feed programs, batch results and QR delivery scanning.",
+        name: "Silo Buddy",
+        short_name: "Silo Buddy",
+        description: "Silo Buddy by Farm Buddy™ — silo tracking, feed programs, batch results and QR delivery scanning for Australian poultry producers.",
         start_url: "/",
         scope: "/",
         display: "standalone",
