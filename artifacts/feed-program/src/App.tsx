@@ -2668,7 +2668,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                 const totalCaught = (statA?.totalCaught ?? 0) + (statB?.totalCaught ?? 0);
                 const birdsRemaining = Math.max(0, totalPlaced - totalCaught);
                 const floorArea = groupCfg?.floorAreaM2 ?? 0;
-                const birdDensity = floorArea > 0 && birdsRemaining > 0 ? birdsRemaining / floorArea : null;
+                const birdDensity = floorArea > 0 && totalPlaced > 0 ? totalPlaced / floorArea : null;
 
                 // Latest weigh-in for this group
                 const groupWeigh = weighIns[groupId] ?? {};
@@ -2759,9 +2759,9 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
 
                     {/* Stats */}
                     <div style={{ display: "flex", gap: 14, fontSize: 12, flexWrap: "wrap" }}>
-                      {birdsRemaining > 0 && (
+                      {totalPlaced > 0 && (
                         <span style={{ background: "#f0f7f3", borderRadius: 6, padding: "4px 10px", fontWeight: 600, color: "#1a5c36" }}>
-                          🐔 {birdsRemaining.toLocaleString()} birds remaining
+                          🐔 {totalPlaced.toLocaleString()} birds placed
                         </span>
                       )}
                       {latestKg != null && (
