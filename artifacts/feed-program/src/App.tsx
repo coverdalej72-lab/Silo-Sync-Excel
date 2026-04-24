@@ -161,6 +161,7 @@ const FLOCK_WEIGHIN_KEY   = "feedmate-flock-weighins";
 const FLOCK_BREEDS_KEY    = "feedmate-flock-breeds";
 const FEED_ORDERS_KEY     = "feedmate-feed-orders";
 const DENSITY_BREAKS_KEY  = "feedmate-density-breaks";
+const SHED_FLOOR_AREAS_KEY = "feedmate-shed-floor-areas";
 
 interface DensityBreak { targetWeightKg: string; birdsToRemovePct: string; plannedDate: string; completed: boolean; actualWeightKg?: string; actualDate?: string }
 type DensityPlanMap = Record<number, DensityBreak[]>;
@@ -2342,27 +2343,6 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const todayDateStr = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; };
   const [emailCatchDate, setEmailCatchDate] = useState(todayDateStr);
 
-  // Density tab state
-  const [batchTab, setBatchTab] = useState<"catches" | "density">("catches");
-  const [densityPlan, setDensityPlan] = useState<DensityPlanMap>(() => {
-    try { return JSON.parse(localStorage.getItem(DENSITY_BREAKS_KEY) ?? "{}"); } catch { return {}; }
-  });
-  const [weighIns, setWeighIns] = useState<Record<number,Record<number,number>>>(() => {
-    try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}"); } catch { return {}; }
-  });
-  // Re-read weighIns when the view becomes active
-  useEffect(() => {
-    const handler = () => {
-      try { setWeighIns(JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}")); } catch { /* noop */ }
-    };
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
-  }, []);
-
-  const saveDensityPlan = (next: DensityPlanMap) => {
-    setDensityPlan(next);
-    localStorage.setItem(DENSITY_BREAKS_KEY, JSON.stringify(next));
-  };
 
   useEffect(() => {
     if (cleared) {
@@ -2615,303 +2595,23 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
       <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "2px solid #e0e8e4" }}>
         {([
           { id: "catches", label: "🎯 Catches", color: "var(--pm-primary)" },
-          { id: "density", label: "🏠 Density", color: "#7b3fc4" },
         ] as const).map(tab => (
           <button
             key={tab.id}
-            onClick={() => setBatchTab(tab.id)}
+            onClick={() => {}}
             style={{
               padding: "9px 20px", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer",
-              background: batchTab === tab.id ? "#fff" : "transparent",
-              color: batchTab === tab.id ? tab.color : "#888",
-              borderBottom: batchTab === tab.id ? `3px solid ${tab.color}` : "3px solid transparent",
+              background: "#fff", color: tab.color,
+              borderBottom: `3px solid ${tab.color}`,
               marginBottom: -2, borderRadius: "6px 6px 0 0", transition: "all 0.15s",
             }}
           >{tab.label}</button>
         ))}
       </div>
 
-      {/* ── Density Tab ──────────────────────────────────────────── */}
-      {batchTab === "density" && (() => {
-        const activeGroupIds = [...new Set(activeShedNums.map(n => Math.ceil(n / 2)))].sort((a,b) => a-b);
 
-        const updateBreak = (groupId: number, idx: number, patch: Partial<DensityBreak>) => {
-          const breaks = [...(densityPlan[groupId] ?? [])];
-          breaks[idx] = { ...breaks[idx], ...patch };
-          saveDensityPlan({ ...densityPlan, [groupId]: breaks });
-        };
-        const addBreak = (groupId: number) => {
-          const breaks = [...(densityPlan[groupId] ?? [])];
-          breaks.push({ targetWeightKg: "", birdsToRemovePct: "", plannedDate: "", completed: false });
-          saveDensityPlan({ ...densityPlan, [groupId]: breaks });
-        };
-        const removeBreak = (groupId: number, idx: number) => {
-          const breaks = (densityPlan[groupId] ?? []).filter((_, i) => i !== idx);
-          saveDensityPlan({ ...densityPlan, [groupId]: breaks });
-        };
-
-        return (
-          <div>
-            {activeGroupIds.length === 0 && (
-              <div style={{ textAlign: "center", color: "#888", padding: "40px 20px", fontSize: 14 }}>
-                No active sheds. Configure sheds in Settings to see density data.
-              </div>
-            )}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
-              {activeGroupIds.map(groupId => {
-                const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === groupId);
-                const shedA = groupId * 2 - 1;
-                const shedB = groupId * 2;
-                const statA = shedStats.find(s => s.shedNum === shedA);
-                const statB = shedStats.find(s => s.shedNum === shedB);
-                const totalPlaced = (statA?.placement ?? 0) + (statB?.placement ?? 0);
-                const totalCaught = (statA?.totalCaught ?? 0) + (statB?.totalCaught ?? 0);
-                const birdsRemaining = Math.max(0, totalPlaced - totalCaught);
-                const floorArea = groupCfg?.floorAreaM2 ?? 0;
-                const birdDensity = floorArea > 0 && totalPlaced > 0 ? totalPlaced / floorArea : null;
-
-                // Latest weigh-in for this group
-                const groupWeigh = weighIns[groupId] ?? {};
-                const allAges = Object.keys(groupWeigh).map(Number).filter(a => !isNaN(a));
-                const latestAge = allAges.length > 0 ? Math.max(...allAges) : null;
-                const latestGrams = latestAge != null ? groupWeigh[latestAge] : null;
-                const latestKg = latestGrams != null ? latestGrams / 1000 : null;
-
-                // Live weight density (kg/m²)
-                const liveWtDensity = birdDensity != null && latestKg != null ? birdDensity * latestKg : null;
-
-                // Gauge thresholds (birds/m²)
-                const maxGauge = 20;
-                const pctFill = birdDensity != null ? Math.min((birdDensity / maxGauge) * 100, 100) : 0;
-                const densityColor = birdDensity == null
-                  ? "#aaa"
-                  : birdDensity < 10 ? "#27ae60"
-                  : birdDensity < 14 ? "#f39c12"
-                  : "#e74c3c";
-
-                const breaks = densityPlan[groupId] ?? [];
-                const shedLabel = groupCfg?.customName || `Shed ${shedA} & ${shedB}`;
-
-                const inpStyle: React.CSSProperties = {
-                  background: "#f8f8f8", border: "1.5px solid #e0e0e0", borderRadius: 6,
-                  padding: "5px 8px", fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box",
-                };
-
-                return (
-                  <div key={groupId} style={{
-                    background: "#fff",
-                    border: `1.5px solid ${densityColor}44`,
-                    borderTop: `4px solid ${densityColor}`,
-                    borderRadius: 12,
-                    padding: 18,
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
-                    display: "flex", flexDirection: "column", gap: 14,
-                  }}>
-                    {/* Card header */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 800, fontSize: 15, color: "#222", flex: 1 }}>{shedLabel}</span>
-                      {floorArea > 0
-                        ? <span style={{ fontSize: 11, background: "#f0f0f0", borderRadius: 5, padding: "2px 8px", color: "#555", fontWeight: 600 }}>{floorArea.toLocaleString()} m²</span>
-                        : <span style={{ fontSize: 11, background: "#fff3dc", borderRadius: 5, padding: "2px 8px", color: "#a07030", fontWeight: 600 }}>⚠ Set m² in Settings</span>
-                      }
-                    </div>
-
-                    {/* Density reading */}
-                    <div>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 30, fontWeight: 900, color: densityColor, lineHeight: 1 }}>
-                          {birdDensity != null ? birdDensity.toFixed(1) : "—"}
-                        </span>
-                        <span style={{ fontSize: 13, color: "#777", fontWeight: 600 }}>birds/m²</span>
-                        {liveWtDensity != null && (
-                          <span style={{ fontSize: 12, color: "#7b3fc4", fontWeight: 700, background: "#f5eeff", borderRadius: 5, padding: "2px 8px" }}>
-                            {liveWtDensity.toFixed(1)} kg/m²
-                          </span>
-                        )}
-                      </div>
-                      {/* Gauge bar */}
-                      <div style={{ background: "#f0f0f0", borderRadius: 99, height: 12, position: "relative", overflow: "hidden" }}>
-                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${(10/20)*100}%`, background: "#27ae6018", borderRight: "2px dashed #27ae6055" }} />
-                        <div style={{ position: "absolute", left: `${(10/20)*100}%`, top: 0, height: "100%", width: `${(4/20)*100}%`, background: "#f39c1218", borderRight: "2px dashed #f39c1255" }} />
-                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pctFill}%`, background: densityColor, borderRadius: 99, transition: "width 0.5s ease" }} />
-                        {/* Break target markers */}
-                        {breaks.map((br, bi) => {
-                          if (!br.targetWeightKg || !latestKg) return null;
-                          const tWt = parseFloat(br.targetWeightKg);
-                          const remPct = 1 - (parseFloat(br.birdsToRemovePct || "0") / 100);
-                          if (isNaN(tWt) || !floorArea || !birdsRemaining) return null;
-                          const afterBirds = birdsRemaining * remPct;
-                          const afterDensity = afterBirds / floorArea;
-                          const markerPct = Math.min((afterDensity / maxGauge) * 100, 98);
-                          return (
-                            <div key={bi} title={`After Break ${bi+1}: ${afterDensity.toFixed(1)} birds/m²`}
-                              style={{ position: "absolute", top: 0, left: `${markerPct}%`, height: "100%", width: 2, background: "#7b3fc4aa" }} />
-                          );
-                        })}
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#aaa", marginTop: 3 }}>
-                        <span>0</span>
-                        <span style={{ color: "#27ae60" }}>10 ✓</span>
-                        <span style={{ color: "#f39c12" }}>14 ⚡</span>
-                        <span style={{ color: "#e74c3c" }}>17+ ⚠</span>
-                      </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div style={{ display: "flex", gap: 14, fontSize: 12, flexWrap: "wrap" }}>
-                      {totalPlaced > 0 && (
-                        <span style={{ background: "#f0f7f3", borderRadius: 6, padding: "4px 10px", fontWeight: 600, color: "#1a5c36" }}>
-                          🐔 {totalPlaced.toLocaleString()} birds placed
-                        </span>
-                      )}
-                      {latestKg != null && (
-                        <span style={{ background: "#f5eeff", borderRadius: 6, padding: "4px 10px", fontWeight: 600, color: "#7b3fc4" }}>
-                          ⚖️ {latestKg.toFixed(3)} kg avg · day {latestAge}
-                        </span>
-                      )}
-                      {latestKg == null && (
-                        <span style={{ background: "#fff8ee", borderRadius: 6, padding: "4px 10px", color: "#a07030", fontSize: 11 }}>
-                          No weigh-in yet — log a weight in Weigh Birds
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Break schedule */}
-                    <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: "#7b3fc4", textTransform: "uppercase", letterSpacing: 0.6 }}>Density Break Schedule</span>
-                        <button
-                          onClick={() => addBreak(groupId)}
-                          style={{ background: "#f5eeff", border: "1px solid #c9a2f0", color: "#7b3fc4", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
-                        >+ Add Break</button>
-                      </div>
-
-                      {breaks.length === 0 && (
-                        <div style={{ fontSize: 12, color: "#aaa", textAlign: "center", padding: "10px 0" }}>
-                          No breaks planned — tap + Add Break to schedule a density thinning
-                        </div>
-                      )}
-
-                      {breaks.map((br, bi) => {
-                        const tWt = parseFloat(br.targetWeightKg);
-                        const isDue = !br.completed && latestKg != null && !isNaN(tWt) && latestKg >= tWt;
-                        const isUpcoming = !br.completed && !isDue;
-                        return (
-                          <div key={bi} style={{
-                            background: br.completed ? "#f0fff6" : isDue ? "#fff5e6" : "#fafafa",
-                            border: `1.5px solid ${br.completed ? "#b2e0c8" : isDue ? "#f39c12" : "#e8e8e8"}`,
-                            borderRadius: 10, padding: "10px 12px", marginBottom: 8,
-                          }}>
-                            {/* Break header row */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                              <span style={{
-                                fontSize: 11, fontWeight: 800, borderRadius: 5, padding: "2px 8px",
-                                background: br.completed ? "#27ae60" : isDue ? "#f39c12" : "#7b3fc4",
-                                color: "#fff",
-                              }}>
-                                {br.completed ? "✓ DONE" : isDue ? "⚡ DUE NOW" : `BREAK ${bi + 1}`}
-                              </span>
-                              {!br.completed && latestKg != null && !isNaN(tWt) && tWt > 0 && (
-                                <div style={{ flex: 1, height: 6, background: "#e8e8e8", borderRadius: 99, overflow: "hidden" }}>
-                                  <div style={{
-                                    height: "100%", borderRadius: 99,
-                                    width: `${Math.min((latestKg / tWt) * 100, 100)}%`,
-                                    background: isDue ? "#f39c12" : "#7b3fc4",
-                                    transition: "width 0.4s ease",
-                                  }} />
-                                </div>
-                              )}
-                              <button onClick={() => removeBreak(groupId, bi)}
-                                style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0, marginLeft: "auto" }}>✕</button>
-                            </div>
-
-                            {/* Input fields */}
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                              <div>
-                                <div style={{ fontSize: 10, color: "#888", fontWeight: 700, marginBottom: 3, textTransform: "uppercase" }}>Target Wt (kg)</div>
-                                <input
-                                  type="number" min="0" step="0.1"
-                                  value={br.targetWeightKg}
-                                  onChange={e => updateBreak(groupId, bi, { targetWeightKg: e.target.value })}
-                                  placeholder="e.g. 2.0"
-                                  style={{ ...inpStyle, fontWeight: 700, color: isDue ? "#d35400" : "#333" }}
-                                  disabled={br.completed}
-                                />
-                                {latestKg != null && !isNaN(tWt) && tWt > 0 && !br.completed && (
-                                  <div style={{ fontSize: 10, color: isDue ? "#d35400" : "#888", marginTop: 2, fontWeight: isDue ? 700 : 400 }}>
-                                    {latestKg.toFixed(3)} / {tWt.toFixed(1)} kg {isDue ? "✓ TARGET MET" : `(${((latestKg/tWt)*100).toFixed(0)}%)`}
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 10, color: "#888", fontWeight: 700, marginBottom: 3, textTransform: "uppercase" }}>Birds to Thin %</div>
-                                <input
-                                  type="number" min="0" max="100" step="1"
-                                  value={br.birdsToRemovePct}
-                                  onChange={e => updateBreak(groupId, bi, { birdsToRemovePct: e.target.value })}
-                                  placeholder="e.g. 20"
-                                  style={inpStyle}
-                                  disabled={br.completed}
-                                />
-                                {birdsRemaining > 0 && br.birdsToRemovePct && (
-                                  <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>
-                                    ≈ {Math.round(birdsRemaining * parseFloat(br.birdsToRemovePct) / 100).toLocaleString()} birds
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <div style={{ fontSize: 10, color: "#888", fontWeight: 700, marginBottom: 3, textTransform: "uppercase" }}>Planned Date</div>
-                                <input
-                                  type="text"
-                                  value={br.plannedDate}
-                                  onChange={e => updateBreak(groupId, bi, { plannedDate: e.target.value })}
-                                  placeholder="dd/mm/yy"
-                                  style={inpStyle}
-                                  disabled={br.completed}
-                                />
-                              </div>
-                            </div>
-
-                            {/* Complete / undo row */}
-                            {!br.completed ? (
-                              <button
-                                onClick={() => {
-                                  const actualWt = latestKg != null ? latestKg.toFixed(3) : "";
-                                  const d = new Date();
-                                  const actualDate = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
-                                  updateBreak(groupId, bi, { completed: true, actualWeightKg: actualWt, actualDate });
-                                }}
-                                style={{
-                                  marginTop: 10, width: "100%", background: isDue ? "#f39c12" : "var(--pm-primary)",
-                                  color: "#fff", border: "none", borderRadius: 7, padding: "8px 0",
-                                  fontWeight: 700, fontSize: 13, cursor: "pointer",
-                                }}
-                              >Mark as Complete</button>
-                            ) : (
-                              <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
-                                <span style={{ fontSize: 12, color: "#27ae60", fontWeight: 600 }}>
-                                  Completed {br.actualDate}{br.actualWeightKg ? ` · ${br.actualWeightKg} kg avg` : ""}
-                                </span>
-                                <button
-                                  onClick={() => updateBreak(groupId, bi, { completed: false, actualWeightKg: undefined, actualDate: undefined })}
-                                  style={{ background: "#f0f0f0", border: "none", borderRadius: 5, padding: "4px 10px", fontSize: 11, color: "#666", cursor: "pointer" }}
-                                >Undo</button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* ── Catches tab content (hidden when density tab active) ── */}
-      <div style={{ display: batchTab === "catches" ? undefined : "none" }}>
+      {/* ── Catches content ── */}
+      <div>
 
       {/* ── Shed Comparison Chart ────────────────────────────────── */}
       {(() => {
@@ -3894,6 +3594,161 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
             </table>
           </div>
         </div>
+    </div>
+  );
+}
+
+// ── DensityView ───────────────────────────────────────────────────────────────
+function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number, number>; farmConfig: FarmConfigData }) {
+  const [floorAreas, setFloorAreas] = useState<Record<number, number>>(() => {
+    try { return JSON.parse(localStorage.getItem(SHED_FLOOR_AREAS_KEY) ?? "{}"); } catch { return {}; }
+  });
+  const [weighIns, setWeighIns] = useState<Record<number, Record<number, number>>>(() => {
+    try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}"); } catch { return {}; }
+  });
+
+  useEffect(() => {
+    const handler = () => {
+      try { setWeighIns(JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}")); } catch { /* noop */ }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
+  const saveFloorArea = (shedNum: number, val: number) => {
+    const next = { ...floorAreas, [shedNum]: val };
+    setFloorAreas(next);
+    localStorage.setItem(SHED_FLOOR_AREAS_KEY, JSON.stringify(next));
+  };
+
+  const isGroupActive = (shedNum: number) => {
+    const groupId = Math.ceil(shedNum / 2);
+    const cfg = farmConfig.shedGroups?.find(g => g.shedGroupId === groupId);
+    return cfg ? cfg.active !== false : groupId <= 6;
+  };
+
+  const activeShedNums = [...shedPlacement.keys()].filter(isGroupActive).sort((a, b) => a - b);
+
+  return (
+    <div style={{ padding: "20px 16px 40px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
+      {/* Header */}
+      <div style={{ background: "linear-gradient(135deg, #7b3fc4 0%, #5a2da0 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>DENSITY</div>
+        <span style={{ fontSize: 13, opacity: 0.85 }}>Birds/m² at placement · {activeShedNums.length} active shed{activeShedNums.length !== 1 ? "s" : ""}</span>
+      </div>
+
+      {activeShedNums.length === 0 ? (
+        <div style={{ textAlign: "center", color: "#888", padding: "40px 20px", fontSize: 14 }}>
+          No active sheds found. Load a spreadsheet and check shed settings.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+          {activeShedNums.map(shedNum => {
+            const groupId = Math.ceil(shedNum / 2);
+            const placed = shedPlacement.get(shedNum) ?? 0;
+            const floorArea = floorAreas[shedNum] ?? 0;
+            const birdDensity = floorArea > 0 && placed > 0 ? placed / floorArea : null;
+
+            const groupWeigh = weighIns[groupId] ?? {};
+            const allAges = Object.keys(groupWeigh).map(Number).filter(a => !isNaN(a));
+            const latestAge = allAges.length > 0 ? Math.max(...allAges) : null;
+            const latestGrams = latestAge != null ? groupWeigh[latestAge] : null;
+            const latestKg = latestGrams != null ? latestGrams / 1000 : null;
+            const liveWtDensity = birdDensity != null && latestKg != null ? birdDensity * latestKg : null;
+
+            const maxGauge = 20;
+            const pctFill = birdDensity != null ? Math.min((birdDensity / maxGauge) * 100, 100) : 0;
+            const densityColor = birdDensity == null ? "#aaa"
+              : birdDensity < 10 ? "#27ae60"
+              : birdDensity < 14 ? "#f39c12"
+              : "#e74c3c";
+
+            return (
+              <div key={shedNum} style={{
+                background: "#fff",
+                border: `1.5px solid ${densityColor}44`,
+                borderTop: `4px solid ${densityColor}`,
+                borderRadius: 12,
+                padding: 16,
+                boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+                display: "flex", flexDirection: "column", gap: 12,
+              }}>
+                {/* Card header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontWeight: 800, fontSize: 16, color: "#222", flex: 1 }}>Shed {shedNum}</span>
+                  {placed > 0 && (
+                    <span style={{ fontSize: 11, background: "#f0f7f3", borderRadius: 5, padding: "2px 8px", color: "#1a5c36", fontWeight: 700 }}>
+                      🐔 {placed.toLocaleString()} placed
+                    </span>
+                  )}
+                </div>
+
+                {/* Density reading */}
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 34, fontWeight: 900, color: densityColor, lineHeight: 1 }}>
+                    {birdDensity != null ? birdDensity.toFixed(1) : "—"}
+                  </span>
+                  <span style={{ fontSize: 13, color: "#777", fontWeight: 600 }}>birds/m²</span>
+                  {liveWtDensity != null && (
+                    <span style={{ fontSize: 12, color: "#7b3fc4", fontWeight: 700, background: "#f5eeff", borderRadius: 5, padding: "2px 8px" }}>
+                      {liveWtDensity.toFixed(1)} kg/m²
+                    </span>
+                  )}
+                </div>
+
+                {/* Gauge bar */}
+                {floorArea > 0 && (
+                  <div>
+                    <div style={{ background: "#f0f0f0", borderRadius: 99, height: 10, position: "relative", overflow: "hidden" }}>
+                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "50%", background: "#27ae6018", borderRight: "2px dashed #27ae6055" }} />
+                      <div style={{ position: "absolute", left: "50%", top: 0, height: "100%", width: "20%", background: "#f39c1218", borderRight: "2px dashed #f39c1255" }} />
+                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pctFill}%`, background: densityColor, borderRadius: 99, transition: "width 0.5s ease" }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#aaa", marginTop: 3 }}>
+                      <span>0</span>
+                      <span style={{ color: "#27ae60" }}>10 ✓</span>
+                      <span style={{ color: "#f39c12" }}>14 ⚡</span>
+                      <span style={{ color: "#e74c3c" }}>17+ ⚠</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Weight info */}
+                {latestKg != null && (
+                  <span style={{ fontSize: 12, background: "#f5eeff", borderRadius: 6, padding: "4px 10px", fontWeight: 600, color: "#7b3fc4", alignSelf: "flex-start" }}>
+                    ⚖️ {latestKg.toFixed(3)} kg avg · day {latestAge}
+                  </span>
+                )}
+
+                {/* Floor area input */}
+                <div>
+                  <div style={{ fontSize: 10, color: "#888", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 }}>Shed Size (m²)</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="e.g. 1500"
+                      value={floorArea || ""}
+                      onChange={e => saveFloorArea(shedNum, parseFloat(e.target.value) || 0)}
+                      style={{
+                        flex: 1, border: `1.5px solid ${floorArea ? "#27ae6066" : "#e0e0e0"}`,
+                        borderRadius: 7, padding: "6px 10px", fontSize: 14, fontWeight: 600,
+                        color: "#333", background: floorArea ? "#f0f7f3" : "#fafafa",
+                        outline: "none", boxSizing: "border-box",
+                      }}
+                    />
+                    <span style={{ fontSize: 12, color: "#888", fontWeight: 700 }}>m²</span>
+                  </div>
+                  {!floorArea && placed > 0 && (
+                    <div style={{ fontSize: 11, color: "#a07030", marginTop: 4 }}>⚠ Enter shed size to show density</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -5694,7 +5549,7 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
-  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "flockForecast" | "eggProduction" | "bodyWeight" | "weighBirds">(null);
+  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "density" | "flockForecast" | "eggProduction" | "bodyWeight" | "weighBirds">(null);
   const [batchResultsSummary, setBatchResultsSummary] = useState<BatchSummary | null>(null);
   const [batchKey, setBatchKey] = useState(0);
   const [batchCleared, setBatchCleared] = useState<boolean>(() => localStorage.getItem("silo-batch-cleared") === "1");
@@ -6935,6 +6790,11 @@ export default function App() {
           style={{ backgroundColor: activeView === "history" ? "#fff" : "#2d9e5f", color: activeView === "history" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "history" ? "#ccc" : "#27885200", transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
           📈 History
         </button>
+        <button onClick={() => setActiveView("density")}
+          className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          style={{ backgroundColor: activeView === "density" ? "#fff" : "#7b3fc4", color: activeView === "density" ? "#5a2da0" : "#fff", borderColor: activeView === "density" ? "#ccc" : "#5a2da000", transform: activeView === "density" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+          🏠 Density
+        </button>
 
       </div>
 
@@ -6962,6 +6822,10 @@ export default function App() {
         ) : activeView === "history" ? (
           <div className="flex-1 overflow-auto safe-bottom">
             <HistoryView />
+          </div>
+        ) : activeView === "density" ? (
+          <div className="flex-1 overflow-auto safe-bottom">
+            <DensityView shedPlacement={shedPlacement} farmConfig={farmConfig} />
           </div>
         ) : activeView === "summary" ? (
           <div className="flex-1 overflow-auto safe-bottom">
