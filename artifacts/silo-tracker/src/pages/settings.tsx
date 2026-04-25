@@ -660,7 +660,7 @@ export default function Settings() {
         <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
           <a
             href="/silo-mate-feed-program.xlsx"
-            download="Silo-Mate-Feed-Program.xlsx"
+            download="Broiler-Base-Mate.xlsx"
             className="flex items-center justify-between px-4 py-4 hover:bg-secondary/50 transition-colors"
           >
             <div className="flex items-center gap-3">

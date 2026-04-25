@@ -1,6 +1,6 @@
 {
-  "name": "Feed Program",
-  "short_name": "Feed Program",
+  "name": "Broiler Base Mate",
+  "short_name": "Broiler Base Mate",
   "description": "Poultry farm feed management spreadsheet",
   "start_url": "/feed-program/",
   "display": "standalone",

@@ -56,9 +56,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: "Farm Buddy",
-        short_name: "Farm Buddy",
-        description: "Farm Buddy™ by Appcovi — silo tracking, feed programs, batch results and QR delivery scanning for Australian poultry producers.",
+        name: "Silo Base Mate",
+        short_name: "Silo Base Mate",
+        description: "Silo Base Mate™ by Appcovi — silo tracking, batch results and QR delivery scanning for Australian poultry producers.",
         start_url: "/",
         scope: "/",
         display: "standalone",
@@ -98,7 +98,7 @@ export default defineConfig({
             src: "/opengraph.jpg",
             sizes: "1200x630",
             type: "image/jpeg",
-            label: "FarmBuddy silo tracker",
+            label: "Silo Base Mate — farm management app",
           },
         ],
         related_applications: [

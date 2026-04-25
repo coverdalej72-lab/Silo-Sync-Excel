@@ -106,7 +106,7 @@ function useBackgroundMusic(enabled: boolean) {
 const SCENES = [
   { id: "hook",     label: "The problem",   icon: "📋", dur: 3500 },
   { id: "benefits", label: "Benefits",       icon: "✅", dur: 5000 },
-  { id: "feed",     label: "Feed Program",   icon: "🖥️", dur: 4000 },
+  { id: "feed",     label: "Broiler Base Mate",   icon: "🖥️", dur: 4000 },
   { id: "silo",     label: "Farm Buddy",      icon: "📱", dur: 4000 },
   { id: "install",  label: "Get started",    icon: "🚀", dur: 5000 },
   { id: "closer",   label: "The result",     icon: "🏆", dur: 4000 },
@@ -274,7 +274,7 @@ function FeedScene() {
               {["#fc5c65","#fed330","#26de81"].map(c => <span key={c} style={{ width: 10, height: 10, borderRadius: "50%", background: c, display: "inline-block" }} />)}
               <span style={{ flex: 1, background: "#e5e7eb", borderRadius: 5, height: 18, marginLeft: 6 }} />
             </div>
-            <img src={`${BASE}screenshot-feed-program.jpg`} alt="Feed Program" style={{ width: "100%", display: "block" }} />
+            <img src={`${BASE}screenshot-feed-program.jpg`} alt="Broiler Base Mate" style={{ width: "100%", display: "block" }} />
           </div>
         </motion.div>
       </div>
@@ -317,7 +317,7 @@ function SiloScene() {
           </motion.h2>
           <motion.p style={{ fontSize: "clamp(12px,1.6vw,15px)", color: "rgba(255,255,255,0.72)", lineHeight: 1.65, margin: "0 0 16px", maxWidth: 360 }}
             initial={{ opacity: 0 }} animate={{ opacity: p >= 2 ? 1 : 0 }} transition={{ duration: 0.4 }}>
-            Walk the shed, tap in silo readings or scan the delivery docket QR code. Syncs instantly to the Feed Program.
+            Walk the shed, tap in silo readings or scan the delivery docket QR code. Syncs instantly to the Broiler Base Mate.
           </motion.p>
           {["Works offline in the shed", "QR delivery docket scan", "No app store — add to home screen", "Syncs instantly to desktop"].map((f, i) => (
             <motion.div key={f} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: GOLD, fontWeight: 600, marginBottom: 6 }}

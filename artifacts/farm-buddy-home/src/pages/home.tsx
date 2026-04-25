@@ -141,7 +141,7 @@ export default function Home() {
                 <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center mb-6">
                   <CalendarDays className="h-6 w-6 text-accent" />
                 </div>
-                <h3 className="text-3xl font-display font-bold mb-4">Feed Program</h3>
+                <h3 className="text-3xl font-display font-bold mb-4">Broiler Base Mate</h3>
                 <p className="text-lg text-muted-foreground mb-6">Throw away the clipboard. Log daily weights, mortalities, and feed types as you walk the shed.</p>
                 <ul className="space-y-4">
                   {[

@@ -47,9 +47,9 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: "FarmBuddy Feed Program",
-        short_name: "Feed Program",
-        description: "Feed program management for Australian poultry producers.",
+        name: "Broiler Base Mate",
+        short_name: "Broiler Base Mate",
+        description: "Broiler Base Mate — feed program management for Australian poultry producers.",
         start_url: "/feed-program/",
         scope: "/feed-program/",
         display: "standalone",

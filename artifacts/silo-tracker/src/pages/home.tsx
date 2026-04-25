@@ -152,7 +152,7 @@ export default function Home() {
       {lastSync && (
         <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-semibold">
           <span className="text-base">✅</span>
-          <span>Synced to Feed Program <span className="opacity-70 font-medium">{formatRelative(lastSync)}</span></span>
+          <span>Synced to Broiler Base Mate <span className="opacity-70 font-medium">{formatRelative(lastSync)}</span></span>
         </div>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

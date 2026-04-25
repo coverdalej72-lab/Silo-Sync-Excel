@@ -1302,7 +1302,7 @@ function CheckoutSuccessModal({ onClose }: { onClose: () => void }) {
           rel="noopener noreferrer"
           style={{ display: "block", background: GREEN, color: "#fff", fontWeight: 800, fontSize: 16, padding: "14px 24px", borderRadius: 10, textDecoration: "none", marginBottom: 12 }}
         >
-          Open Feed Program →
+          Open Broiler Base Mate →
         </a>
         <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
           Bookmark that link — it's your app. A Stripe receipt has been sent to your email.
@@ -1592,7 +1592,7 @@ export default function App() {
           {/* Screenshot cards */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 32, justifyContent: "center", alignItems: "flex-start" }}>
 
-            {/* Feed Program screenshot */}
+            {/* Broiler Base Mate screenshot */}
             <div style={{ flex: "1 1 520px", maxWidth: 640 }}>
               <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 4px 6px rgba(0,0,0,0.05), 0 20px 60px rgba(0,0,0,0.12)", overflow: "hidden", border: "1px solid #e5e7eb" }}>
                 {/* Browser chrome bar */}
@@ -1604,12 +1604,12 @@ export default function App() {
                 </div>
                 <img
                   src="/plans/screenshot-feed-program.jpg"
-                  alt="Feed Program spreadsheet showing shed tracking data"
+                  alt="Broiler Base Mate spreadsheet showing shed tracking data"
                   style={{ width: "100%", display: "block" }}
                 />
               </div>
               <div style={{ marginTop: 20, paddingLeft: 4 }}>
-                <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>🖥️ Feed Program — Desktop & Tablet</div>
+                <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>🖥️ Broiler Base Mate — Desktop & Tablet</div>
                 <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
                   Your complete feed tracking spreadsheet in the browser. All sheds, all days, with automatic feed-on-hand calculations, silo readings, and end-of-batch reporting — no Excel install required.
                 </p>
@@ -1639,7 +1639,7 @@ export default function App() {
               <div style={{ marginTop: 20, paddingLeft: 4 }}>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>📱 Farm Buddy — iPhone & Android</div>
                 <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
-                  Record silo readings and scan delivery dockets right from the shed — no paper, no re-keying. Syncs instantly to the Feed Program.
+                  Record silo readings and scan delivery dockets right from the shed — no paper, no re-keying. Syncs instantly to the Broiler Base Mate.
                 </p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 12 }}>
                   {["QR docket scanning", "Instant sync", "Works offline", "Add to home screen"].map(f => (
@@ -2562,7 +2562,7 @@ export default function App() {
                 }}>▶</div>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 15, color: "#111827" }}>How Farm Buddy works</div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>A walkthrough of the Feed Program & Farm Buddy</div>
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>A walkthrough of the Broiler Base Mate & Farm Buddy</div>
                 </div>
               </div>
               <button

@@ -14,7 +14,7 @@ const STEPS = [
   },
   {
     id: "upload",
-    label: "Feed Program",
+    label: "Broiler Base Mate",
     icon: "🖥️",
     duration: 4500,
   },
@@ -210,7 +210,7 @@ function FeedProgramScene() {
             </div>
             <img
               src={`${BASE}screenshot-feed-program.jpg`}
-              alt="Feed Program"
+              alt="Broiler Base Mate"
               style={{ width: "100%", display: "block" }}
             />
           </div>
@@ -365,7 +365,7 @@ function SyncScene() {
         animate={{ opacity: phase >= 2 ? 1 : 0 }}
         transition={{ duration: 0.4 }}
       >
-        Your silo readings from the shed appear in the Feed Program on the office desktop the moment you hit Save.
+        Your silo readings from the shed appear in the Broiler Base Mate on the office desktop the moment you hit Save.
       </motion.p>
 
       {/* Animated sync diagram */}
@@ -416,7 +416,7 @@ function SyncScene() {
             🖥️
           </div>
           <div style={{ width: 100, height: 8, background: "#9ca3af", borderRadius: 2, margin: "0 auto 8px" }} />
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#374151" }}>Feed Program</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#374151" }}>Broiler Base Mate</div>
           <div style={{ fontSize: 10, color: "#9ca3af" }}>Office / tablet</div>
         </div>
       </motion.div>

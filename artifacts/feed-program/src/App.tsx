@@ -2358,7 +2358,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
       .catch(() => setLoadState("error"));
   }, []);
 
-  // Sync batch number from Farm Buddy (and vice versa) via storage events
+  // Sync batch number from Silo Base Mate (and vice versa) via storage events
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (e.key === "silo-batch-num") {
@@ -5877,7 +5877,7 @@ export default function App() {
       const data = await res.json();
       setSiloSyncReadings(data.sheds ?? []);
     } catch {
-      setSiloSyncError("Could not reach Farm Buddy. Make sure you're connected.");
+      setSiloSyncError("Could not reach Silo Base Mate. Make sure you're connected.");
     } finally {
       setSiloSyncLoading(false);
     }
@@ -6540,7 +6540,7 @@ export default function App() {
     <div className="flex items-center justify-center h-screen bg-green-50">
       <div className="text-center">
         <div className="w-10 h-10 border-4 border-green-700 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-green-800 font-semibold">Loading Feed Program…</p>
+        <p className="text-green-800 font-semibold">Loading Broiler Base Mate…</p>
       </div>
     </div>
   );
@@ -6587,8 +6587,8 @@ export default function App() {
       `}</style>
       {/* Header — paddingTop accounts for iPhone notch */}
       <div className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
-        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Farm Buddy" style={{ height: 32, width: "auto", objectFit: "contain", flexShrink: 0 }} />
-        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — {(farmConfig.farmType ?? "broiler") === "breeder" ? "Breeder Program" : "Feed Program"}</span>
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Silo Base Mate" style={{ height: 32, width: "auto", objectFit: "contain", flexShrink: 0 }} />
+        <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — {(farmConfig.farmType ?? "broiler") === "breeder" ? "Breeder Program" : "Broiler Base Mate"}</span>
         <div className="ml-auto flex items-center gap-2">
           {autoSaveFlash
             ? <span style={{ color: "#86efac", fontSize: 12, fontWeight: 600 }}>✓ Auto-saved</span>
@@ -6626,7 +6626,7 @@ export default function App() {
               🔄
               {lastAutoSyncTs
                 ? <span>{(() => { const d = Math.floor((Date.now() - lastAutoSyncTs) / 1000); return d < 60 ? "just now" : d < 3600 ? `${Math.floor(d/60)}m ago` : `${Math.floor(d/3600)}h ago`; })()}</span>
-                : <span>Sync Farm Buddy</span>
+                : <span>Sync Silo Base Mate</span>
               }
             </button>
             <button
@@ -6957,7 +6957,7 @@ export default function App() {
             {/* Header */}
             <div style={{ background: "var(--pm-primary)", color: "#fff", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>🔄 Sync from Farm Buddy</div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>🔄 Sync from Silo Base Mate</div>
                 <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
               </div>
               <button onClick={() => setShowSiloSync(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
@@ -7212,7 +7212,7 @@ export default function App() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>{t("farmName")}</label>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Farm Buddy</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Base Mate</span>
                 </div>
                 <input
                   value={settingsFarmName}
@@ -7226,7 +7226,7 @@ export default function App() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>Batch Number</label>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Farm Buddy</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Base Mate</span>
                 </div>
                 <input
                   type="number"
@@ -7243,9 +7243,9 @@ export default function App() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>Default Silo Unit</label>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Farm Buddy</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Base Mate</span>
                 </div>
-                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Default unit used when recording silo readings in Farm Buddy.</p>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>Default unit used when recording silo readings in Silo Base Mate.</p>
                 <div style={{ display: "flex", gap: 8 }}>
                   {(["kg", "t"] as const).map(u => (
                     <button
@@ -7322,7 +7322,7 @@ export default function App() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>{t("activeSheds")}</label>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Farm Buddy</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Base Mate</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {(() => {
@@ -7451,7 +7451,7 @@ export default function App() {
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>{t("themeLabel")}</label>
-                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Farm Buddy</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Base Mate</span>
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {APP_THEMES.map(t => {
@@ -7516,7 +7516,7 @@ export default function App() {
               {/* Send to Phone — QR Code */}
               <div>
                 <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "var(--pm-primary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Send to Phone</label>
-                <p style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>Scan with your phone camera to open Farm Buddy on your phone.</p>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>Scan with your phone camera to open Silo Base Mate on your phone.</p>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
                   <div style={{ padding: 10, background: "#fff", borderRadius: 12, boxShadow: "0 1px 6px rgba(0,0,0,0.10)" }}>
                     <QRCodeSVG value={`${window.location.origin}/silo-tracker/`} size={170} level="M" includeMargin={false} />
