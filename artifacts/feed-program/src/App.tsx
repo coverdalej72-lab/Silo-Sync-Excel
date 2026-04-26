@@ -1533,7 +1533,8 @@ function computeFeedAlerts(
     shedCount++;
 
     const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-    const groupActive = groupCfg ? groupCfg.active !== false : true;
+    const hasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+    const groupActive = groupCfg ? groupCfg.active !== false : !hasConfig;
     if (!groupActive) continue;
 
     const getV = (row: number, col: number): number => {
@@ -1783,7 +1784,8 @@ function PredictionBanner({ sheets, edits, farmConfig }: {
     if (!name.includes("SHED") || name.includes("WEEKLY")) continue;
     const shedGroupId = SHED_SHEET_ORDER[shedOrder] ?? (shedOrder + 1);
     const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-    const groupActive = groupCfg ? groupCfg.active !== false : true;
+    const hasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+    const groupActive = groupCfg ? groupCfg.active !== false : !hasConfig;
     if (!groupActive) { shedOrder++; continue; }
     activeShedIdxs.push(i);
     shedOrder++;
@@ -1963,7 +1965,8 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
     if (tabName.includes("SHED")) {
       const shedGroupId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
       const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-      const groupActive = groupCfg ? groupCfg.active !== false : true;
+      const hasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+      const groupActive = groupCfg ? groupCfg.active !== false : !hasConfig;
       if (groupActive) shedItems.push({ sheetIdx: i, shedGroupId });
       shedCount++;
     }
@@ -2459,7 +2462,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const isGroupActive = (shedNum: number) => {
     const groupId = Math.ceil(shedNum / 2);
     const cfg = farmConfig.shedGroups?.find(g => g.shedGroupId === groupId);
-    return cfg ? cfg.active !== false : true;
+    const hasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+    return cfg ? cfg.active !== false : !hasConfig;
   };
 
   // All active shed numbers (union of xlsx sheds + live placement + any catch data entered + configured shed groups)
@@ -2467,15 +2471,19 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const allShedNums = new Set([...xlShedNums]);
   shedPlacement.forEach((_, n) => allShedNums.add(n));
   Object.keys(catchMap).forEach(k => { const n = parseInt(k, 10); if (!isNaN(n) && n > 0) allShedNums.add(n); });
-  // Always include the default 12 shed groups (24 sheds) so Batch Results shows all
-  // configured sheds even before the user has saved any Settings changes.
-  // isGroupActive defaults to true for unconfigured groups, so this is safe.
-  const DEFAULT_BATCH_GROUPS = 12;
-  for (let gid = 1; gid <= DEFAULT_BATCH_GROUPS; gid++) {
-    allShedNums.add(gid * 2 - 1);
-    allShedNums.add(gid * 2);
+  // Seed shed numbers to show:
+  // - If the user has configured shed groups: only their active groups.
+  // - If no config yet (first use): every shed tab found in the loaded file.
+  const hasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+  if (!hasConfig) {
+    let tabGroupCount = 0;
+    sheets.forEach(s => { if (s.name.trim().toUpperCase().includes("SHED")) tabGroupCount++; });
+    for (let gid = 1; gid <= tabGroupCount; gid++) {
+      allShedNums.add(gid * 2 - 1);
+      allShedNums.add(gid * 2);
+    }
   }
-  // Also include any explicitly configured active shed groups beyond the default 12
+  // Add any explicitly configured active shed groups
   farmConfig.shedGroups?.forEach(g => {
     if (g.active !== false) {
       allShedNums.add(g.shedGroupId * 2 - 1);
@@ -3368,12 +3376,13 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
       sheetNameForGroup.set(sgId, s.name);
     }
   }
-  // Always show minimum 12 groups (sheds 1–24), plus any extra groups from sheets
-  const maxMortsGroup = Math.max(12, ...(sheetNameForGroup.size > 0 ? sheetNameForGroup.keys() : [12]));
+  // Show only sheds matching the user's configured groups (or all sheet tabs if no config yet)
+  const mortHasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+  const maxMortsGroup = sheetNameForGroup.size > 0 ? Math.max(...sheetNameForGroup.keys()) : 0;
   const activeShedNums: number[] = [];
   for (let sgId = 1; sgId <= maxMortsGroup; sgId++) {
     const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
-    const grpActive = grpCfg ? grpCfg.active !== false : true;
+    const grpActive = grpCfg ? grpCfg.active !== false : !mortHasConfig;
     if (!grpActive) continue;
     const sheetName = sheetNameForGroup.get(sgId);
     const nm = sheetName?.match(/(\d+)\s*&\s*(\d+)/);
@@ -5235,7 +5244,8 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
     const sgId = SHED_SHEET_ORDER[shedCount] ?? (shedCount + 1);
     shedCount++;
     const grpCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === sgId);
-    const grpActive = grpCfg ? grpCfg.active !== false : true;
+    const grpHasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+    const grpActive = grpCfg ? grpCfg.active !== false : !grpHasConfig;
     if (!grpActive) continue;
 
     const shed1  = gcv(i, 3, 1) || `Shed ${sgId * 2 - 1}`;
@@ -6742,9 +6752,10 @@ export default function App() {
             // Always hide disabled groups (e.g. Shed 9 & 10 pending bug fix)
             if (DISABLED_SHED_GROUPS.has(shedGroupId)) return null;
             const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-            // If config found: use stored active flag.
-            // If no config: groups 1–6 (sheds 1–12) active by default; 7+ inactive.
-            const groupActive = groupCfg ? groupCfg.active !== false : true;
+            // If user has configured any shed groups, unconfigured groups default to inactive.
+            // If no config yet (first use), all shed tabs default to active.
+            const tabHasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+            const groupActive = groupCfg ? groupCfg.active !== false : !tabHasConfig;
             if (!groupActive) return null;
           }
 
