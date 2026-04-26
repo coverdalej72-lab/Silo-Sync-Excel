@@ -2743,15 +2743,15 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
           </div>
         )}
-        {summary && summary.fcr > 0 && (
+        {summary && (
           <div style={cardStyle("#2980b9")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr.toFixed(3)}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr > 0 ? summary.fcr.toFixed(3) : "—"}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
           </div>
         )}
-        {summary && summary.cfcr > 0 && (
+        {summary && (
           <div style={cardStyle("#16a085")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr.toFixed(3)}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr > 0 ? summary.cfcr.toFixed(3) : "—"}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
           </div>
         )}
@@ -2767,9 +2767,9 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
           </div>
         )}
-        {summary && summary.cage > 0 && (
+        {summary && (
           <div style={cardStyle("#7f8c8d")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage.toFixed(2)} <span style={{ fontSize: 13 }}>days</span></div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage > 0 ? <>{summary.cage.toFixed(2)} <span style={{ fontSize: 13 }}>days</span></> : "—"}</div>
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Cage Age</div>
           </div>
         )}
@@ -2889,24 +2889,46 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             Per-Shed Breakdown ({activeShedNums.length} active shed{activeShedNums.length !== 1 ? "s" : ""}) — tap a cell to edit
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
-            {shedStats.map(({ shedNum, placement, rows, totalCaught: sc, totalWgtKg, aveWgt, morts, mortPct }) => (
+            {shedStats.map(({ shedNum, placement, rows, totalCaught: sc, totalWgtKg, aveWgt, morts, mortPct }) => {
+              const xl = xlSheds.find(s => s.shedNum === shedNum);
+              const shedFcr  = xl?.fcr  && xl.fcr  > 0 ? xl.fcr  : null;
+              const shedCfcr = xl?.cfcr && xl.cfcr > 0 ? xl.cfcr : null;
+              const cageCount = rows.length;
+              return (
               <div key={shedNum} style={{ background: "#fff", borderRadius: 10, border: "1px solid #dde8e0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
 
                 {/* Card header */}
-                <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14 }}>SHED {shedNum}</div>
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 14, flexWrap: "wrap" }}>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800 }}>{placement > 0 ? placement.toLocaleString() : "—"}</div>
-                      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Placed</div>
+                <div style={{ background: "linear-gradient(135deg, var(--pm-primary) 0%, var(--pm-primary-mid) 100%)", color: "#fff", padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ background: "#C9A227", color: "#000", borderRadius: 5, padding: "2px 10px", fontWeight: 800, fontSize: 14 }}>SHED {shedNum}</div>
+                    <div style={{ marginLeft: "auto", display: "flex", gap: 14, flexWrap: "wrap" }}>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 15, fontWeight: 800 }}>{placement > 0 ? placement.toLocaleString() : "—"}</div>
+                        <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Placed</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 15, fontWeight: 800 }}>{sc > 0 ? sc.toLocaleString() : "—"}</div>
+                        <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Caught</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: morts > 0 ? "#ffb3a7" : "#fff" }}>{morts > 0 ? morts.toLocaleString() : "—"}</div>
+                        <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Morts{mortPct > 0 ? ` (${mortPct.toFixed(1)}%)` : ""}</div>
+                      </div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800 }}>{sc > 0 ? sc.toLocaleString() : "—"}</div>
-                      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Caught</div>
+                  </div>
+                  {/* FCR / CFCR / Cage row */}
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", borderTop: "1px solid rgba(255,255,255,0.2)", paddingTop: 6 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.12)", borderRadius: 6, padding: "3px 10px", minWidth: 52 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800 }}>{shedFcr !== null ? shedFcr.toFixed(3) : "—"}</div>
+                      <div style={{ fontSize: 8, opacity: 0.75, textTransform: "uppercase", letterSpacing: 0.8 }}>FCR</div>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: morts > 0 ? "#ffb3a7" : "#fff" }}>{morts > 0 ? morts.toLocaleString() : "—"}</div>
-                      <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.8 }}>Morts{mortPct > 0 ? ` (${mortPct.toFixed(1)}%)` : ""}</div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.12)", borderRadius: 6, padding: "3px 10px", minWidth: 52 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800 }}>{shedCfcr !== null ? shedCfcr.toFixed(3) : "—"}</div>
+                      <div style={{ fontSize: 8, opacity: 0.75, textTransform: "uppercase", letterSpacing: 0.8 }}>CFCR</div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(201,162,39,0.3)", borderRadius: 6, padding: "3px 10px", minWidth: 52 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#C9A227" }}>{cageCount > 0 ? cageCount : "—"}</div>
+                      <div style={{ fontSize: 8, opacity: 0.75, textTransform: "uppercase", letterSpacing: 0.8 }}>Cages</div>
                     </div>
                   </div>
                 </div>
@@ -3011,7 +3033,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                   </tfoot>
                 </table>
               </div>
-            ))}
+            );
+          })}
           </div>
         </div>
       )}
