@@ -5,7 +5,12 @@ let connectionSettings: any;
 async function getCredentials() {
   // Fallback: use STRIPE_SECRET_KEY env var directly (for production deployments
   // where the Replit Stripe connector only provides a sandbox/development connection)
-  const envSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  let envSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  // Fix accidental double-prefix (e.g. sk_live_sk_live_...)
+  if (envSecretKey) {
+    const doublePrefix = envSecretKey.match(/^(sk_live_|sk_test_)(sk_live_|sk_test_)/);
+    if (doublePrefix) envSecretKey = envSecretKey.slice(doublePrefix[1].length);
+  }
   const envPublishableKey = process.env.STRIPE_PUBLISHABLE_KEY?.trim();
   if (envSecretKey?.startsWith('sk_')) {
     return {
