@@ -7376,12 +7376,14 @@ export default function App() {
                       sc++;
                       if (!DISABLED_SHED_GROUPS.has(gid)) sheetNameByGid.set(gid, s.name);
                     }
-                    // Always show groups 1–12 (sheds 1–24), plus any extra groups that have sheets.
-                    const MIN_GROUPS = 12;
-                    const maxGid = Math.max(MIN_GROUPS, ...sheetNameByGid.keys());
+                    // Show only groups that have an actual shed sheet in the loaded file.
+                    // If no file loaded yet, fall back to 12 groups so the user can pre-configure.
+                    const maxGid = sheetNameByGid.size > 0
+                      ? Math.max(...sheetNameByGid.keys())
+                      : 12;
                     const groupIds: number[] = [];
                     for (let id = 1; id <= maxGid; id++) {
-                      if (!DISABLED_SHED_GROUPS.has(id)) groupIds.push(id);
+                      if (!DISABLED_SHED_GROUPS.has(id) && (sheetNameByGid.has(id) || sheetNameByGid.size === 0)) groupIds.push(id);
                     }
 
                     return groupIds.map(shedGroupId => {
@@ -7399,7 +7401,9 @@ export default function App() {
                       const hasSheet = sheetNameByGid.has(shedGroupId);
 
                       const saveGroup = (patch: { active?: boolean; customName?: string; floorAreaM2?: number }) => {
-                        const groups = SHED_SHEET_ORDER.map(id => {
+                        // Only save groups that exist in the loaded file (or all if no file loaded).
+                        const idsToSave = sheetNameByGid.size > 0 ? [...sheetNameByGid.keys()] : SHED_SHEET_ORDER;
+                        const groups = idsToSave.map(id => {
                           const ex = farmConfig.shedGroups?.find(g => g.shedGroupId === id);
                           const act = ex ? ex.active !== false : true;
                           const cn  = ex?.customName ?? "";
