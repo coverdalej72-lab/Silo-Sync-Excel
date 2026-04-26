@@ -2462,12 +2462,20 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
     return cfg ? cfg.active !== false : true;
   };
 
-  // All active shed numbers (union of xlsx sheds + live placement + any catch data entered + explicitly configured active shed groups)
+  // All active shed numbers (union of xlsx sheds + live placement + any catch data entered + configured shed groups)
   const xlShedNums = new Set(xlSheds.map(s => s.shedNum));
   const allShedNums = new Set([...xlShedNums]);
   shedPlacement.forEach((_, n) => allShedNums.add(n));
   Object.keys(catchMap).forEach(k => { const n = parseInt(k, 10); if (!isNaN(n) && n > 0) allShedNums.add(n); });
-  // Also include sheds from explicitly configured active shed groups in farmConfig
+  // Always include the default 12 shed groups (24 sheds) so Batch Results shows all
+  // configured sheds even before the user has saved any Settings changes.
+  // isGroupActive defaults to true for unconfigured groups, so this is safe.
+  const DEFAULT_BATCH_GROUPS = 12;
+  for (let gid = 1; gid <= DEFAULT_BATCH_GROUPS; gid++) {
+    allShedNums.add(gid * 2 - 1);
+    allShedNums.add(gid * 2);
+  }
+  // Also include any explicitly configured active shed groups beyond the default 12
   farmConfig.shedGroups?.forEach(g => {
     if (g.active !== false) {
       allShedNums.add(g.shedGroupId * 2 - 1);
