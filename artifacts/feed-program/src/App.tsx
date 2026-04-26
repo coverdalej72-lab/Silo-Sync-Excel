@@ -5199,6 +5199,19 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
   const [targetAge, setTargetAge]   = useState(42);
   const [editingWI, setEditingWI]   = useState<{ sgId: number; age: number; val: string } | null>(null);
 
+  // Live silo readings — re-read from localStorage each render so it picks up Silo Sync updates
+  type SiloReading = { shedGroupId: number; shedGroupName: string; silos: { letter: string; amountRemaining: number | null; unit: string }[] };
+  const [siloLive, setSiloLive] = useState<SiloReading[]>(() => {
+    try { return JSON.parse(localStorage.getItem("silo-fp-last-readings") || "[]"); } catch { return []; }
+  });
+  // Refresh silo data whenever the user navigates here
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem("silo-fp-last-readings");
+      if (raw) setSiloLive(JSON.parse(raw));
+    } catch { /* noop */ }
+  }, []);
+
   // Keys are "${sgId}-1" and "${sgId}-2" for individual sheds within a group
   const getShedBreedKey = (sgId: number, slot: 1 | 2) => shedBreeds[`${sgId}-${slot}`] ?? "ross308";
   const getShedBreedStd = (sgId: number, slot: 1 | 2) => BREED_STANDARDS[getShedBreedKey(sgId, slot)] ?? BREED_STANDARDS.ross308;
@@ -5459,85 +5472,178 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
                 </table>
               </div>
 
-              {/* Right — Predictions */}
-              <div style={{ padding: "16px 18px" }}>
-                {hdr(`📊 Predictions — Day ${targetAge} target`)}
+              {/* Right — Full forecast dashboard */}
+              {(() => {
+                // ── Actual daily feed rate (last 7 days avg) ──────────────────
+                const dailyRates: number[] = [];
+                for (let r = Math.max(12, 11 + info.age - 7); r <= Math.min(71, 11 + info.age - 1); r++) {
+                  const usage = parseFloat(gcv(info.si, r, COL_H).replace(/,/g, ""));
+                  if (!isNaN(usage) && usage > 0) dailyRates.push(usage);
+                }
+                const avgDailyKg = dailyRates.length > 0 ? dailyRates.reduce((a, b) => a + b, 0) / dailyRates.length : 0;
+                const daysLeft   = Math.max(0, targetAge - info.age);
+                const feedStillNeeded = avgDailyKg > 0 && daysLeft > 0 ? Math.round(avgDailyKg * daysLeft) : p.feedNeeded;
 
-                {/* Projected weight */}
-                <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 8, padding: "12px 14px", marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase" as const, letterSpacing: 0.4, marginBottom: 3 }}>Projected Catch Weight</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "var(--pm-primary)", lineHeight: 1 }}>{p.projWt > 0 ? `${p.projWt.toLocaleString()}g` : "—"}</div>
-                  {p.projWt > 0 && (
-                    <>
-                      <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-                        Standard: {p.stdWt.toLocaleString()}g &nbsp;
-                        <span style={{ fontWeight: 700, color: p.ratio >= 1 ? "#1a7a40" : "#c0392b" }}>
-                          ({p.ratio >= 1 ? "+" : ""}{((p.ratio - 1) * 100).toFixed(1)}% vs standard)
-                        </span>
+                // ── Silo data for this shed group ─────────────────────────────
+                const siloData   = siloLive.find(s => s.shedGroupId === info.sgId);
+                const siloTotalKg = siloData ? siloData.silos.reduce((a, s) => {
+                  if (s.amountRemaining == null) return a;
+                  return a + (s.unit === "t" ? s.amountRemaining * 1000 : s.amountRemaining);
+                }, 0) : null;
+                const siloNeeded  = feedStillNeeded > 0 ? feedStillNeeded : p.feedNeeded;
+                const siloBuffer  = siloTotalKg != null && siloNeeded > 0 ? siloTotalKg - siloNeeded : null;
+                const siloOk      = siloBuffer != null ? siloBuffer >= 0 : null;
+                const siloFillPct = siloTotalKg != null && siloNeeded > 0 ? Math.min(100, (siloTotalKg / siloNeeded) * 100) : null;
+
+                return (
+                <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+                  {/* ── Projected catch weight ── */}
+                  <div style={{ background: "linear-gradient(135deg, var(--pm-primary-soft) 0%, #f0fdf5 100%)", border: "1.5px solid var(--pm-primary-border)", borderRadius: 10, padding: "12px 14px" }}>
+                    <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 4, fontWeight: 700 }}>📊 Projected Catch — Day {targetAge}</div>
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 30, fontWeight: 900, color: "var(--pm-primary)", lineHeight: 1 }}>{p.projWt > 0 ? `${p.projWt.toLocaleString()}g` : "—"}</div>
+                        {p.projWt > 0 && (
+                          <div style={{ fontSize: 11, color: "#666", marginTop: 3 }}>
+                            Std: {p.stdWt.toLocaleString()}g &nbsp;
+                            <span style={{ fontWeight: 800, color: p.ratio >= 1 ? "#1a7a40" : "#c0392b" }}>
+                              {p.ratio >= 1 ? "▲" : "▼"} {Math.abs((p.ratio - 1) * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      {info.birds > 0 && (
-                        <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
-                          Total live: ~{((p.projWt / 1000) * info.birds / 1000).toFixed(1)}t
+                      {info.birds > 0 && p.projWt > 0 && (
+                        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: "var(--pm-primary)" }}>~{((p.projWt / 1000) * info.birds / 1000).toFixed(1)}t</div>
+                          <div style={{ fontSize: 10, color: "#aaa" }}>Total live weight</div>
                         </div>
                       )}
-                    </>
-                  )}
-                </div>
-
-                {/* FCR */}
-                <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 8, padding: "12px 14px", marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase" as const, letterSpacing: 0.4, marginBottom: 6 }}>Feed Conversion Ratio (FCR)</div>
-                  <div style={{ display: "flex", gap: 16, alignItems: "flex-end" }}>
-                    {[
-                      { label: "Actual so far", val: p.actFCR ? p.actFCR.toFixed(2) : "—", color: p.actFCR ? (p.actFCR <= p.stdFCR ? "#1a7a40" : "#c0392b") : "#bbb" },
-                      { label: "Projected",     val: (p.actFCR ? p.projFCR : p.stdFCR).toFixed(2), color: "var(--pm-primary)" },
-                      { label: "Standard",      val: p.stdFCR.toFixed(2), color: "#aaa" },
-                    ].map(({ label, val, color }) => (
-                      <div key={label} style={{ flex: 1 }}>
-                        <div style={{ fontSize: 10, color: "#bbb", marginBottom: 2 }}>{label}</div>
-                        <div style={{ fontSize: 22, fontWeight: 800, color }}>{val}</div>
+                    </div>
+                    {p.latestAge && (
+                      <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 5, background: "#fff8e0", border: "1px solid #e8d070", borderRadius: 5, padding: "2px 9px", fontSize: 11, fontWeight: 700, color: "#7a6000" }}>
+                        📍 Last weigh-in: Day {p.latestAge} ({((weighIns[info.sgId]?.[p.latestAge] ?? 0) / 1000).toFixed(3)} kg)
                       </div>
-                    ))}
+                    )}
+                    {!p.latestAge && (
+                      <div style={{ marginTop: 6, fontSize: 11, color: "#bbb" }}>
+                        No weigh-ins yet — use the ⚖️ camera tab on your phone to log bird weights
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                {/* Feed sufficiency */}
-                <div style={{ background: suf === null ? "var(--pm-primary-soft)" : suf ? "#f0faf4" : "#fff5f5", border: `1px solid ${suf === null ? "var(--pm-primary-border)" : suf ? "#a8ddb8" : "#f0b0b0"}`, borderRadius: 8, padding: "12px 14px", marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase" as const, letterSpacing: 0.4, marginBottom: 8 }}>Feed Sufficiency</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#bbb" }}>Needed to Day {targetAge}</div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: "#c0392b" }}>{p.feedNeeded > 0 ? `${p.feedNeeded.toLocaleString()} kg` : "—"}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#bbb" }}>Feed on Hand</div>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: "var(--pm-primary)" }}>{info.feedOnHand > 0 ? `${Math.round(info.feedOnHand).toLocaleString()} kg` : "—"}</div>
+                  {/* ── FCR panel ── */}
+                  <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 10, padding: "11px 14px" }}>
+                    <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 7, fontWeight: 700 }}>⚡ FCR</div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      {[
+                        { label: "Actual", val: p.actFCR ? p.actFCR.toFixed(2) : "—", color: p.actFCR ? (p.actFCR <= p.stdFCR ? "#1a7a40" : "#c0392b") : "#bbb", size: 24 },
+                        { label: "Projected", val: (p.actFCR ? p.projFCR : p.stdFCR).toFixed(2), color: "var(--pm-primary)", size: 22 },
+                        { label: "Standard", val: p.stdFCR.toFixed(2), color: "#bbb", size: 18 },
+                      ].map(({ label, val, color, size }) => (
+                        <div key={label} style={{ flex: 1, textAlign: "center", background: "#fff", borderRadius: 7, padding: "7px 5px" }}>
+                          <div style={{ fontSize: size, fontWeight: 900, color }}>{val}</div>
+                          <div style={{ fontSize: 9, color: "#aaa", marginTop: 2, textTransform: "uppercase" as const, letterSpacing: 0.3 }}>{label}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  {suf !== null && (
-                    <div style={{ fontWeight: 700, fontSize: 13, color: suf ? "#1a7a40" : "#c0392b" }}>
-                      {suf ? `✅ Sufficient — ${Math.round(buf).toLocaleString()} kg buffer` : `⚠️ Shortfall of ${Math.abs(Math.round(buf)).toLocaleString()} kg — order more`}
-                    </div>
-                  )}
-                </div>
 
-                {/* Days chip row */}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {p.daysLeft > 0 && info.age > 0 && (
-                    <div style={{ background: "var(--pm-primary-pale)", border: "1px solid var(--pm-primary-border)", borderRadius: 6, padding: "5px 11px", fontSize: 12, fontWeight: 600, color: "var(--pm-primary)" }}>
-                      🗓 {p.daysLeft} day{p.daysLeft !== 1 ? "s" : ""} to catch
+                  {/* ── Actual daily rate + feed still needed ── */}
+                  <div style={{ background: "#fffdf0", border: "1.5px solid #e8d56a", borderRadius: 10, padding: "11px 14px" }}>
+                    <div style={{ fontSize: 10, color: "#8a7000", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 7, fontWeight: 700 }}>🌾 Actual Feed Rate</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                      <div style={{ textAlign: "center", background: "#fff", borderRadius: 7, padding: "8px 4px" }}>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: "#9a7a00" }}>{avgDailyKg > 0 ? `${Math.round(avgDailyKg).toLocaleString()}` : "—"}</div>
+                        <div style={{ fontSize: 9, color: "#bbb", marginTop: 2, textTransform: "uppercase" as const }}>kg/day avg</div>
+                      </div>
+                      <div style={{ textAlign: "center", background: "#fff", borderRadius: 7, padding: "8px 4px" }}>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: "#555" }}>{daysLeft}</div>
+                        <div style={{ fontSize: 9, color: "#bbb", marginTop: 2, textTransform: "uppercase" as const }}>days left</div>
+                      </div>
+                      <div style={{ textAlign: "center", background: "#fff3e0", borderRadius: 7, padding: "8px 4px", border: "1px solid #ffd180" }}>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: "#c0392b" }}>{feedStillNeeded > 0 ? `${Math.round(feedStillNeeded / 1000).toFixed(1)}t` : "—"}</div>
+                        <div style={{ fontSize: 9, color: "#bbb", marginTop: 2, textTransform: "uppercase" as const }}>still needed</div>
+                      </div>
                     </div>
-                  )}
-                  {p.latestAge && (
-                    <div style={{ background: "#fff8e0", border: "1px solid #e8d070", borderRadius: 6, padding: "5px 11px", fontSize: 12, fontWeight: 600, color: "#7a6000" }}>
-                      📍 Last weigh-in: Day {p.latestAge}
-                    </div>
-                  )}
-                  {!info.placementDate && (
-                    <div style={{ fontSize: 12, color: "#bbb", padding: "5px 0" }}>Set a placement date on the Summary tab to enable age calculations.</div>
-                  )}
+                    {avgDailyKg > 0 && (
+                      <div style={{ marginTop: 7, fontSize: 11, color: "#8a7000" }}>
+                        Based on last {dailyRates.length} day{dailyRates.length !== 1 ? "s" : ""} actual usage
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Silo levels from Silo Sync ── */}
+                  <div style={{ background: siloOk === null ? "#f9f9f9" : siloOk ? "#f0faf4" : "#fff5f5", border: `1.5px solid ${siloOk === null ? "#e0e0e0" : siloOk ? "#a8ddb8" : "#f0b0b0"}`, borderRadius: 10, padding: "11px 14px" }}>
+                    <div style={{ fontSize: 10, textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 7, fontWeight: 700, color: siloOk === null ? "#aaa" : siloOk ? "#1a7a40" : "#c0392b" }}>🏗️ Silo Levels — Silo Sync</div>
+                    {siloData ? (
+                      <>
+                        {/* Silo bars */}
+                        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                          {siloData.silos.map(s => {
+                            const kg = s.amountRemaining != null ? (s.unit === "t" ? s.amountRemaining * 1000 : s.amountRemaining) : null;
+                            const display = kg != null ? kg >= 1000 ? `${(kg / 1000).toFixed(1)}t` : `${Math.round(kg)}kg` : "—";
+                            const pct = kg != null && siloTotalKg! > 0 ? (kg / siloTotalKg!) * 100 : 0;
+                            return (
+                              <div key={s.letter} style={{ flex: 1, textAlign: "center" }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--pm-primary)", marginBottom: 3 }}>{display}</div>
+                                <div style={{ height: 8, background: "#e8f0ec", borderRadius: 4, overflow: "hidden", marginBottom: 3 }}>
+                                  <div style={{ height: "100%", width: `${pct}%`, background: "var(--pm-primary)", borderRadius: 4, transition: "width 0.4s" }} />
+                                </div>
+                                <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" as const }}>Silo {s.letter}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Total vs needed */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                          <div style={{ textAlign: "center", background: "#fff", borderRadius: 7, padding: "7px 5px" }}>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: "var(--pm-primary)" }}>{siloTotalKg! >= 1000 ? `${(siloTotalKg! / 1000).toFixed(1)}t` : `${Math.round(siloTotalKg!)}kg`}</div>
+                            <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" as const, marginTop: 2 }}>In Silos Now</div>
+                          </div>
+                          <div style={{ textAlign: "center", background: siloOk ? "#f0faf4" : "#fff5f5", borderRadius: 7, padding: "7px 5px", border: `1px solid ${siloOk ? "#a8ddb8" : "#f0b0b0"}` }}>
+                            <div style={{ fontSize: 20, fontWeight: 900, color: siloOk ? "#1a7a40" : "#c0392b" }}>
+                              {siloBuffer != null ? (siloBuffer >= 0 ? `+${Math.abs(siloBuffer) >= 1000 ? (Math.abs(siloBuffer) / 1000).toFixed(1) + "t" : Math.round(Math.abs(siloBuffer)) + "kg"}` : `-${Math.abs(siloBuffer) >= 1000 ? (Math.abs(siloBuffer) / 1000).toFixed(1) + "t" : Math.round(Math.abs(siloBuffer)) + "kg"}`) : "—"}
+                            </div>
+                            <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" as const, marginTop: 2 }}>{siloOk ? "Buffer" : "Shortfall"}</div>
+                          </div>
+                        </div>
+                        {/* Progress bar — silo vs needed */}
+                        {siloFillPct != null && siloNeeded > 0 && (
+                          <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#aaa", marginBottom: 3 }}>
+                              <span>0</span>
+                              <span style={{ fontWeight: 700, color: siloOk ? "#1a7a40" : "#c0392b" }}>{siloOk ? "✅ Covered" : "⚠️ Short"}</span>
+                              <span>{siloNeeded >= 1000 ? `${(siloNeeded / 1000).toFixed(1)}t needed` : `${Math.round(siloNeeded)}kg needed`}</span>
+                            </div>
+                            <div style={{ height: 10, background: "#e8f0ec", borderRadius: 5, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${Math.min(100, siloFillPct)}%`, background: siloOk ? "var(--pm-primary)" : "#e74c3c", borderRadius: 5, transition: "width 0.5s" }} />
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 12, color: "#bbb", textAlign: "center", padding: "8px 0" }}>
+                        No silo data — run a Silo Sync to see live levels here
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Days to catch chip ── */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {daysLeft > 0 && info.age > 0 && (
+                      <div style={{ background: "var(--pm-primary-pale)", border: "1px solid var(--pm-primary-border)", borderRadius: 6, padding: "5px 11px", fontSize: 12, fontWeight: 700, color: "var(--pm-primary)" }}>
+                        🗓 {daysLeft} day{daysLeft !== 1 ? "s" : ""} to catch
+                      </div>
+                    )}
+                    {!info.placementDate && (
+                      <div style={{ fontSize: 12, color: "#bbb" }}>Set a placement date on the Summary tab to enable age calculations.</div>
+                    )}
+                  </div>
+
                 </div>
-              </div>
+                );
+              })()}
             </div>
 
             {/* Per-shed catch summary strip */}
@@ -5900,6 +6006,7 @@ export default function App() {
         const now = Date.now();
         localStorage.setItem("silo-fp-last-sync", String(now));
         localStorage.setItem("silo-fp-last-sync-date", todayStr());
+        localStorage.setItem("silo-fp-last-readings", JSON.stringify(sheds.map(s => ({ shedGroupId: s.shedGroupId, shedGroupName: s.shedGroupName, silos: s.silos.map(x => ({ letter: x.letter, amountRemaining: x.amountRemaining, unit: x.unit })) }))));
         setLastAutoSyncTs(now);
         setHasChanges(true);
       } catch { /* network unavailable — silently skip */ }
@@ -5991,6 +6098,7 @@ export default function App() {
     ).join("|");
     lastSyncHashRef.current = hash;
     localStorage.setItem("silo-fp-sync-hash", hash);
+    localStorage.setItem("silo-fp-last-readings", JSON.stringify(siloSyncReadings.map(s => ({ shedGroupId: s.shedGroupId, shedGroupName: s.shedGroupName, silos: s.silos.map(x => ({ letter: x.letter, amountRemaining: x.amountRemaining, unit: x.unit })) }))));
     const now = Date.now();
     localStorage.setItem("silo-fp-last-sync", String(now));
     setLastAutoSyncTs(now);
