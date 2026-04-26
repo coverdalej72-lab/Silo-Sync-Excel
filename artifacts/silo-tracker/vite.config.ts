@@ -32,7 +32,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}"],
         navigateFallback: "index.html",
-        navigateFallbackAllowlist: [/^(?!\/(api|_)).*$/],
+        navigateFallbackAllowlist: [/^(?!\/(api|_|plans|home|feed-program|how-to-video)).*$/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
