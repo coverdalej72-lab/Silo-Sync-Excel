@@ -5587,7 +5587,7 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
 export default function App() {
   const [sheets, setSheets] = useState<SheetParsed[]>([]);
   const [active, setActive] = useState(0);
-  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "density" | "flockForecast" | "eggProduction" | "bodyWeight" | "weighBirds">(null);
+  const [activeView, setActiveView] = useState<null | "summary" | "batchResults" | "morts" | "history" | "density" | "flockForecast" | "eggProduction" | "bodyWeight">(null);
   const [batchResultsSummary, setBatchResultsSummary] = useState<BatchSummary | null>(null);
   const [batchKey, setBatchKey] = useState(0);
   const [batchCleared, setBatchCleared] = useState<boolean>(() => localStorage.getItem("silo-batch-cleared") === "1");
@@ -6796,11 +6796,6 @@ export default function App() {
             style={{ backgroundColor: activeView === "flockForecast" ? "#fff" : "#8b3fc8", color: activeView === "flockForecast" ? "#4e1a6e" : "#fff", borderColor: activeView === "flockForecast" ? "#ccc" : "#6a2faa00", transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             🔮 Flock Forecast
           </button>
-          <button onClick={() => setActiveView("weighBirds")}
-            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "weighBirds" ? "#fff" : "#C9A227", color: activeView === "weighBirds" ? "#7a5500" : "#000", borderColor: activeView === "weighBirds" ? "#ccc" : "#a8780000", transform: activeView === "weighBirds" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
-            ⚖️ Weigh Birds
-          </button>
         </>)}
 
         {/* ── Breeder-only tabs ── */}
@@ -6848,10 +6843,6 @@ export default function App() {
         ) : activeView === "bodyWeight" ? (
           <div className="flex-1 overflow-auto safe-bottom">
             <BodyWeightView farmConfig={farmConfig} shedPlacement={shedPlacement} />
-          </div>
-        ) : activeView === "weighBirds" ? (
-          <div className="flex-1 overflow-auto safe-bottom">
-            <BirdWeighView farmConfig={farmConfig} />
           </div>
         ) : activeView === "flockForecast" ? (
           <div className="flex-1 overflow-auto safe-bottom">
