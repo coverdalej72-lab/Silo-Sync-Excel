@@ -191,18 +191,30 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
     return sum + (isNaN(v) ? 0 : v);
   }, 0);
 
-  // Live-compute Birds Caught total — formula cells don't recalculate in-app
-  const totalBirdsCatched = birdRows.reduce((sum, r) => {
-    const v = parseFloat(g(r, 23).replace(/,/g, ""));
-    return sum + (isNaN(v) ? 0 : v);
-  }, 0);
+  // Helper: catched for a row.
+  // Excel formulas in the catched column (col 23) may cache the placed count as a default
+  // before any catch is recorded. To avoid showing inflated numbers, we suppress the value
+  // when it equals the placed count AND no explicit catch edit exists for that row.
+  function getCatchedForRow(r: number): number {
+    const catchedKey = `${r},23`;
+    const placed = parseFloat(g(r, 22).replace(/,/g, "")) || 0;
+    const hasEdit = edits.has(catchedKey);
+    const v = parseFloat(g(r, 23).replace(/,/g, "")) || 0;
+    if (!hasEdit && v > 0 && v === placed) return 0;
+    return v;
+  }
 
-  // Helper: morts for a row — use spreadsheet cell if populated, else compute placed - caught
+  // Live-compute Birds Caught total — formula cells don't recalculate in-app
+  const totalBirdsCatched = birdRows.reduce((sum, r) => sum + getCatchedForRow(r), 0);
+
+  // Helper: morts for a row — use spreadsheet cell if populated, else compute placed - caught.
+  // Only compute placed-caught when caught > 0; if no birds have been caught yet, morts = 0.
   function getMortsForRow(r: number): number {
     const mortsCell = parseFloat(g(r, 24).replace(/,/g, ""));
     if (!isNaN(mortsCell) && mortsCell > 0) return mortsCell;
     const placed = parseFloat(g(r, 22).replace(/,/g, "")) || 0;
-    const caught = parseFloat(g(r, 23).replace(/,/g, "")) || 0;
+    const caught = getCatchedForRow(r);
+    if (caught === 0) return 0;
     return Math.max(0, placed - caught);
   }
 
@@ -442,7 +454,16 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
                       {g(r, 21)}
                     </td>
                     <td style={{ padding: "1px 0" }}><Cell r={r} c={22} align="right" muted /></td>
-                    <td style={{ padding: "1px 0" }}><Cell r={r} c={23} align="right" muted /></td>
+                    <td style={{ padding: "3px 10px", textAlign: "right" }}>
+                      {(() => {
+                        const caught = getCatchedForRow(r);
+                        return (
+                          <span style={{ color: caught > 0 ? "inherit" : "#94a3b8", fontSize: 12 }}>
+                            {caught > 0 ? caught.toLocaleString() : "—"}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td style={{ padding: "3px 10px", textAlign: "right" }}>
                       <span style={{ color: morts > 0 ? "#dc2626" : "#94a3b8", fontWeight: morts > 500 ? 700 : 400, fontSize: 12 }}>
                         {morts > 0 ? morts.toLocaleString() : "—"}
