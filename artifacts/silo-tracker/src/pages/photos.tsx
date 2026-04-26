@@ -3,7 +3,7 @@ import { Trash2, ZoomIn, X, Camera, Scale, FileText, ChevronDown, ChevronUp } fr
 import { format } from "date-fns";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 type PhotoType = "mort" | "weigh";
 
 interface PhotoEntry {
@@ -12,7 +12,8 @@ interface PhotoEntry {
   dataUrl: string;
   note: string;
   type: PhotoType;
-  shedGroupId: number;
+  shedNum: number;           // individual shed number, e.g. 1, 2, 3…
+  shedGroupId: number;       // parent group for flock forecast key
   weightKg?: number;
   confidence?: string;
   ageDays?: number;
@@ -20,9 +21,9 @@ interface PhotoEntry {
 
 type WeighInData = Record<number, Record<number, number>>;
 
-// ─── Storage keys ────────────────────────────────────────────────────────────
-const PHOTOS_KEY      = "silo-shed-photos";
-const WEIGHIN_KEY     = "feedmate-flock-weighins";
+// ─── Storage ─────────────────────────────────────────────────────────────────
+const PHOTOS_KEY  = "silo-shed-photos-v2";
+const WEIGHIN_KEY = "feedmate-flock-weighins";
 
 function loadPhotos(): PhotoEntry[] {
   try { return JSON.parse(localStorage.getItem(PHOTOS_KEY) || "[]"); } catch { return []; }
@@ -34,126 +35,122 @@ function loadWeighIns(): WeighInData {
   try { return JSON.parse(localStorage.getItem(WEIGHIN_KEY) || "{}"); } catch { return {}; }
 }
 function saveWeighIn(shedGroupId: number, ageDays: number, weightKg: number) {
-  const existing = loadWeighIns();
-  if (!existing[shedGroupId]) existing[shedGroupId] = {};
+  const data = loadWeighIns();
+  if (!data[shedGroupId]) data[shedGroupId] = {};
   const grams = Math.round(weightKg * 1000);
-  const cur = existing[shedGroupId][ageDays];
-  existing[shedGroupId][ageDays] = cur ? Math.round((cur + grams) / 2) : grams;
-  localStorage.setItem(WEIGHIN_KEY, JSON.stringify(existing));
+  const cur = data[shedGroupId][ageDays];
+  data[shedGroupId][ageDays] = cur ? Math.round((cur + grams) / 2) : grams;
+  localStorage.setItem(WEIGHIN_KEY, JSON.stringify(data));
 }
 
-// ─── Confidence badge colour ──────────────────────────────────────────────────
 function confColor(c?: string) {
   if (c === "high")   return "#16a34a";
   if (c === "medium") return "#d97706";
   return "#dc2626";
 }
 
-// ─── Main component ──────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function Photos() {
   const { config } = useFarmConfig();
-  const activeShedGroups = config.shedGroups.filter(g => g.active);
 
-  const [photos, setPhotos]             = useState<PhotoEntry[]>(loadPhotos);
-  const [viewPhoto, setViewPhoto]       = useState<PhotoEntry | null>(null);
+  // Expand each active shed group into its 2 individual sheds
+  const individualSheds = config.shedGroups
+    .filter(g => g.active)
+    .flatMap(g => [
+      { shedNum: (g.shedGroupId - 1) * 2 + 1, shedGroupId: g.shedGroupId, label: `Shed ${(g.shedGroupId - 1) * 2 + 1}` },
+      { shedNum: (g.shedGroupId - 1) * 2 + 2, shedGroupId: g.shedGroupId, label: `Shed ${(g.shedGroupId - 1) * 2 + 2}` },
+    ]);
+
+  const [photos, setPhotos]               = useState<PhotoEntry[]>(loadPhotos);
+  const [viewPhoto, setViewPhoto]         = useState<PhotoEntry | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [collapsed, setCollapsed]       = useState<Record<number, boolean>>({});
+  const [collapsed, setCollapsed]         = useState<Record<number, boolean>>({});
 
-  // Camera state per-shed
-  const [activeShed, setActiveShed]     = useState<number | null>(null);
-  const [captureType, setCaptureType]   = useState<PhotoType>("mort");
-
-  // Bird weigh AI state
-  const [weighNote, setWeighNote]       = useState("");
-  const [weighAge, setWeighAge]         = useState("");
-  const [aiLoading, setAiLoading]       = useState(false);
-  const [aiResult, setAiResult]         = useState<{ estimatedWeightKg: number | null; confidenceLevel: string; visualCues: string; notes: string } | null>(null);
-  const [aiError, setAiError]           = useState<string | null>(null);
-  const [pendingImg, setPendingImg]     = useState<string | null>(null);
+  // Active capture
+  const [activeShedNum, setActiveShedNum]     = useState<number | null>(null);
+  const [activeShedGroupId, setActiveShedGroupId] = useState<number>(1);
+  const [captureType, setCaptureType]         = useState<PhotoType>("mort");
 
   // Mort state
-  const [mortNote, setMortNote]         = useState("");
+  const [mortNote, setMortNote]           = useState("");
+
+  // Bird weight state
+  const [weighAge, setWeighAge]           = useState("");
+  const [weighNote, setWeighNote]         = useState("");
+  const [pendingImg, setPendingImg]       = useState<string | null>(null);
+  const [aiLoading, setAiLoading]         = useState(false);
+  const [aiResult, setAiResult]           = useState<{
+    estimatedWeightKg: number | null;
+    confidenceLevel: string;
+    visualCues: string;
+    notes: string;
+  } | null>(null);
+  const [aiError, setAiError]             = useState<string | null>(null);
 
   const mortFileRef  = useRef<HTMLInputElement>(null);
   const weighFileRef = useRef<HTMLInputElement>(null);
 
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  // ── Open capture for a shed ──────────────────────────────────────────────
-  const openCapture = (shedGroupId: number, type: PhotoType) => {
-    setActiveShed(shedGroupId);
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const openCapture = (shedNum: number, shedGroupId: number, type: PhotoType) => {
+    setActiveShedNum(shedNum);
+    setActiveShedGroupId(shedGroupId);
     setCaptureType(type);
-    setAiResult(null);
-    setAiError(null);
-    setPendingImg(null);
-    setWeighNote("");
-    setWeighAge("");
-    setMortNote("");
+    setMortNote(""); setWeighAge(""); setWeighNote("");
+    setPendingImg(null); setAiResult(null); setAiError(null);
   };
-
   const closeCapture = () => {
-    setActiveShed(null);
-    setAiResult(null);
-    setAiError(null);
-    setPendingImg(null);
+    setActiveShedNum(null);
+    setPendingImg(null); setAiResult(null); setAiError(null);
   };
 
-  // ── Handle mort photo ────────────────────────────────────────────────────
-  const handleMortFile = (file: File | null | undefined, shedGroupId: number) => {
-    if (!file) return;
+  // ── Mort photo ───────────────────────────────────────────────────────────
+  const handleMortFile = (file: File | null | undefined) => {
+    if (!file || activeShedNum === null) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      const dataUrl = ev.target?.result as string;
       const entry: PhotoEntry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         date: new Date().toISOString(),
-        dataUrl,
+        dataUrl: ev.target?.result as string,
         note: mortNote.trim(),
         type: "mort",
-        shedGroupId,
+        shedNum: activeShedNum,
+        shedGroupId: activeShedGroupId,
       };
       const next = [...photos, entry];
-      setPhotos(next);
-      savePhotos(next);
-      setMortNote("");
+      setPhotos(next); savePhotos(next);
       closeCapture();
     };
     reader.readAsDataURL(file);
     if (mortFileRef.current) mortFileRef.current.value = "";
   };
 
-  // ── Handle bird weigh photo ───────────────────────────────────────────────
+  // ── Bird weight photo ─────────────────────────────────────────────────────
   const handleWeighFile = (file: File | null | undefined) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      const dataUrl = ev.target?.result as string;
-      setPendingImg(dataUrl);
-      setAiResult(null);
-      setAiError(null);
+      setPendingImg(ev.target?.result as string);
+      setAiResult(null); setAiError(null);
     };
     reader.readAsDataURL(file);
     if (weighFileRef.current) weighFileRef.current.value = "";
   };
 
   const runAI = async () => {
-    if (!pendingImg || activeShed === null) return;
-    setAiLoading(true);
-    setAiError(null);
+    if (!pendingImg || activeShedNum === null) return;
+    setAiLoading(true); setAiError(null);
     try {
       const age = weighAge ? parseInt(weighAge) : undefined;
       const res = await fetch(`${BASE}/api/weigh-bird`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageBase64: pendingImg,
-          ageDays: age,
-          shedNum: (activeShed - 1) * 2 + 1,
-        }),
+        body: JSON.stringify({ imageBase64: pendingImg, ageDays: age, shedNum: activeShedNum }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const result = await res.json();
-      setAiResult(result);
+      setAiResult(await res.json());
     } catch (err) {
       setAiError(String(err));
     } finally {
@@ -162,72 +159,72 @@ export default function Photos() {
   };
 
   const logWeighIn = () => {
-    if (!aiResult?.estimatedWeightKg || activeShed === null) return;
+    if (!aiResult?.estimatedWeightKg || activeShedNum === null) return;
     const age = weighAge ? parseInt(weighAge) : 0;
-    if (age > 0) saveWeighIn(activeShed, age, aiResult.estimatedWeightKg);
-
+    if (age > 0) saveWeighIn(activeShedGroupId, age, aiResult.estimatedWeightKg);
     const entry: PhotoEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       date: new Date().toISOString(),
       dataUrl: pendingImg!,
       note: weighNote.trim(),
       type: "weigh",
-      shedGroupId: activeShed,
+      shedNum: activeShedNum,
+      shedGroupId: activeShedGroupId,
       weightKg: aiResult.estimatedWeightKg,
       confidence: aiResult.confidenceLevel,
       ageDays: age > 0 ? age : undefined,
     };
     const next = [...photos, entry];
-    setPhotos(next);
-    savePhotos(next);
+    setPhotos(next); savePhotos(next);
     closeCapture();
   };
 
   const deletePhoto = (id: string) => {
     const next = photos.filter(p => p.id !== id);
-    setPhotos(next);
-    savePhotos(next);
+    setPhotos(next); savePhotos(next);
     setConfirmDelete(null);
     if (viewPhoto?.id === id) setViewPhoto(null);
   };
 
-  const toggleCollapsed = (sgId: number) =>
-    setCollapsed(prev => ({ ...prev, [sgId]: !prev[sgId] }));
+  const toggleCollapsed = (shedNum: number) =>
+    setCollapsed(prev => ({ ...prev, [shedNum]: !prev[shedNum] }));
 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
 
-      {activeShedGroups.length === 0 && (
+      {individualSheds.length === 0 && (
         <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground p-8 text-center">
           <Camera className="h-12 w-12 opacity-20" />
-          <div className="text-sm font-medium">No active shed groups</div>
-          <div className="text-xs opacity-60">Enable shed groups in Settings to start capturing photos.</div>
+          <div className="text-sm font-medium">No active sheds</div>
+          <div className="text-xs opacity-60">Enable shed groups in Settings to start.</div>
         </div>
       )}
 
-      {activeShedGroups.map(shed => {
+      {individualSheds.map(({ shedNum, shedGroupId, label }) => {
         const shedPhotos = photos
-          .filter(p => p.shedGroupId === shed.shedGroupId)
+          .filter(p => p.shedNum === shedNum)
           .sort((a, b) => b.date.localeCompare(a.date));
-        const isOpen = !collapsed[shed.shedGroupId];
+        const isOpen = !collapsed[shedNum];
 
         return (
-          <div key={shed.shedGroupId} className="border-b border-border">
-            {/* Shed header */}
+          <div key={shedNum} className="border-b border-border">
+            {/* Shed header row */}
             <button
               className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 active:bg-muted/70"
-              onClick={() => toggleCollapsed(shed.shedGroupId)}
+              onClick={() => toggleCollapsed(shedNum)}
             >
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm">{shed.customName}</span>
+                <span className="font-bold text-sm">{label}</span>
                 {shedPhotos.length > 0 && (
                   <span className="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">
                     {shedPhotos.length}
                   </span>
                 )}
               </div>
-              {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              {isOpen
+                ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
             </button>
 
             {isOpen && (
@@ -235,14 +232,14 @@ export default function Photos() {
                 {/* Two action buttons */}
                 <div className="flex gap-2 mb-3">
                   <button
-                    onClick={() => openCapture(shed.shedGroupId, "mort")}
+                    onClick={() => openCapture(shedNum, shedGroupId, "mort")}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-red-400 bg-red-50 text-red-700 font-semibold text-sm active:opacity-70"
                   >
                     <FileText className="h-4 w-4" />
                     Mort Sheet
                   </button>
                   <button
-                    onClick={() => openCapture(shed.shedGroupId, "weigh")}
+                    onClick={() => openCapture(shedNum, shedGroupId, "weigh")}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-primary bg-primary/5 text-primary font-semibold text-sm active:opacity-70"
                   >
                     <Scale className="h-4 w-4" />
@@ -250,9 +247,9 @@ export default function Photos() {
                   </button>
                 </div>
 
-                {/* Photos grid */}
+                {/* Photo grid */}
                 {shedPhotos.length === 0 ? (
-                  <div className="text-center py-4 text-xs text-muted-foreground">No photos yet for this shed</div>
+                  <div className="text-center py-3 text-xs text-muted-foreground">No photos yet for {label}</div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     {shedPhotos.map(p => (
@@ -268,7 +265,6 @@ export default function Photos() {
                           onClick={() => setViewPhoto(p)}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-                        {/* Type badge */}
                         <div className={`absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md ${p.type === "mort" ? "bg-red-600 text-white" : "bg-primary text-primary-foreground"}`}>
                           {p.type === "mort" ? "MORT" : "WEIGH"}
                         </div>
@@ -301,17 +297,15 @@ export default function Photos() {
         );
       })}
 
-      {/* ── MORT CAPTURE SHEET ─────────────────────────────────────────── */}
-      {activeShed !== null && captureType === "mort" && (
+      {/* ── MORT CAPTURE PANEL ──────────────────────────────────────────── */}
+      {activeShedNum !== null && captureType === "mort" && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-end">
           <div className="w-full bg-background rounded-t-2xl p-5 shadow-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-bold text-base">📋 Mort Sheet Photo</div>
+            <div className="flex items-center justify-between mb-1">
+              <div className="font-bold text-base">📋 Mort Sheet — Shed {activeShedNum}</div>
               <button onClick={closeCapture} className="bg-muted rounded-xl p-2"><X className="h-4 w-4" /></button>
             </div>
-            <div className="text-xs text-muted-foreground mb-3">
-              {config.shedGroups.find(g => g.shedGroupId === activeShed)?.customName}
-            </div>
+            <p className="text-xs text-muted-foreground mb-3">Take or upload a mort sheet photo for this shed.</p>
             <input
               placeholder="Add a note (optional)..."
               value={mortNote}
@@ -331,25 +325,23 @@ export default function Photos() {
               accept="image/*"
               capture="environment"
               className="hidden"
-              onChange={e => handleMortFile(e.target.files?.[0], activeShed)}
+              onChange={e => handleMortFile(e.target.files?.[0])}
             />
           </div>
         </div>
       )}
 
-      {/* ── BIRD WEIGHT CAPTURE SHEET ──────────────────────────────────── */}
-      {activeShed !== null && captureType === "weigh" && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-end overflow-y-auto">
-          <div className="w-full bg-background rounded-t-2xl p-5 shadow-2xl mt-auto">
+      {/* ── BIRD WEIGHT CAPTURE PANEL ────────────────────────────────────── */}
+      {activeShedNum !== null && captureType === "weigh" && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end">
+          <div className="w-full bg-background rounded-t-2xl p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-1">
-              <div className="font-bold text-base">⚖️ Bird Weight</div>
+              <div className="font-bold text-base">⚖️ Bird Weight — Shed {activeShedNum}</div>
               <button onClick={closeCapture} className="bg-muted rounded-xl p-2"><X className="h-4 w-4" /></button>
             </div>
-            <div className="text-xs text-muted-foreground mb-3">
-              {config.shedGroups.find(g => g.shedGroupId === activeShed)?.customName}
-            </div>
+            <p className="text-xs text-muted-foreground mb-3">Photo a bird to get an AI weight estimate. Enter age to log to Flock Forecast.</p>
 
-            {/* Step 1 — capture */}
+            {/* Step 1 — age + capture */}
             {!pendingImg && (
               <>
                 <input
@@ -377,20 +369,20 @@ export default function Photos() {
               </>
             )}
 
-            {/* Step 2 — preview + AI */}
+            {/* Step 2 — preview, optionally set age, run AI */}
             {pendingImg && !aiResult && (
               <div className="flex flex-col gap-3">
-                <img src={pendingImg} alt="Bird" className="w-full max-h-48 object-contain rounded-xl border border-border" />
-                {!weighAge && (
-                  <input
-                    placeholder="Bird age in days (optional)..."
-                    value={weighAge}
-                    onChange={e => setWeighAge(e.target.value.replace(/\D/g, ""))}
-                    inputMode="numeric"
-                    className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background outline-none focus:ring-2 focus:ring-primary/40"
-                  />
+                <img src={pendingImg} alt="Bird" className="w-full max-h-44 object-contain rounded-xl border border-border" />
+                <input
+                  placeholder="Bird age in days (optional)..."
+                  value={weighAge}
+                  onChange={e => setWeighAge(e.target.value.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background outline-none focus:ring-2 focus:ring-primary/40"
+                />
+                {aiError && (
+                  <div className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{aiError}</div>
                 )}
-                {aiError && <div className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{aiError}</div>}
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setPendingImg(null); setAiError(null); weighFileRef.current?.click(); }}
@@ -415,16 +407,18 @@ export default function Photos() {
                 <img src={pendingImg} alt="Bird" className="w-full max-h-36 object-contain rounded-xl border border-border" />
                 {aiResult.estimatedWeightKg != null ? (
                   <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-center">
-                    <div className="text-3xl font-black text-primary">{(aiResult.estimatedWeightKg * 1000).toFixed(0)}g</div>
+                    <div className="text-4xl font-black text-primary">{(aiResult.estimatedWeightKg * 1000).toFixed(0)}g</div>
                     <div className="text-xs text-muted-foreground mt-1">{aiResult.estimatedWeightKg.toFixed(3)} kg</div>
-                    <div className="mt-1 text-[10px] font-bold" style={{ color: confColor(aiResult.confidenceLevel) }}>
-                      {aiResult.confidenceLevel?.toUpperCase()} CONFIDENCE
+                    <div className="mt-1.5 text-[10px] font-bold uppercase" style={{ color: confColor(aiResult.confidenceLevel) }}>
+                      {aiResult.confidenceLevel} confidence
                     </div>
-                    {aiResult.visualCues && <div className="text-[11px] text-muted-foreground mt-2">{aiResult.visualCues}</div>}
+                    {aiResult.visualCues && (
+                      <div className="text-[11px] text-muted-foreground mt-2">{aiResult.visualCues}</div>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center text-sm text-red-700">
-                    Could not estimate weight — {aiResult.notes || "no bird visible"}
+                    Could not estimate — {aiResult.notes || "no bird clearly visible"}
                   </div>
                 )}
                 <input
@@ -433,6 +427,11 @@ export default function Photos() {
                   onChange={e => setWeighNote(e.target.value)}
                   className="w-full text-sm px-3 py-2 rounded-lg border border-border bg-background outline-none focus:ring-2 focus:ring-primary/40"
                 />
+                {!weighAge && aiResult.estimatedWeightKg != null && (
+                  <div className="text-[11px] text-amber-600 text-center bg-amber-50 rounded-lg px-3 py-2">
+                    Add a bird age above to log this to Flock Forecast
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setPendingImg(null); setAiResult(null); }}
@@ -449,9 +448,6 @@ export default function Photos() {
                     </button>
                   )}
                 </div>
-                {!weighAge && aiResult.estimatedWeightKg != null && (
-                  <div className="text-[11px] text-amber-600 text-center">Enter an age above to log this to your Flock Forecast</div>
-                )}
               </div>
             )}
           </div>
@@ -464,6 +460,7 @@ export default function Photos() {
           <div className="flex items-center justify-between px-4 py-3" onClick={e => e.stopPropagation()}>
             <div>
               <div className="text-white/60 text-xs">{format(new Date(viewPhoto.date), "d MMM yyyy, h:mm a")}</div>
+              <div className="text-white/80 text-xs font-semibold mt-0.5">Shed {viewPhoto.shedNum}</div>
               {viewPhoto.type === "weigh" && viewPhoto.weightKg != null && (
                 <div className="text-white text-sm font-bold mt-0.5">
                   {(viewPhoto.weightKg * 1000).toFixed(0)}g
