@@ -3661,13 +3661,21 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
   const [weighIns, setWeighIns] = useState<Record<number, Record<number, number>>>(() => {
     try { return JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}"); } catch { return {}; }
   });
+  // Catch map: Record<shedNum, {date,age,birds,aveWgt,totalWgt}[]>
+  const [catchMap, setCatchMap] = useState<Record<number, { birds: string; aveWgt: string; totalWgt: string; date: string; age: string }[]>>(() => {
+    try { return JSON.parse(localStorage.getItem(BATCH_CATCHES_KEY) ?? "{}"); } catch { return {}; }
+  });
 
   useEffect(() => {
-    const handler = () => {
-      try { setWeighIns(JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}")); } catch { /* noop */ }
+    const handler = (e: StorageEvent | null) => {
+      if (!e || e.key === FLOCK_WEIGHIN_KEY || e.key === null)
+        try { setWeighIns(JSON.parse(localStorage.getItem(FLOCK_WEIGHIN_KEY) ?? "{}")); } catch { /* noop */ }
+      if (!e || e.key === BATCH_CATCHES_KEY || e.key === null)
+        try { setCatchMap(JSON.parse(localStorage.getItem(BATCH_CATCHES_KEY) ?? "{}")); } catch { /* noop */ }
     };
-    window.addEventListener("storage", handler);
-    return () => window.removeEventListener("storage", handler);
+    handler(null); // sync on mount
+    window.addEventListener("storage", handler as EventListener);
+    return () => window.removeEventListener("storage", handler as EventListener);
   }, []);
 
   const saveFloorArea = (shedNum: number, val: number) => {
@@ -3702,13 +3710,33 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
             const groupId = Math.ceil(shedNum / 2);
             const placed = shedPlacement.get(shedNum) ?? 0;
             const floorArea = floorAreas[shedNum] ?? 0;
-            const birdDensity = floorArea > 0 && placed > 0 ? placed / floorArea : null;
 
+            // Subtract caught birds from this shed to get current live count
+            const shedCatches = catchMap[shedNum] ?? [];
+            const totalCaught = shedCatches.reduce((sum, c) => sum + (parseInt(String(c.birds), 10) || 0), 0);
+            const currentBirds = Math.max(0, placed - totalCaught);
+            const hasCatches = totalCaught > 0;
+
+            // Latest catch weight (kg) — from the most recent catch row with aveWgt recorded
+            const catchesWithWgt = shedCatches.filter(c => parseFloat(String(c.aveWgt)) > 0);
+            const latestCatchWgtKg = catchesWithWgt.length > 0
+              ? parseFloat(String(catchesWithWgt[catchesWithWgt.length - 1].aveWgt))
+              : null;
+
+            // Bird density based on CURRENT birds in shed
+            const birdDensity = floorArea > 0 && currentBirds > 0 ? currentBirds / floorArea : null;
+
+            // Weigh-in data (from Broiler app Bird Weigh view OR Silo Mate AI camera weigh)
             const groupWeigh = weighIns[groupId] ?? {};
             const allAges = Object.keys(groupWeigh).map(Number).filter(a => !isNaN(a));
             const latestAge = allAges.length > 0 ? Math.max(...allAges) : null;
             const latestGrams = latestAge != null ? groupWeigh[latestAge] : null;
-            const latestKg = latestGrams != null ? latestGrams / 1000 : null;
+            const latestWeighInKg = latestGrams != null ? latestGrams / 1000 : null;
+
+            // Best weight: prefer live weigh-in; fall back to latest catch weight
+            const latestKg = latestWeighInKg ?? latestCatchWgtKg;
+            const weightSource: "weighin" | "catch" | null = latestWeighInKg != null ? "weighin" : latestCatchWgtKg != null ? "catch" : null;
+
             const liveWtDensity = birdDensity != null && latestKg != null ? birdDensity * latestKg : null;
 
             // Primary metric: kg/m² live weight density (requires both floor area and weigh-in)
@@ -3734,11 +3762,16 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
                 display: "flex", flexDirection: "column", gap: 12,
               }}>
                 {/* Card header */}
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontWeight: 800, fontSize: 16, color: "#222", flex: 1 }}>Shed {shedNum}</span>
-                  {placed > 0 && (
+                  {currentBirds > 0 && (
                     <span style={{ fontSize: 11, background: "#f0f7f3", borderRadius: 5, padding: "2px 8px", color: "#1a5c36", fontWeight: 700 }}>
-                      🐔 {placed.toLocaleString()} placed
+                      🐔 {currentBirds.toLocaleString()} in shed
+                    </span>
+                  )}
+                  {hasCatches && (
+                    <span style={{ fontSize: 11, background: "#fff3e0", borderRadius: 5, padding: "2px 8px", color: "#b05000", fontWeight: 700 }}>
+                      −{totalCaught.toLocaleString()} caught
                     </span>
                   )}
                 </div>
@@ -3775,12 +3808,17 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
                 )}
 
                 {/* Weight info */}
-                {latestKg != null && (
+                {weightSource === "weighin" && latestWeighInKg != null && (
                   <span style={{ fontSize: 12, background: "#f5eeff", borderRadius: 6, padding: "4px 10px", fontWeight: 600, color: "#7b3fc4", alignSelf: "flex-start" }}>
-                    ⚖️ {latestKg.toFixed(3)} kg avg · day {latestAge}
+                    ⚖️ {latestWeighInKg.toFixed(3)} kg avg · day {latestAge}
                   </span>
                 )}
-                {latestKg == null && floorArea > 0 && placed > 0 && (
+                {weightSource === "catch" && latestCatchWgtKg != null && (
+                  <span style={{ fontSize: 12, background: "#fff3e0", borderRadius: 6, padding: "4px 10px", fontWeight: 600, color: "#b05000", alignSelf: "flex-start" }}>
+                    ⚖️ {latestCatchWgtKg.toFixed(3)} kg (catch weight)
+                  </span>
+                )}
+                {latestKg == null && floorArea > 0 && currentBirds > 0 && (
                   <span style={{ fontSize: 11, color: "#a07030" }}>
                     ⚠ Weigh birds to get kg/m² — showing birds/m² only
                   </span>
