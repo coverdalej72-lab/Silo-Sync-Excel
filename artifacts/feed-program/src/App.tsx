@@ -2766,18 +2766,14 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Ave. Weight</div>
           </div>
         )}
-        {summary && (
-          <div style={cardStyle("#2980b9")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary.fcr > 0 ? summary.fcr.toFixed(3) : "—"}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
-          </div>
-        )}
-        {summary && (
-          <div style={cardStyle("#16a085")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary.cfcr > 0 ? summary.cfcr.toFixed(3) : "—"}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
-          </div>
-        )}
+        <div style={cardStyle("#2980b9")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#2980b9" }}>{summary && summary.fcr > 0 ? summary.fcr.toFixed(3) : "—"}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>FCR</div>
+        </div>
+        <div style={cardStyle("#16a085")}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#16a085" }}>{summary && summary.cfcr > 0 ? summary.cfcr.toFixed(3) : "—"}</div>
+          <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>CFCR</div>
+        </div>
         {summary && summary.actualAge > 0 && (
           <div style={cardStyle("#5b6fa6")}>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#5b6fa6" }}>{summary.actualAge.toFixed(1)} <span style={{ fontSize: 13 }}>days</span></div>
@@ -2790,12 +2786,24 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Corr. Age (2.45 kg)</div>
           </div>
         )}
-        {summary && (
-          <div style={cardStyle("#7f8c8d")}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>{summary.cage > 0 ? <>{summary.cage.toFixed(2)} <span style={{ fontSize: 13 }}>days</span></> : "—"}</div>
-            <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>Cage Age</div>
-          </div>
-        )}
+        {(() => {
+          const cageAgeVal = summary && summary.cage > 0 ? summary.cage : null;
+          const totalCages = Object.values(catchMap).reduce((s, rows) => s + rows.length, 0);
+          return (
+            <div style={cardStyle("#7f8c8d")}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>
+                {cageAgeVal != null
+                  ? <>{cageAgeVal.toFixed(2)} <span style={{ fontSize: 13 }}>days</span></>
+                  : totalCages > 0
+                    ? <>{totalCages} <span style={{ fontSize: 13 }}>cages</span></>
+                    : "—"}
+              </div>
+              <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {cageAgeVal != null ? "Cage Age" : "Cage"}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Ross 308 FF As-Hatched standard comparison at cage age */}
