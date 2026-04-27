@@ -1,5 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { EobQrScanner, type DocketData } from "./EobQrScanner";
+
+const SYNCED_IDS_KEY = "eob-synced-delivery-ids";
+function loadSyncedIds(): Set<number> {
+  try { return new Set(JSON.parse(localStorage.getItem(SYNCED_IDS_KEY) || "[]")); } catch { return new Set(); }
+}
+function saveSyncedIds(ids: Set<number>) {
+  localStorage.setItem(SYNCED_IDS_KEY, JSON.stringify([...ids]));
+}
 
 interface CellInfo {
   value: string;
@@ -40,10 +48,12 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   const [showScanner, setShowScanner] = useState(false);
   const [pendingDocket, setPendingDocket] = useState<DocketData | null>(null);
   const [selectedFeedType, setSelectedFeedType] = useState<number | null>(null);
-  // Editable fields for the pending docket — user can correct QR parse errors
   const [docketDate, setDocketDate]     = useState("");
   const [docketDocNo, setDocketDocNo]   = useState("");
   const [docketKg, setDocketKg]         = useState("");
+  const [syncBanner, setSyncBanner]     = useState<{ count: number; error?: string } | null>(null);
+  const [syncing, setSyncing]           = useState(false);
+  const syncedOnMount                   = useRef(false);
 
   const g = (r: number, c: number): string => {
     const key = `${r},${c}`;
@@ -103,6 +113,97 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
     { name: "Finisher",   cols: [10, 11, 12], totalRow: 36, color: "#7c3aed", bg: "#f5f3ff" },
     { name: "Withdrawl",  cols: [14, 15, 16], totalRow: 36, color: "#dc2626", bg: "#fef2f2" },
   ];
+
+  // ── Delivery auto-sync from Silo Tracker ─────────────────────────────────
+  const syncDeliveries = useCallback(async (silent = false) => {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/deliveries");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const deliveries: Array<{
+        id: number; feedType: string; amount: number; unit: string;
+        notes: string | null; deliveryDate: string;
+      }> = await res.json();
+
+      const syncedIds = loadSyncedIds();
+      const unsynced  = deliveries.filter(d => !syncedIds.has(d.id));
+      if (unsynced.length === 0) {
+        if (!silent) setSyncBanner({ count: 0 });
+        setSyncing(false);
+        return;
+      }
+
+      // Map feedType label → feedTypes entry
+      function resolveFt(raw: string) {
+        const lo = raw.toLowerCase();
+        return feedTypes.find(ft =>
+          ft.name.toLowerCase() === lo ||
+          ft.name.toLowerCase().startsWith(lo.slice(0, 4)) ||
+          lo.startsWith(ft.name.toLowerCase().slice(0, 4))
+        ) ?? feedTypes[0];
+      }
+
+      // Snapshot current used rows per dateCol (so we don't collide during the loop)
+      const usedRows: Record<number, Set<number>> = {};
+      for (const ft of feedTypes) {
+        usedRows[ft.cols[0]] = new Set();
+        for (let r = 6; r <= 35; r++) {
+          const v = g(r, ft.cols[0]);
+          if (v && v !== "" && v !== "0") usedRows[ft.cols[0]].add(r);
+        }
+      }
+
+      let count = 0;
+      for (const d of unsynced) {
+        const ft      = resolveFt(d.feedType);
+        const dateCol = ft.cols[0];
+
+        // Find next free row
+        let freeRow = -1;
+        for (let r = 6; r <= 35; r++) {
+          if (!usedRows[dateCol].has(r)) { freeRow = r; break; }
+        }
+        if (freeRow < 0) { syncedIds.add(d.id); continue; } // sheet full for this type
+
+        usedRows[dateCol].add(freeRow);
+
+        // Format date → DD/MM/YYYY
+        const dt  = new Date(d.deliveryDate);
+        const dd  = String(dt.getUTCDate()).padStart(2, "0");
+        const mm  = String(dt.getUTCMonth() + 1).padStart(2, "0");
+        const yyyy = dt.getUTCFullYear();
+        const dateStr = `${dd}/${mm}/${yyyy}`;
+
+        // Doc number from notes
+        const docNo = d.notes ? d.notes.replace(/^Doc:\s*/i, "").trim() : "";
+
+        // Amount in kg
+        const kg = d.unit === "t" ? d.amount * 1000 : d.amount;
+
+        onEdit(`${freeRow},${ft.cols[0]}`, dateStr);
+        if (docNo) onEdit(`${freeRow},${ft.cols[1]}`, docNo);
+        onEdit(`${freeRow},${ft.cols[2]}`, String(kg));
+
+        syncedIds.add(d.id);
+        count++;
+      }
+
+      saveSyncedIds(syncedIds);
+      setSyncBanner({ count });
+    } catch (err) {
+      setSyncBanner({ count: 0, error: String(err) });
+    } finally {
+      setSyncing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edits, cells, onEdit]);
+
+  // Auto-sync once on mount
+  useEffect(() => {
+    if (syncedOnMount.current) return;
+    syncedOnMount.current = true;
+    syncDeliveries(true);
+  }, [syncDeliveries]);
 
   function getDeliveryRows(dateCol: number): number[] {
     const rows: number[] = [];
@@ -334,11 +435,19 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
       )}
 
       {/* ── Feed Deliveries ───────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: syncBanner ? 8 : 10 }}>
         <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2, color: "#94a3b8" }}>
           Feed Deliveries
         </span>
         <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+        <button
+          onClick={() => syncDeliveries(false)}
+          disabled={syncing}
+          title="Sync deliveries from Silo Tracker"
+          style={{ display: "flex", alignItems: "center", gap: 5, background: "#f0fdf4", color: GREEN, border: `1.5px solid ${GREEN}`, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: syncing ? "default" : "pointer", opacity: syncing ? 0.6 : 1, whiteSpace: "nowrap" }}
+        >
+          {syncing ? "⏳" : "🔄"} Sync
+        </button>
         <button
           onClick={() => {
             setPendingDocket({ rawText: "" });
@@ -358,6 +467,29 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
           <span style={{ fontSize: 16 }}>⬛</span> Scan QR
         </button>
       </div>
+
+      {/* Sync banner */}
+      {syncBanner && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: syncBanner.error ? "#fef2f2" : syncBanner.count > 0 ? "#f0fdf4" : "#f8fafc",
+          border: `1px solid ${syncBanner.error ? "#fca5a5" : syncBanner.count > 0 ? "#bbf7d0" : "#e2e8f0"}`,
+          borderRadius: 8, padding: "7px 12px", marginBottom: 10, fontSize: 12,
+          color: syncBanner.error ? "#dc2626" : syncBanner.count > 0 ? "#15803d" : "#64748b",
+        }}>
+          <span>
+            {syncBanner.error
+              ? `⚠️ Sync failed: ${syncBanner.error}`
+              : syncBanner.count > 0
+                ? `✅ Auto-synced ${syncBanner.count} new deliver${syncBanner.count === 1 ? "y" : "ies"} from Silo Tracker`
+                : `✓ All deliveries up to date`}
+          </span>
+          <button
+            onClick={() => setSyncBanner(null)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 14, padding: "0 2px", lineHeight: 1 }}
+          >×</button>
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 18 }}>
         {feedTypes.map(({ name, cols, color, bg }) => {
