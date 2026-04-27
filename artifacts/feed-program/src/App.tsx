@@ -3689,7 +3689,7 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
       {/* Header */}
       <div style={{ background: "linear-gradient(135deg, #7b3fc4 0%, #5a2da0 100%)", color: "#fff", borderRadius: 10, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ background: "#C9A227", color: "#000", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 15 }}>DENSITY</div>
-        <span style={{ fontSize: 13, opacity: 0.85 }}>Birds/m² at placement · {activeShedNums.length} active shed{activeShedNums.length !== 1 ? "s" : ""}</span>
+        <span style={{ fontSize: 13, opacity: 0.85 }}>kg/m² live weight · {activeShedNums.length} active shed{activeShedNums.length !== 1 ? "s" : ""}</span>
       </div>
 
       {activeShedNums.length === 0 ? (
@@ -3711,12 +3711,17 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
             const latestKg = latestGrams != null ? latestGrams / 1000 : null;
             const liveWtDensity = birdDensity != null && latestKg != null ? birdDensity * latestKg : null;
 
-            const maxGauge = 20;
-            const pctFill = birdDensity != null ? Math.min((birdDensity / maxGauge) * 100, 100) : 0;
-            const densityColor = birdDensity == null ? "#aaa"
-              : birdDensity < 10 ? "#27ae60"
-              : birdDensity < 14 ? "#f39c12"
-              : "#e74c3c";
+            // Primary metric: kg/m² live weight density (requires both floor area and weigh-in)
+            // Secondary metric: birds/m² at placement (requires only floor area)
+            const maxGauge = 45; // kg/m²
+            const primaryVal  = liveWtDensity;   // kg/m² — main metric
+            const pctFill = primaryVal != null ? Math.min((primaryVal / maxGauge) * 100, 100)
+              : birdDensity != null ? Math.min((birdDensity / 20) * 100, 100) : 0;
+            const densityColor = primaryVal != null
+              ? (primaryVal < 30 ? "#27ae60" : primaryVal < 36 ? "#f39c12" : "#e74c3c")
+              : birdDensity != null
+                ? (birdDensity < 10 ? "#27ae60" : birdDensity < 14 ? "#f39c12" : "#e74c3c")
+                : "#aaa";
 
             return (
               <div key={shedNum} style={{
@@ -3738,32 +3743,33 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
                   )}
                 </div>
 
-                {/* Density reading */}
+                {/* Primary: kg/m² live weight density */}
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 34, fontWeight: 900, color: densityColor, lineHeight: 1 }}>
-                    {birdDensity != null ? birdDensity.toFixed(1) : "—"}
+                    {primaryVal != null ? primaryVal.toFixed(1) : "—"}
                   </span>
-                  <span style={{ fontSize: 13, color: "#777", fontWeight: 600 }}>birds/m²</span>
-                  {liveWtDensity != null && (
-                    <span style={{ fontSize: 12, color: "#7b3fc4", fontWeight: 700, background: "#f5eeff", borderRadius: 5, padding: "2px 8px" }}>
-                      {liveWtDensity.toFixed(1)} kg/m²
+                  <span style={{ fontSize: 13, color: "#777", fontWeight: 600 }}>kg/m²</span>
+                  {birdDensity != null && (
+                    <span style={{ fontSize: 12, color: "#1a5c36", fontWeight: 700, background: "#f0fdf4", borderRadius: 5, padding: "2px 8px" }}>
+                      {birdDensity.toFixed(1)} birds/m²
                     </span>
                   )}
                 </div>
 
-                {/* Gauge bar */}
+                {/* Gauge bar — kg/m² scale */}
                 {floorArea > 0 && (
                   <div>
                     <div style={{ background: "#f0f0f0", borderRadius: 99, height: 10, position: "relative", overflow: "hidden" }}>
-                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "50%", background: "#27ae6018", borderRight: "2px dashed #27ae6055" }} />
-                      <div style={{ position: "absolute", left: "50%", top: 0, height: "100%", width: "20%", background: "#f39c1218", borderRight: "2px dashed #f39c1255" }} />
+                      {/* green zone 0-30, amber 30-36, red 36+ */}
+                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${(30/maxGauge)*100}%`, background: "#27ae6018", borderRight: "2px dashed #27ae6055" }} />
+                      <div style={{ position: "absolute", left: `${(30/maxGauge)*100}%`, top: 0, height: "100%", width: `${((36-30)/maxGauge)*100}%`, background: "#f39c1218", borderRight: "2px dashed #f39c1255" }} />
                       <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pctFill}%`, background: densityColor, borderRadius: 99, transition: "width 0.5s ease" }} />
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#aaa", marginTop: 3 }}>
                       <span>0</span>
-                      <span style={{ color: "#27ae60" }}>10 ✓</span>
-                      <span style={{ color: "#f39c12" }}>14 ⚡</span>
-                      <span style={{ color: "#e74c3c" }}>17+ ⚠</span>
+                      <span style={{ color: "#27ae60" }}>30 ✓</span>
+                      <span style={{ color: "#f39c12" }}>36 ⚡</span>
+                      <span style={{ color: "#e74c3c" }}>36+ ⚠</span>
                     </div>
                   </div>
                 )}
@@ -3772,6 +3778,11 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
                 {latestKg != null && (
                   <span style={{ fontSize: 12, background: "#f5eeff", borderRadius: 6, padding: "4px 10px", fontWeight: 600, color: "#7b3fc4", alignSelf: "flex-start" }}>
                     ⚖️ {latestKg.toFixed(3)} kg avg · day {latestAge}
+                  </span>
+                )}
+                {latestKg == null && floorArea > 0 && placed > 0 && (
+                  <span style={{ fontSize: 11, color: "#a07030" }}>
+                    ⚠ Weigh birds to get kg/m² — showing birds/m² only
                   </span>
                 )}
 
