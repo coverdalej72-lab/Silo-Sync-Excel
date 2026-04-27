@@ -2345,7 +2345,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const [emailImportMode, setEmailImportMode] = useState<"add" | "replace">("add");
   const todayDateStr = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; };
   const [emailCatchDate, setEmailCatchDate] = useState(todayDateStr);
-
+  const [batchHistory]  = useState<BatchHistoryEntry[]>(readBatchHistory);
 
   useEffect(() => {
     if (cleared) {
@@ -2805,6 +2805,94 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           );
         })()}
       </div>
+
+      {/* FCR / CFCR trend across batches */}
+      {(() => {
+        // Build trend: history entries (oldest→newest) + current batch appended
+        const currentBatchNum = overrideBatchNum ?? summary?.batchNum ?? 0;
+        // history is stored newest-first, so reverse for chart
+        const histEntries = [...batchHistory].reverse();
+        const currentEntry = summary && (summary.fcr > 0 || summary.cfcr > 0) ? {
+          batchNum:    currentBatchNum,
+          date:        new Date().toISOString(),
+          totalBirds:  0,
+          totalFeedKg: summary.feedDelivered > 0 ? summary.feedDelivered : 0,
+          fcr:         summary.fcr  > 0 ? summary.fcr  : null,
+          cfcr:        summary.cfcr > 0 ? summary.cfcr : null,
+          cage:        null, mortalityPct: null, aveWeight: null,
+        } : null;
+
+        // Combine: exclude current batch number from history to avoid duplicate
+        const combined: BatchHistoryEntry[] = [
+          ...histEntries.filter(e => e.batchNum !== currentBatchNum),
+          ...(currentEntry ? [currentEntry] : []),
+        ].slice(-10); // last 10 batches
+
+        const hasFcr   = combined.some(e => e.fcr   != null && e.fcr   > 0);
+        const hasCfcr  = combined.some(e => e.cfcr  != null && e.cfcr  > 0);
+        const hasFeed  = combined.some(e => e.totalFeedKg > 0);
+        if (combined.length < 2 || (!hasFcr && !hasCfcr)) return null;
+
+        const trendData = combined.map(e => ({
+          label:    e.batchNum > 0 ? `Batch ${e.batchNum}` : "Current",
+          fcr:      e.fcr  != null && e.fcr  > 0 ? parseFloat(e.fcr.toFixed(3))  : null,
+          cfcr:     e.cfcr != null && e.cfcr > 0 ? parseFloat(e.cfcr.toFixed(3)) : null,
+          feedTons: e.totalFeedKg > 0 ? parseFloat((e.totalFeedKg / 1000).toFixed(1)) : null,
+        }));
+
+        // Highlight current (last) point
+        const isCurrentIdx = trendData.length - 1;
+
+        const TrendTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
+          if (!active || !payload?.length) return null;
+          return (
+            <div style={{ background: "#fff", border: "1px solid #ddd", borderRadius: 8, padding: "10px 14px", fontSize: 12, boxShadow: "0 3px 10px rgba(0,0,0,0.12)" }}>
+              <div style={{ fontWeight: 800, marginBottom: 6, color: "#333" }}>{label}</div>
+              {payload.map(p => (
+                <div key={p.name} style={{ display: "flex", justifyContent: "space-between", gap: 20, color: p.color, marginBottom: 2 }}>
+                  <span>{p.name}</span>
+                  <span style={{ fontWeight: 700 }}>{p.name === "Feed (t)" ? `${p.value} t` : p.value.toFixed(3)}</span>
+                </div>
+              ))}
+            </div>
+          );
+        };
+
+        // Custom dot: highlight current batch in gold
+        const CustomDot = (key: string, color: string) => (props: { cx?: number; cy?: number; index?: number }) => {
+          const { cx = 0, cy = 0, index = 0 } = props;
+          const isCurrent = index === isCurrentIdx;
+          return <circle cx={cx} cy={cy} r={isCurrent ? 7 : 4} fill={isCurrent ? "#C9A227" : color} stroke="#fff" strokeWidth={2} />;
+        };
+
+        return (
+          <div style={{ background: "#fff", border: "1px solid #e0e8e4", borderRadius: 12, padding: "16px 20px", marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ background: "#1a3a5c", color: "#fff", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 13 }}>📈 FCR · CFCR TREND</div>
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>{combined.length} batches — current highlighted in gold</span>
+              <div style={{ display: "flex", gap: 14, marginLeft: "auto", flexWrap: "wrap" }}>
+                {hasFcr  && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2980b9" }}><span style={{ width: 12, height: 3, background: "#2980b9", display: "inline-block", borderRadius: 2 }} />FCR</span>}
+                {hasCfcr && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#16a085" }}><span style={{ width: 12, height: 3, background: "#16a085", display: "inline-block", borderRadius: 2 }} />CFCR</span>}
+                {hasFeed && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#e0a020" }}><span style={{ width: 12, height: 10, background: "#e0a02022", border: "1.5px solid #e0a020", display: "inline-block", borderRadius: 2 }} />Feed (t)</span>}
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={trendData} margin={{ top: 8, right: hasFeed ? 48 : 16, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fontWeight: 600 }} />
+                <YAxis yAxisId="fcr" domain={["auto", "auto"]} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)}
+                  label={{ value: "FCR / CFCR", angle: -90, position: "insideLeft", fontSize: 10, fill: "#555" }} />
+                {hasFeed && <YAxis yAxisId="feed" orientation="right" tick={{ fontSize: 11 }} tickFormatter={v => `${v}t`}
+                  label={{ value: "Feed (t)", angle: 90, position: "insideRight", fontSize: 10, fill: "#e0a020" }} />}
+                <Tooltip content={<TrendTooltip />} />
+                {hasFeed && <Bar yAxisId="feed" dataKey="feedTons" name="Feed (t)" fill="#e0a02018" stroke="#e0a020" strokeWidth={1} radius={[3,3,0,0]} maxBarSize={36} />}
+                {hasFcr  && <Line yAxisId="fcr" type="monotone" dataKey="fcr"  name="FCR"  stroke="#2980b9" strokeWidth={2.5} dot={CustomDot("fcr",  "#2980b9")} connectNulls />}
+                {hasCfcr && <Line yAxisId="fcr" type="monotone" dataKey="cfcr" name="CFCR" stroke="#16a085" strokeWidth={2.5} dot={CustomDot("cfcr", "#16a085")} connectNulls />}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      })()}
 
       {/* Ross 308 FF As-Hatched standard comparison at cage age */}
       {summary && summary.cage > 0 && (() => {
