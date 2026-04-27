@@ -94,7 +94,7 @@ export default function Home() {
         shed.silos.forEach(silo => {
           newState[shed.shedGroupId][silo.siloId] = {
             amountRemaining: silo.amountRemaining !== null ? silo.amountRemaining.toString() : "",
-            unit: silo.unit || localStorage.getItem("silo-default-unit") || "kg",
+            unit: silo.unit || localStorage.getItem("silo-default-unit") || "t",
             feedType: silo.feedType || silo.defaultFeedType || "",
           };
         });

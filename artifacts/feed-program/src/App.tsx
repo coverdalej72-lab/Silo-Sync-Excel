@@ -6146,7 +6146,7 @@ export default function App() {
         const day = isCorrection
           ? detectCurrentSyncDay(sheetsRef.current, editsRef.current)
           : detectNextSyncDay(sheetsRef.current, editsRef.current);
-        const nextEdits = doApplyReadings(sheds, day, sheetsRef.current, editsRef.current, undefined, isCorrection);
+        const nextEdits = doApplyReadings(sheds, day, sheetsRef.current, editsRef.current, "t", isCorrection);
         setEdits(nextEdits);
         const now = Date.now();
         localStorage.setItem("silo-fp-last-sync", String(now));
@@ -6169,9 +6169,7 @@ export default function App() {
     // Default: "correct" if today's date exists in the spreadsheet, else "next"
     const todayInSheet = detectDayByDate(new Date(), sheets) !== null;
     setSiloSyncMode(todayInSheet ? "correct" : "next");
-    // Default unit override: "t" if user's default recording unit is tonnes
-    const defUnit = localStorage.getItem("silo-default-unit") || "kg";
-    setSiloSyncUnitOverride(defUnit === "t" ? "t" : "as-saved");
+    setSiloSyncUnitOverride("t");
     try {
       const res = await fetch(`${window.location.origin}/api/readings/today`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -7274,26 +7272,12 @@ export default function App() {
                 <div style={{ color: "#dc2626", fontSize: 14, padding: "12px 0" }}>{siloSyncError}</div>
               ) : (
                 <>
-                  {/* Unit interpretation toggle */}
-                  <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1.5px solid #e0e0e0", marginBottom: 14 }}>
-                    <button
-                      onClick={() => setSiloSyncUnitOverride("as-saved")}
-                      style={{ flex: 1, padding: "7px 8px", border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: siloSyncUnitOverride === "as-saved" ? "var(--pm-primary)" : "#f5f5f5", color: siloSyncUnitOverride === "as-saved" ? "#fff" : "#666", transition: "all 0.15s" }}
-                    >
-                      As saved
-                    </button>
-                    <button
-                      onClick={() => setSiloSyncUnitOverride("t")}
-                      style={{ flex: 1, padding: "7px 8px", border: "none", borderLeft: "1.5px solid #e0e0e0", fontSize: 12, fontWeight: 700, cursor: "pointer", background: siloSyncUnitOverride === "t" ? "var(--pm-primary)" : "#f5f5f5", color: siloSyncUnitOverride === "t" ? "#fff" : "#666", transition: "all 0.15s" }}
-                    >
-                      Treat as tonnes (×1000)
-                    </button>
+                  {/* Unit note — always tonnes */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f0f7f3", border: "1px solid #b2d8c6", borderRadius: 8, padding: "8px 12px", marginBottom: 14 }}>
+                    <span style={{ fontSize: 16 }}>⚖️</span>
+                    <span style={{ fontSize: 12, color: "#1a6644", fontWeight: 600 }}>Auto-converting tonnes → kg &nbsp;(×1000)</span>
+                    <span style={{ fontSize: 11, color: "#555" }}>e.g. 20 t → 20,000 kg</span>
                   </div>
-                  <p style={{ fontSize: 11, color: "#888", marginBottom: 14, marginTop: -8 }}>
-                    {siloSyncUnitOverride === "t"
-                      ? "All values treated as tonnes — will be multiplied ×1000 when written to the spreadsheet."
-                      : "Values written using their stored unit (kg stays kg, t is converted to kg)."}
-                  </p>
 
                   {/* Readings grid */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "6px 8px", marginBottom: 16, fontSize: 12 }}>
