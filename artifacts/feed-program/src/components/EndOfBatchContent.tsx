@@ -1,12 +1,22 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { EobQrScanner, type DocketData } from "./EobQrScanner";
 
-const SYNCED_IDS_KEY = "eob-synced-delivery-ids";
+const SYNCED_IDS_KEY   = "eob-synced-delivery-ids";
+const RECIPIENTS_KEY   = "eob-email-recipients";
+
 function loadSyncedIds(): Set<number> {
   try { return new Set(JSON.parse(localStorage.getItem(SYNCED_IDS_KEY) || "[]")); } catch { return new Set(); }
 }
 function saveSyncedIds(ids: Set<number>) {
   localStorage.setItem(SYNCED_IDS_KEY, JSON.stringify([...ids]));
+}
+
+interface Recipient { id: string; name: string; email: string; }
+function loadRecipients(): Recipient[] {
+  try { return JSON.parse(localStorage.getItem(RECIPIENTS_KEY) || "[]"); } catch { return []; }
+}
+function saveRecipients(r: Recipient[]) {
+  localStorage.setItem(RECIPIENTS_KEY, JSON.stringify(r));
 }
 
 interface CellInfo {
@@ -54,6 +64,36 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   const [syncBanner, setSyncBanner]     = useState<{ count: number; error?: string } | null>(null);
   const [syncing, setSyncing]           = useState(false);
   const syncedOnMount                   = useRef(false);
+
+  // ── Recipients ────────────────────────────────────────────────────────────
+  const [recipients, setRecipients]     = useState<Recipient[]>(loadRecipients);
+  const [showSendModal, setShowSendModal]       = useState(false);
+  const [showManageModal, setShowManageModal]   = useState(false);
+  const [checkedIds, setCheckedIds]     = useState<Set<string>>(new Set());
+  const [newName, setNewName]           = useState("");
+  const [newEmail, setNewEmail]         = useState("");
+  const [editRecipientId, setEditRecipientId]   = useState<string | null>(null);
+
+  const persistRecipients = (list: Recipient[]) => { setRecipients(list); saveRecipients(list); };
+
+  function addRecipient() {
+    const email = newEmail.trim().toLowerCase();
+    if (!email) return;
+    const already = recipients.find(r => r.email.toLowerCase() === email);
+    if (already) { setNewName(""); setNewEmail(""); return; }
+    const rec: Recipient = { id: Date.now().toString(), name: newName.trim() || email, email };
+    persistRecipients([...recipients, rec]);
+    setNewName(""); setNewEmail("");
+  }
+
+  function deleteRecipient(id: string) {
+    persistRecipients(recipients.filter(r => r.id !== id));
+    setCheckedIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+  }
+
+  function toggleChecked(id: string) {
+    setCheckedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
 
   const g = (r: number, c: number): string => {
     const key = `${r},${c}`;
@@ -416,10 +456,12 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
     return lines.join("\n");
   }
 
-  function sendBatchEmail() {
+  function sendBatchEmail(toList: Recipient[]) {
     const subject = `End of Batch Report — ${sheet.name}`;
     const body    = buildEmailBody();
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const to      = toList.map(r => r.email).join(",");
+    window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setShowSendModal(false);
   }
 
   const thStyle: React.CSSProperties = {
@@ -436,6 +478,129 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
           onClose={() => setShowScanner(false)}
           onResult={handleQrResult}
         />
+      )}
+
+      {/* ── Send Report Modal ─────────────────────────────────────── */}
+      {showSendModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "22px 22px 18px", width: "100%", maxWidth: 400, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>✉️</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "#111" }}>Send Report</div>
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>Select who to email this batch report to</div>
+              </div>
+              <button onClick={() => setShowSendModal(false)} style={{ background: "none", border: "none", fontSize: 20, color: "#94a3b8", cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Select all / none */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setCheckedIds(new Set(recipients.map(r => r.id)))}
+                style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
+                Select All
+              </button>
+              <button onClick={() => setCheckedIds(new Set())}
+                style={{ flex: 1, padding: "5px 0", borderRadius: 6, border: "1px solid #e2e8f0", background: "#f8fafc", fontSize: 12, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
+                Clear
+              </button>
+            </div>
+
+            {/* Recipient checkboxes */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
+              {recipients.map(r => (
+                <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, border: `2px solid ${checkedIds.has(r.id) ? "#1a5c36" : "#e2e8f0"}`, background: checkedIds.has(r.id) ? "#f0fdf4" : "#fff", cursor: "pointer", transition: "all 0.15s" }}>
+                  <input type="checkbox" checked={checkedIds.has(r.id)} onChange={() => toggleChecked(r.id)}
+                    style={{ width: 18, height: 18, accentColor: "#1a5c36", cursor: "pointer" }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.email}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {/* Manage link */}
+            <button onClick={() => { setShowSendModal(false); setShowManageModal(true); }}
+              style={{ background: "none", border: "none", color: "#2563eb", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left", padding: 0 }}>
+              + Manage recipients
+            </button>
+
+            {/* Send button */}
+            <button
+              onClick={() => sendBatchEmail(recipients.filter(r => checkedIds.has(r.id)))}
+              disabled={checkedIds.size === 0}
+              style={{ padding: "13px 0", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 15, cursor: checkedIds.size > 0 ? "pointer" : "not-allowed", background: checkedIds.size > 0 ? "#1a5c36" : "#d1d5db", color: "#fff" }}>
+              ✉️ Open Email App {checkedIds.size > 0 ? `(${checkedIds.size})` : ""}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Manage Recipients Modal ───────────────────────────────── */}
+      {showManageModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: "22px 22px 18px", width: "100%", maxWidth: 400, boxShadow: "0 20px 60px rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 18 }}>👥</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "#111" }}>Manage Recipients</div>
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>Saved contacts for batch reports</div>
+              </div>
+              <button onClick={() => setShowManageModal(false)} style={{ background: "none", border: "none", fontSize: 20, color: "#94a3b8", cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Saved list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+              {recipients.length === 0 && (
+                <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", padding: "12px 0" }}>No recipients saved yet</div>
+              )}
+              {recipients.map(r => (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.email}</div>
+                  </div>
+                  <button onClick={() => deleteRecipient(r.id)}
+                    style={{ background: "none", border: "none", fontSize: 16, color: "#dc2626", cursor: "pointer", padding: "2px 4px", lineHeight: 1, borderRadius: 4 }}>🗑</button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add new */}
+            <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>Add New Recipient</div>
+              <input
+                placeholder="Name (e.g. Processing Co.)"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" }}
+              />
+              <input
+                placeholder="Email address"
+                type="email"
+                inputMode="email"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") addRecipient(); }}
+                style={{ border: `1px solid ${newEmail ? "#1a5c36" : "#e2e8f0"}`, borderRadius: 8, padding: "9px 12px", fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" }}
+              />
+              <button
+                onClick={addRecipient}
+                disabled={!newEmail.trim()}
+                style={{ padding: "11px 0", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 14, cursor: newEmail.trim() ? "pointer" : "not-allowed", background: newEmail.trim() ? "#1a5c36" : "#d1d5db", color: "#fff" }}>
+                + Add Recipient
+              </button>
+            </div>
+
+            {recipients.length > 0 && (
+              <button
+                onClick={() => { setShowManageModal(false); setCheckedIds(new Set(recipients.map(r => r.id))); setShowSendModal(true); }}
+                style={{ padding: "11px 0", borderRadius: 10, border: "1.5px solid #1a5c36", background: "#f0fdf4", color: "#1a5c36", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                ✉️ Send Report Now
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Feed type selector modal after scan */}
@@ -643,7 +808,14 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
         </span>
         <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
         <button
-          onClick={sendBatchEmail}
+          onClick={() => {
+            if (recipients.length === 0) {
+              setShowManageModal(true);
+            } else {
+              setCheckedIds(new Set(recipients.map(r => r.id)));
+              setShowSendModal(true);
+            }
+          }}
           style={{
             display: "flex", alignItems: "center", gap: 6,
             background: "#1a5c36", color: "#fff", border: "none",
