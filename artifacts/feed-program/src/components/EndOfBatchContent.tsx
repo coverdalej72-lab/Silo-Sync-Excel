@@ -207,19 +207,28 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   // Live-compute Birds Caught total — formula cells don't recalculate in-app
   const totalBirdsCatched = birdRows.reduce((sum, r) => sum + getCatchedForRow(r), 0);
 
-  // Helper: morts for a row — use spreadsheet cell if populated, else compute placed - caught.
-  // Only compute placed-caught when caught > 0; if no birds have been caught yet, morts = 0.
+  // Morts for a row — only use the actual recorded value in col 24.
+  // Never fall back to placed-caught: that gives wrong results because
+  // some birds may still be alive in the shed and not yet caught.
   function getMortsForRow(r: number): number {
     const mortsCell = parseFloat(g(r, 24).replace(/,/g, ""));
-    if (!isNaN(mortsCell) && mortsCell > 0) return mortsCell;
-    const placed = parseFloat(g(r, 22).replace(/,/g, "")) || 0;
-    const caught = getCatchedForRow(r);
-    if (caught === 0) return 0;
-    return Math.max(0, placed - caught);
+    return (!isNaN(mortsCell) && mortsCell > 0) ? mortsCell : 0;
   }
 
   // Live-compute total morts
   const totalBirdsMorts = birdRows.reduce((sum, r) => sum + getMortsForRow(r), 0);
+
+  // Balance per row = Placed - Morts - Caught (birds unaccounted / still in shed)
+  function getBalanceForRow(r: number): number | null {
+    const placed = parseFloat(g(r, 22).replace(/,/g, "")) || 0;
+    if (placed === 0) return null;
+    return placed - getMortsForRow(r) - getCatchedForRow(r);
+  }
+
+  const totalBalance = birdRows.reduce((sum, r) => {
+    const b = getBalanceForRow(r);
+    return sum + (b ?? 0);
+  }, 0);
 
   const thStyle: React.CSSProperties = {
     padding: "6px 10px", fontWeight: 600, fontSize: 11, color: "#64748b",
@@ -420,16 +429,25 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
           <div style={{ background: "#1a5c36", padding: "8px 14px", display: "flex",
             alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>Bird Summary</span>
-            {(totalBirdsCatched > 0 || totalBirdsMorts > 0) && (
-              <div style={{ display: "flex", gap: 14 }}>
-                {totalBirdsCatched > 0 && (
-                  <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 11 }}>
-                    <strong style={{ color: "#fff" }}>{totalBirdsCatched.toLocaleString()}</strong> caught
-                  </span>
-                )}
+            {(totalBirdsPlaced > 0) && (
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                 {totalBirdsMorts > 0 && (
                   <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 11 }}>
-                    <strong style={{ color: "#fca5a5" }}>{totalBirdsMorts.toLocaleString()}</strong> morts
+                    <strong style={{ color: "#fca5a5" }}>−{totalBirdsMorts.toLocaleString()}</strong> morts
+                  </span>
+                )}
+                {totalBirdsCatched > 0 && (
+                  <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 11 }}>
+                    <strong style={{ color: "#fff" }}>−{totalBirdsCatched.toLocaleString()}</strong> caught
+                  </span>
+                )}
+                {(totalBirdsCatched > 0 || totalBirdsMorts > 0) && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700,
+                    color: totalBalance === 0 ? "#86efac" : totalBalance > 0 ? "#fde68a" : "#fca5a5",
+                    background: "rgba(0,0,0,0.25)", borderRadius: 5, padding: "1px 7px",
+                  }}>
+                    = {totalBalance.toLocaleString()} bal
                   </span>
                 )}
               </div>
@@ -439,14 +457,18 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
             <thead>
               <tr style={{ background: "#f0fdf4" }}>
                 <th style={{ ...thStyle, textAlign: "center" }}>Shed</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>Birds Placed</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>Birds Catched</th>
-                <th style={{ ...thStyle, textAlign: "right" }}>Morts</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>Placed</th>
+                <th style={{ ...thStyle, textAlign: "right", color: "#dc2626" }}>− Morts</th>
+                <th style={{ ...thStyle, textAlign: "right" }}>− Caught</th>
+                <th style={{ ...thStyle, textAlign: "right", color: "#1a5c36" }}>Balance</th>
               </tr>
             </thead>
             <tbody>
               {birdRows.map((r, i) => {
-                const morts = getMortsForRow(r);
+                const morts   = getMortsForRow(r);
+                const caught  = getCatchedForRow(r);
+                const balance = getBalanceForRow(r);
+                const placed  = parseFloat(g(r, 22).replace(/,/g, "")) || 0;
                 return (
                   <tr key={r} style={{ borderBottom: "1px solid #f1f5f9",
                     background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
@@ -455,37 +477,46 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
                     </td>
                     <td style={{ padding: "1px 0" }}><Cell r={r} c={22} align="right" muted /></td>
                     <td style={{ padding: "3px 10px", textAlign: "right" }}>
-                      {(() => {
-                        const caught = getCatchedForRow(r);
-                        return (
-                          <span style={{ color: caught > 0 ? "inherit" : "#94a3b8", fontSize: 12 }}>
-                            {caught > 0 ? caught.toLocaleString() : "—"}
-                          </span>
-                        );
-                      })()}
+                      <span style={{ color: morts > 0 ? "#dc2626" : "#94a3b8", fontWeight: morts > 0 ? 600 : 400, fontSize: 12 }}>
+                        {morts > 0 ? `−${morts.toLocaleString()}` : "—"}
+                      </span>
                     </td>
                     <td style={{ padding: "3px 10px", textAlign: "right" }}>
-                      <span style={{ color: morts > 0 ? "#dc2626" : "#94a3b8", fontWeight: morts > 500 ? 700 : 400, fontSize: 12 }}>
-                        {morts > 0 ? morts.toLocaleString() : "—"}
+                      <span style={{ color: caught > 0 ? "#374151" : "#94a3b8", fontSize: 12 }}>
+                        {caught > 0 ? `−${caught.toLocaleString()}` : "—"}
                       </span>
+                    </td>
+                    <td style={{ padding: "3px 10px", textAlign: "right" }}>
+                      {placed > 0 ? (
+                        <span style={{
+                          fontWeight: 700, fontSize: 12,
+                          color: balance === 0 ? "#1a5c36" : (balance ?? 0) > 0 ? "#92400e" : "#dc2626",
+                        }}>
+                          {(balance ?? 0).toLocaleString()}
+                        </span>
+                      ) : <span style={{ color: "#94a3b8" }}>—</span>}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-            {(totalBirdsCatched > 0 || totalBirdsMorts > 0 || totalBirdsPlaced > 0) && (
+            {totalBirdsPlaced > 0 && (
               <tfoot>
                 <tr style={{ background: "#f0fdf4", borderTop: "2px solid #e2e8f0" }}>
                   <td style={{ padding: "5px 12px", fontSize: 11, fontWeight: 700, color: "#1a5c36",
                     textTransform: "uppercase", letterSpacing: 0.5 }}>Total</td>
                   <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1a5c36", fontSize: 12 }}>
-                    {totalBirdsPlaced > 0 ? totalBirdsPlaced.toLocaleString() : "—"}
-                  </td>
-                  <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#1a5c36", fontSize: 12 }}>
-                    {totalBirdsCatched > 0 ? totalBirdsCatched.toLocaleString() : "—"}
+                    {totalBirdsPlaced.toLocaleString()}
                   </td>
                   <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#dc2626", fontSize: 12 }}>
-                    {totalBirdsMorts > 0 ? totalBirdsMorts.toLocaleString() : "—"}
+                    {totalBirdsMorts > 0 ? `−${totalBirdsMorts.toLocaleString()}` : "—"}
+                  </td>
+                  <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 700, color: "#374151", fontSize: 12 }}>
+                    {totalBirdsCatched > 0 ? `−${totalBirdsCatched.toLocaleString()}` : "—"}
+                  </td>
+                  <td style={{ padding: "5px 10px", textAlign: "right", fontWeight: 800, fontSize: 13,
+                    color: totalBalance === 0 ? "#1a5c36" : totalBalance > 0 ? "#92400e" : "#dc2626" }}>
+                    {totalBalance.toLocaleString()}
                   </td>
                 </tr>
               </tfoot>
