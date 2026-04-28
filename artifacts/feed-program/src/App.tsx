@@ -992,6 +992,7 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
     ["DELIVERED",       totalPurchased, "kg"],
     ["TOTAL IN",        totalFeedInStr, "kg"],
     ["FEED LEFT",       feedLeft,       "kg"],
+    ["NET CONSUMED",    netConsumedStr, "kg"],
   ];
 
   return (
