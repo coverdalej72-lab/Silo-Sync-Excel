@@ -1009,14 +1009,6 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
         )}
         <div style={{ opacity: 0.75, fontSize: 13, whiteSpace: "nowrap" }}>{farmName}</div>
         <div style={{ flex: 1 }} />
-        <button
-          onClick={shareEmail}
-          style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 6, padding: "7px 15px", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
-          onMouseOver={e => (e.currentTarget.style.background = "rgba(255,255,255,0.25)")}
-          onMouseOut={e  => (e.currentTarget.style.background = "rgba(255,255,255,0.15)")}
-        >
-          ✉ Share via Email
-        </button>
       </div>
       {/* Row 2: Feed stat pills */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
