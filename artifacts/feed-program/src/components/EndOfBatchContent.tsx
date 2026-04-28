@@ -815,24 +815,6 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
           Batch Summary
         </span>
         <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
-        <button
-          onClick={() => {
-            if (recipients.length === 0) {
-              setShowManageModal(true);
-            } else {
-              setCheckedIds(new Set(recipients.map(r => r.id)));
-              setShowSendModal(true);
-            }
-          }}
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: "#1a5c36", color: "#fff", border: "none",
-            borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700,
-            cursor: "pointer", whiteSpace: "nowrap", letterSpacing: 0.3,
-          }}
-        >
-          ✉️ Email Report
-        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "start" }}>
