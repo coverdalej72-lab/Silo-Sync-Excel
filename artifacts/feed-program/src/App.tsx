@@ -989,18 +989,6 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
         )}
         <div style={{ opacity: 0.75, fontSize: 13, whiteSpace: "nowrap" }}>{farmName}</div>
         <div style={{ flex: 1 }} />
-        {totalBirdsCatched && (
-          <div style={{ textAlign: "center", fontSize: 12 }}>
-            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1 }}>{fmt(totalBirdsCatched)}</div>
-            <div style={{ fontSize: 9, opacity: 0.7, textTransform: "uppercase", letterSpacing: 1 }}>Birds Catched</div>
-          </div>
-        )}
-        {totalMorts && (
-          <div style={{ background: "rgba(220,38,38,0.3)", border: "1px solid rgba(220,38,38,0.5)", borderRadius: 5, padding: "3px 10px", textAlign: "center", fontSize: 12 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>{fmt(totalMorts)}</div>
-            <div style={{ fontSize: 9, opacity: 0.8, textTransform: "uppercase", letterSpacing: 1 }}>Mortalities</div>
-          </div>
-        )}
         <button
           onClick={shareEmail}
           style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 6, padding: "7px 15px", color: "#fff", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
