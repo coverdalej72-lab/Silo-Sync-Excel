@@ -992,7 +992,6 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
     ["DELIVERED",       totalPurchased, "kg"],
     ["TOTAL IN",        totalFeedInStr, "kg"],
     ["FEED LEFT",       feedLeft,       "kg"],
-    ["NET CONSUMED",    netConsumedStr, "kg"],
   ];
 
   return (
@@ -2997,30 +2996,34 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           const cell = sheets[eobIdx].cells.get(key);
           return parseFloat(String(cell?.value ?? 0)) || 0;
         };
-        // EOB rows (0-indexed): 18=on-hand-last, 19=delivered, 20=on-hand-now, 21=consumed; col 23
-        const eobOnHandLast = getEobNum(18, 23);
-        const eobDelivered  = getEobNum(19, 23);
-        const eobOnHand     = getEobNum(20, 23);
-        const feedDelivered  = eobDelivered  > 0 ? eobDelivered  : summary.feedDelivered;
-        const feedOnHand     = eobOnHand     > 0 ? eobOnHand     : summary.feedOnHand;
-        const lastBatchFeed  = eobOnHandLast > 0 ? eobOnHandLast : 0;
-        // Total feed in = last batch leftover + all delivered this batch
-        const totalFeedIn    = lastBatchFeed + feedDelivered;
-        // Net consumed this batch = total in − feed left on hand
-        const netConsumed    = feedOnHand > 0 ? totalFeedIn - feedOnHand : totalFeedIn;
-        const fromEob = eobDelivered > 0;
+        // Read from the same cells as the green header (col 18) for consistency
+        const fsLastBatchLeft = getEobNum(7, 18);
+        const fsFeedLeft      = getEobNum(15, 18);
+        // Live-compute total delivered (same logic as EobInfoPanel)
+        const fsDelivCols = [3, 8, 12, 16];
+        let fsLiveDelivered = 0;
+        for (let r = 6; r <= 35; r++) {
+          for (const col of fsDelivCols) {
+            const v = getEobNum(r, col);
+            if (v > 0) fsLiveDelivered += v;
+          }
+        }
+        const fsDelivered   = fsLiveDelivered > 0 ? fsLiveDelivered : getEobNum(11, 18);
+        const fsTotalIn     = fsLastBatchLeft + fsDelivered;
+        const fsNetConsumed = fsTotalIn - fsFeedLeft;
+        const fromEob = fsTotalIn > 0;
         return (
           <div style={{ background: "var(--pm-primary-soft)", border: "1px solid var(--pm-primary-border)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>Feed Summary</div>
-              {fromEob && <div style={{ fontSize: 10, color: "#888", background: "var(--pm-primary-pale)", borderRadius: 4, padding: "2px 7px" }}>live from End of Batch</div>}
+              {fromEob && <div style={{ fontSize: 10, color: "#888", background: "var(--pm-primary-pale)", borderRadius: 4, padding: "2px 7px" }}>from End of Batch</div>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
               {[
-                { label: "Last Batch Left", value: lastBatchFeed > 0 ? fmtN(lastBatchFeed) + " kg" : "—" },
-                { label: "Feed Delivered",  value: feedDelivered > 0 ? fmtN(feedDelivered)  + " kg" : "—" },
-                { label: "Total Feed In",   value: totalFeedIn   > 0 ? fmtN(totalFeedIn)    + " kg" : "—" },
-                { label: "Feed on Hand",    value: feedOnHand    > 0 ? fmtN(feedOnHand)     + " kg" : "—" },
+                { label: "Last Batch Left", value: fsLastBatchLeft > 0 ? fmtN(fsLastBatchLeft) + " kg" : "—" },
+                { label: "Delivered",       value: fsDelivered     > 0 ? fmtN(fsDelivered)     + " kg" : "—" },
+                { label: "Total In",        value: fsTotalIn       > 0 ? fmtN(fsTotalIn)       + " kg" : "—" },
+                { label: "Feed Left",       value: fsFeedLeft      > 0 ? fmtN(fsFeedLeft)      + " kg" : "—" },
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
@@ -3028,15 +3031,15 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                 </div>
               ))}
             </div>
-            {/* Net consumed — highlighted separately */}
-            {netConsumed > 0 && (
+            {/* Net consumed — highlighted bar */}
+            {fsNetConsumed > 0 && (
               <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--pm-primary-border)" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--pm-primary)", borderRadius: 8, padding: "10px 14px" }}>
                   <div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Net Feed Consumed This Batch</div>
-                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>Total In − Feed on Hand</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>Net Consumed This Batch</div>
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>Total In − Feed Left</div>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>{fmtN(netConsumed)} <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.8 }}>kg</span></div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>{fmtN(fsNetConsumed)} <span style={{ fontSize: 13, fontWeight: 600, opacity: 0.8 }}>kg</span></div>
                 </div>
               </div>
             )}
