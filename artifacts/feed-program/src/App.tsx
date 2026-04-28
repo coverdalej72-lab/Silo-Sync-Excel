@@ -2130,22 +2130,22 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
   const num = (v: unknown) => { const n = parseFloat(String(v ?? "").replace(/,/g, "")); return isNaN(n) ? 0 : n; };
 
   // Overall summary from the right-side summary block
-  // Data sits in column AG (col 33, 1-indexed) for bird/weight metrics,
-  // and column AK (col 37, 1-indexed) for feed/FCR metrics.
+  // Bird/weight metrics in column AH (col 34), feed metrics in column AL (col 38),
+  // FCR/cage metrics in column AN (col 40).
   const farmName   = String(gv(1, 2) ?? "");
   const batchNum   = num(gv(1, 7));
-  const totalPlaced    = num(gv(4, 33));   // AG4  — total birds placed
-  const totalOut       = num(gv(7, 33));   // AG7  — total birds caught
-  const mortalityPct   = num(gv(5, 33)) * 100; // AG5 — mortality fraction → %
-  const aveWeight      = num(gv(9, 33));   // AG9  — average live weight (kg)
-  const fcr            = num(gv(9, 37));   // AK9  — FCR
-  const cfcr           = num(gv(11, 37));  // AK11 — CFCR
-  const cage           = num(gv(6, 40));   // AN6  — average age at cage (days)
-  const actualAge      = num(gv(11, 33));  // AG11 — actual age (days) at catch
-  const correctedAge   = num(gv(12, 33));  // AG12 — corrected age to 2.45 kg standard
-  const feedOnHand     = num(gv(6, 37));   // AK6  — feed on hand (kg)
-  const feedDelivered  = num(gv(5, 37));   // AK5  — total feed delivered (kg)
-  const feedConsumed   = num(gv(7, 37));   // AK7  — total feed consumed (kg)
+  const totalPlaced    = num(gv(3, 34));   // AH3  — total birds placed
+  const totalOut       = num(gv(6, 34));   // AH6  — total birds caught
+  const mortalityPct   = num(gv(4, 34)) * 100; // AH4 — mortality fraction → %
+  const aveWeight      = num(gv(8, 34));   // AH8  — average live weight (kg)
+  const fcr            = num(gv(8, 38));   // AL8  — FCR
+  const cfcr           = num(gv(4, 40));   // AN4  — cFCR
+  const cage           = num(gv(5, 40));   // AN5  — cage FCR
+  const actualAge      = num(gv(10, 34));  // AH10 — actual age (days) at catch
+  const correctedAge   = num(gv(11, 34));  // AH11 — corrected age to 2.45 kg standard
+  const feedOnHand     = num(gv(5, 38));   // AL5  — feed on hand (kg)
+  const feedDelivered  = num(gv(4, 38));   // AL4  — total feed delivered (kg)
+  const feedConsumed   = num(gv(6, 38));   // AL6  — total feed consumed (kg)
 
   // Shed data: 3 sheds per block, stacked every 16 rows.
   // Column groups (1-indexed): left=cols1-9, mid=cols11-19, right=cols21-29
@@ -2787,19 +2787,19 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           </div>
         )}
         {(() => {
-          const cageAgeVal = summary && summary.cage > 0 ? summary.cage : null;
+          const cageFcr    = summary && summary.cage > 0 ? summary.cage : null;
           const totalCages = Object.values(catchMap).reduce((s, rows) => s + rows.length, 0);
           return (
             <div style={cardStyle("#7f8c8d")}>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>
-                {cageAgeVal != null
-                  ? <>{cageAgeVal.toFixed(2)} <span style={{ fontSize: 13 }}>days</span></>
+                {cageFcr != null
+                  ? cageFcr.toFixed(3)
                   : totalCages > 0
                     ? <>{totalCages} <span style={{ fontSize: 13 }}>cages</span></>
                     : "—"}
               </div>
               <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                {cageAgeVal != null ? "Cage Age" : "Cage"}
+                {cageFcr != null ? "Cage FCR" : "Cage"}
               </div>
             </div>
           );
@@ -2894,9 +2894,9 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         );
       })()}
 
-      {/* Ross 308 FF As-Hatched standard comparison at cage age */}
-      {summary && summary.cage > 0 && (() => {
-        const std = getRoss308Standard(summary.cage);
+      {/* Ross 308 FF As-Hatched standard comparison at actual age */}
+      {summary && summary.actualAge > 0 && (() => {
+        const std = getRoss308Standard(summary.actualAge);
         if (!std) return null;
         const actualWgtKg = summary.aveWeight;
         const actualFcr   = summary.fcr;
@@ -2905,7 +2905,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
         const fcrDelta    = actualFcr   > 0 ? actualFcr   - std.fcr  : null;
         const wgtPct      = wgtDelta !== null ? (wgtDelta / stdWgtKg) * 100 : null;
         const fcrPct      = fcrDelta !== null ? (fcrDelta / std.fcr)  * 100 : null;
-        const isExtrapolated = summary.cage > 33;
+        const isExtrapolated = summary.actualAge > 33;
 
         const PctBadge = ({ pct, lowerIsBetter = false }: { pct: number; lowerIsBetter?: boolean }) => {
           const good  = (pct > 0) === !lowerIsBetter;
@@ -2929,7 +2929,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                 vs Ross 308 FF Standard
               </div>
               <div style={{ fontSize: 10, color: "#888", background: "#e0f0e9", borderRadius: 4, padding: "2px 7px" }}>
-                As-Hatched · {Math.round(summary.cage)} day{Math.round(summary.cage) !== 1 ? "s" : ""}
+                As-Hatched · {Math.round(summary.actualAge)} day{Math.round(summary.actualAge) !== 1 ? "s" : ""}
               </div>
               {isExtrapolated && (
                 <div style={{ fontSize: 10, color: "#a07030", background: "#fff3dc", borderRadius: 4, padding: "2px 7px" }}>
