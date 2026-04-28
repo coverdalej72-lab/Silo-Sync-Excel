@@ -14,7 +14,18 @@ import Deliveries from "@/pages/deliveries";
 import SettingsPage from "@/pages/settings";
 import Photos from "@/pages/photos";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 3 * 60 * 1000,       // 3 minutes before refetch
+      gcTime: 24 * 60 * 60 * 1000,    // Keep cache 24 hours
+      retry: 1,
+      retryDelay: 2000,
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    },
+  },
+});
 
 const BATCH_LOCAL_KEYS = [
   "silo-batch-catches",
