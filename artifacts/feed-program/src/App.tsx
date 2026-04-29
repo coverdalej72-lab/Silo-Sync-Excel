@@ -2662,108 +2662,68 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
       {/* ── Catches content ── */}
       <div>
 
-      {/* ── Shed Comparison Chart ────────────────────────────────── */}
+      {/* ── Shed Summary Table ───────────────────────────────────── */}
       {(() => {
-        // Mirror exactly the same shed list as the per-shed cards (activeShedNums / shedStats)
         if (shedStats.length === 0) return null;
 
-        const chartData = shedStats.map(({ shedNum, placement, totalCaught, totalWgtKg, aveWgt, morts, mortPct }) => {
-          const xl    = xlSheds.find(s => s.shedNum === shedNum);
-          const cages = (catchMap[shedNum] ?? []).length;
-          // FCR / cFCR: from xlsx totals row only
-          const fcr  = xl?.fcr  && xl.fcr  > 0 ? xl.fcr  : undefined;
-          const cfcr = xl?.cfcr && xl.cfcr > 0 ? xl.cfcr : undefined;
-          // Average weight: from catch data if available, else xlsx
-          const wgt  = aveWgt > 0 ? parseFloat(aveWgt.toFixed(3))
-            : (xl?.aveWeight && xl.aveWeight > 0 ? xl.aveWeight : undefined);
-          return {
-            shed:     `Shed ${shedNum}`,
-            shedNum,
-            placement: placement > 0 ? placement : undefined,
-            caught:   totalCaught > 0 ? totalCaught : undefined,
-            fcr,
-            cfcr,
-            cages:    cages > 0 ? cages : undefined,
-            mortPct:  mortPct > 0 ? parseFloat(mortPct.toFixed(2)) : undefined,
-            aveWgt:   wgt,
-          };
+        const processor = farmConfig.processor ?? "baiada";
+        const isBaiada  = processor === "baiada";
+
+        const rows = shedStats.map(({ shedNum, placement, totalCaught, aveWgt, mortPct }) => {
+          const xl   = xlSheds.find(s => s.shedNum === shedNum);
+          const fcr  = xl?.fcr  && xl.fcr  > 0 ? xl.fcr  : null;
+          const cfcr = xl?.cfcr && xl.cfcr > 0 ? xl.cfcr : null;
+          const wgt  = aveWgt > 0 ? aveWgt : (xl?.aveWeight && xl.aveWeight > 0 ? xl.aveWeight : null);
+          const efficiencyVal = isBaiada ? cfcr : fcr;
+          return { shedNum, placement, totalCaught, wgt, mortPct, efficiencyVal };
         });
 
-        if (chartData.length === 0) return null;
-
-        // Processor-aware: Baiada uses cFCR, Ingham uses FCR
-        const processor   = farmConfig.processor ?? "baiada";
-        const isBaiada    = processor === "baiada";
-        const primaryKey  = isBaiada ? "cfcr" : "fcr";
-        const primaryName = isBaiada ? "cFCR" : "FCR";
-        const primaryClr  = isBaiada ? "#16a085" : "#2980b9";
-        const fcrYLabel   = isBaiada ? "cFCR" : "FCR";
-
-        const hasPrimary = chartData.some(d => d[primaryKey] != null);
-        const hasCages   = chartData.some(d => d.cages != null);
-
-        // Only include sheds that have at least one value for the metrics being shown
-        // in this chart — prevents blank bars alongside data bars
-        const primaryChartData = chartData.filter(d => d[primaryKey] != null || d.cages != null);
-
-        // Custom tooltip
-        const ChartTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
-          if (!active || !payload?.length) return null;
-          return (
-            <div style={{ background: "#fff", border: "1px solid #ddd", borderRadius: 8, padding: "10px 14px", fontSize: 12, boxShadow: "0 3px 10px rgba(0,0,0,0.12)" }}>
-              <div style={{ fontWeight: 800, marginBottom: 6, color: "#333" }}>{label}</div>
-              {payload.map(p => (
-                <div key={p.name} style={{ display: "flex", justifyContent: "space-between", gap: 20, color: p.color, marginBottom: 2 }}>
-                  <span>{p.name}</span>
-                  <span style={{ fontWeight: 700 }}>{p.name === "Cages" ? p.value : p.value.toFixed(3)}</span>
-                </div>
-              ))}
-            </div>
-          );
+        const colHd: React.CSSProperties = {
+          padding: "8px 12px", fontWeight: 800, fontSize: 11,
+          textTransform: "uppercase", letterSpacing: 0.8, color: "#fff",
+          background: "var(--pm-primary)", textAlign: "center" as const, whiteSpace: "nowrap",
+        };
+        const cell: React.CSSProperties = {
+          padding: "10px 12px", fontSize: 13, textAlign: "center" as const,
+          borderBottom: "1px solid #f0f0f0",
         };
 
         return (
-          <div style={{ background: "#fff", border: "1px solid #e0e8e4", borderRadius: 12, padding: "16px 20px", marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-              <div style={{ background: "var(--pm-primary)", color: "#fff", borderRadius: 7, padding: "3px 14px", fontWeight: 800, fontSize: 13 }}>📊 ALL SHEDS — PERFORMANCE</div>
-              <div style={{ background: isBaiada ? "#e0f4ef" : "#e8f3fb", color: isBaiada ? "#16a085" : "#2980b9", border: `1px solid ${isBaiada ? "#b2dfd6" : "#b8d8f0"}`, borderRadius: 5, padding: "2px 10px", fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>
+          <div style={{ background: "#fff", border: "1px solid #e0e8e4", borderRadius: 12, marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+            <div style={{ background: "var(--pm-primary)", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>📋 ALL SHEDS — RESULTS SUMMARY</span>
+              <span style={{ background: isBaiada ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.2)", color: "#fff", borderRadius: 5, padding: "2px 10px", fontSize: 11, fontWeight: 700 }}>
                 {isBaiada ? "BAIADA" : "INGHAM"}
-              </div>
-              <div style={{ display: "flex", gap: 14, marginLeft: "auto", flexWrap: "wrap" }}>
-                {hasPrimary && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: primaryClr }}><span style={{ width: 12, height: 12, background: primaryClr, borderRadius: 2, display: "inline-block" }} />{primaryName}</span>}
-                {hasCages   && <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#C9A227" }}><span style={{ width: 12, height: 2, background: "#C9A227", display: "inline-block" }} />Cages</span>}
-              </div>
+              </span>
             </div>
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={primaryChartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="shed" tick={{ fontSize: 11, fontWeight: 600 }} />
-                <YAxis yAxisId="fcr" domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: fcrYLabel, angle: -90, position: "insideLeft", fontSize: 11, fill: primaryClr }} />
-                {hasCages && <YAxis yAxisId="cages" orientation="right" tick={{ fontSize: 11 }} label={{ value: "Cages", angle: 90, position: "insideRight", fontSize: 11, fill: "#C9A227" }} />}
-                <Tooltip content={<ChartTooltip />} />
-                {hasPrimary && <Bar yAxisId="fcr" dataKey={primaryKey} name={primaryName} fill={primaryClr} radius={[4, 4, 0, 0]} maxBarSize={40} />}
-                {hasCages   && <Line yAxisId="cages" type="monotone" dataKey="cages" name="Cages" stroke="#C9A227" strokeWidth={2.5} dot={{ r: 5, fill: "#C9A227", stroke: "#fff", strokeWidth: 2 }} />}
-              </ComposedChart>
-            </ResponsiveContainer>
-
-            {/* Ave weight secondary chart — only sheds with actual weight data */}
-            {chartData.some(d => d.aveWgt != null) && (() => {
-              const wgtChartData = chartData.filter(d => d.aveWgt != null);
-              return (
-                <div style={{ marginTop: 16, borderTop: "1px solid #f0f0f0", paddingTop: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#8e44ad", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 8 }}>Avg Live Weight per Shed (kg)</div>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <ComposedChart data={wgtChartData} margin={{ top: 4, right: 50, bottom: 4, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="shed" tick={{ fontSize: 11, fontWeight: 600 }} />
-                      <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} tickFormatter={v => v.toFixed(2)} label={{ value: "kg", angle: -90, position: "insideLeft", fontSize: 11, fill: "#8e44ad" }} />
-                      <Tooltip content={<ChartTooltip />} />
-                      <Bar dataKey="aveWgt" name="Avg Weight (kg)" fill="#8e44ad" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              );
-            })()}
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...colHd, textAlign: "left" as const }}>Shed</th>
+                    <th style={colHd}>Birds Placed</th>
+                    <th style={colHd}>Birds Out</th>
+                    <th style={colHd}>Mortality</th>
+                    <th style={colHd}>Ave Weight</th>
+                    <th style={colHd}>{isBaiada ? "cFCR" : "FCR"}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(({ shedNum, placement, totalCaught, wgt, mortPct, efficiencyVal }, i) => (
+                    <tr key={shedNum} style={{ background: i % 2 === 0 ? "#fafafa" : "#fff" }}>
+                      <td style={{ ...cell, textAlign: "left" as const, fontWeight: 700, color: "var(--pm-primary)" }}>Shed {shedNum}</td>
+                      <td style={cell}>{placement > 0 ? placement.toLocaleString() : "—"}</td>
+                      <td style={cell}>{totalCaught > 0 ? totalCaught.toLocaleString() : "—"}</td>
+                      <td style={{ ...cell, color: mortPct > 5 ? "#c0392b" : mortPct > 3 ? "#e67e22" : "#27ae60", fontWeight: 700 }}>
+                        {mortPct > 0 ? `${mortPct.toFixed(2)}%` : "—"}
+                      </td>
+                      <td style={cell}>{wgt != null ? `${wgt.toFixed(2)} kg` : "—"}</td>
+                      <td style={{ ...cell, fontWeight: 700, color: "#16a085" }}>{efficiencyVal != null ? efficiencyVal.toFixed(3) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })()}
