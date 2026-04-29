@@ -220,7 +220,7 @@ export default function Photos() {
 
   // ── Mort photo ───────────────────────────────────────────────────────────
   const handleMortFile = (file: File | null | undefined) => {
-    if (!file || activeShedNum === null) return;
+    if (!file || activeShedNum == null) return;
     const reader = new FileReader();
     reader.onload = ev => {
       const entry: PhotoEntry = {
@@ -314,9 +314,67 @@ export default function Photos() {
         </div>
       )}
 
+      {/* ── Single Mort Sheet section ───────────────────────────────────── */}
+      {individualSheds.length > 0 && (() => {
+        const mortPhotos = photos.filter(p => p.type === "mort").sort((a, b) => b.date.localeCompare(a.date));
+        const mortOpen = !collapsed[-1];
+        return (
+          <div className="border-b border-border">
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 bg-red-50 active:bg-red-100"
+              onClick={() => setCollapsed(prev => ({ ...prev, [-1]: !prev[-1] }))}
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-red-600" />
+                <span className="font-bold text-sm text-red-700">Mort Sheet</span>
+                {mortPhotos.length > 0 && (
+                  <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {mortPhotos.length}
+                  </span>
+                )}
+              </div>
+              {mortOpen
+                ? <ChevronUp className="h-4 w-4 text-red-400" />
+                : <ChevronDown className="h-4 w-4 text-red-400" />}
+            </button>
+            {mortOpen && (
+              <div className="px-3 py-3">
+                <button
+                  onClick={() => openCapture(0, 0, "mort")}
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-red-400 bg-red-50 text-red-700 font-semibold text-sm active:opacity-70 mb-3"
+                >
+                  <FileText className="h-4 w-4" />
+                  Add Mort Sheet Photo
+                </button>
+                {mortPhotos.length === 0 ? (
+                  <div className="text-center py-3 text-xs text-muted-foreground">No mort sheet photos yet</div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {mortPhotos.map(p => (
+                      <div key={p.id} className="relative rounded-xl overflow-hidden border border-border bg-muted shadow-sm group" style={{ aspectRatio: "4/3" }}>
+                        <img src={p.dataUrl} alt={p.note || "mort"} className="w-full h-full object-cover cursor-pointer" onClick={() => setViewPhoto(p)} />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                        <div className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-red-600 text-white">MORT</div>
+                        <div className="absolute bottom-0 left-0 right-0 p-1.5 pointer-events-none">
+                          <div className="text-[9px] text-white/80">{format(new Date(p.date), "d MMM, h:mm a")}</div>
+                          {p.note && <div className="text-[10px] text-white/90 truncate">{p.note}</div>}
+                        </div>
+                        <button onClick={() => setViewPhoto(p)} className="absolute top-1.5 right-8 bg-black/40 text-white rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity"><ZoomIn className="h-3 w-3" /></button>
+                        <button onClick={() => setConfirmDelete(p.id)} className="absolute top-1.5 right-1.5 bg-black/40 text-white rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Per-shed Bird Weight sections ───────────────────────────────── */}
       {individualSheds.map(({ shedNum, shedGroupId, label }) => {
         const shedPhotos = photos
-          .filter(p => p.shedNum === shedNum)
+          .filter(p => p.shedNum === shedNum && p.type === "weigh")
           .sort((a, b) => b.date.localeCompare(a.date));
         const isOpen = !collapsed[shedNum];
 
@@ -341,17 +399,10 @@ export default function Photos() {
 
             {isOpen && (
               <div className="px-3 py-3">
-                <div className="flex gap-2 mb-3">
-                  <button
-                    onClick={() => openCapture(shedNum, shedGroupId, "mort")}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-red-400 bg-red-50 text-red-700 font-semibold text-sm active:opacity-70"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Mort Sheet
-                  </button>
+                <div className="mb-3">
                   <button
                     onClick={() => openCapture(shedNum, shedGroupId, "weigh")}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-primary bg-primary/5 text-primary font-semibold text-sm active:opacity-70"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border-2 border-primary bg-primary/5 text-primary font-semibold text-sm active:opacity-70"
                   >
                     <Scale className="h-4 w-4" />
                     Bird Weight
