@@ -3546,32 +3546,78 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
 
             <div style={{ padding: "18px 20px" }}>
               {/* Preview table */}
-              <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "#f3f4f6" }}>
-                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Shed</th>
-                      <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Date</th>
-                      <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Age (days)</th>
-                      <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Birds Out</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {weighRows.map((r, i) => (
-                      <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f0f0f0" }}>
-                        <td style={{ padding: "9px 12px", fontWeight: 700, color: "var(--pm-primary)" }}>Shed {r.shedNum}</td>
-                        <td style={{ padding: "9px 12px", textAlign: "center", color: "#374151" }}>{r.date}</td>
-                        <td style={{ padding: "9px 12px", textAlign: "center", color: "#6b7280" }}>{r.age || "—"}</td>
-                        <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, color: "#111827" }}>{parseInt(r.birds).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {(() => {
+                const newCount    = weighRows.filter(r => !(catchMap[r.shedNum] ?? []).some(c => c.date === r.date)).length;
+                const updateCount = weighRows.length - newCount;
+                return (
+                  <>
+                    {/* Summary pills */}
+                    <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                      {newCount > 0 && (
+                        <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
+                          ＋{newCount} new
+                        </span>
+                      )}
+                      {updateCount > 0 && (
+                        <span style={{ background: "#dbeafe", color: "#1e40af", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
+                          ↻ {updateCount} update{updateCount !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {newCount === 0 && updateCount === 0 && (
+                        <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
+                          No changes
+                        </span>
+                      )}
+                    </div>
 
-              <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#92400e", marginBottom: 16 }}>
-                ⚠️ These catches will be <strong>added</strong> to each shed's catch list. The app will then calculate birds remaining and plan feed accordingly.
-              </div>
+                    <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ background: "#f3f4f6" }}>
+                            <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Shed</th>
+                            <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Date</th>
+                            <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Age</th>
+                            <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Birds Out</th>
+                            <th style={{ padding: "8px 8px", textAlign: "center", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {weighRows.map((r, i) => {
+                            const isUpdate = (catchMap[r.shedNum] ?? []).some(c => c.date === r.date);
+                            const existingBirds = (catchMap[r.shedNum] ?? []).find(c => c.date === r.date)?.birds;
+                            const changed = isUpdate && existingBirds !== r.birds;
+                            return (
+                              <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f0f0f0" }}>
+                                <td style={{ padding: "9px 12px", fontWeight: 700, color: "var(--pm-primary)" }}>Shed {r.shedNum}</td>
+                                <td style={{ padding: "9px 12px", textAlign: "center", color: "#374151" }}>{r.date}</td>
+                                <td style={{ padding: "9px 12px", textAlign: "center", color: "#6b7280" }}>{r.age || "—"}</td>
+                                <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, color: "#111827" }}>
+                                  {parseInt(r.birds).toLocaleString()}
+                                  {changed && existingBirds && (
+                                    <span style={{ display: "block", fontSize: 10, color: "#6b7280", fontWeight: 400 }}>
+                                      was {parseInt(existingBirds).toLocaleString()}
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: "9px 8px", textAlign: "center" }}>
+                                  {isUpdate
+                                    ? <span style={{ background: changed ? "#dbeafe" : "#f3f4f6", color: changed ? "#1e40af" : "#9ca3af", borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>{changed ? "↻ UPDATE" : "= SAME"}</span>
+                                    : <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>＋ NEW</span>
+                                  }
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1e40af", marginBottom: 16 }}>
+                      ℹ️ <strong>Safe to re-upload.</strong> Rows marked <em>UPDATE</em> replace the existing entry for that shed and date. Rows marked <em>SAME</em> are unchanged. New catches are added. Upload the same sheet twice — nothing changes.
+                    </div>
+                  </>
+                );
+              })()}
 
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => setWeighRows(null)}
@@ -3583,7 +3629,17 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                     const next = { ...catchMap };
                     weighRows.forEach(({ shedNum, date, age, birds }) => {
                       const entry: EditableCatch = { date, age, birds, aveWgt: "", totalWgt: "" };
-                      next[shedNum] = [...(next[shedNum] ?? []), entry];
+                      const existing = next[shedNum] ?? [];
+                      const idx = existing.findIndex(c => c.date === date);
+                      if (idx >= 0) {
+                        // Amendment: replace the existing catch for this date
+                        const updated = [...existing];
+                        updated[idx] = { ...updated[idx], birds, age };
+                        next[shedNum] = updated;
+                      } else {
+                        // New catch date: append
+                        next[shedNum] = [...existing, entry];
+                      }
                     });
                     saveCatchMap(next);
                     setWeighRows(null);
