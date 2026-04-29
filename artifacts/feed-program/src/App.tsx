@@ -2246,6 +2246,52 @@ function parseCatches(map: CatchMap, shedNum: number) {
 }
 
 interface ParsedEmailRow { shedNum: number; age: string; birds: string; aveWgt: string; totalWgt: string; }
+interface WeighImportRow  { shedNum: number; date: string; age: string; birds: string; }
+
+async function parseWeighSheetBuffer(buffer: ArrayBuffer): Promise<WeighImportRow[]> {
+  const XLSX = await import("xlsx");
+  const wb   = XLSX.read(new Uint8Array(buffer), { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown[][];
+
+  // Find row that has "MONDAY" / "TUESDAY" etc.
+  let hdrIdx = -1;
+  for (let i = 0; i < data.length; i++) {
+    if ((data[i] as string[]).some(c => typeof c === "string" && c.toUpperCase().includes("MONDAY"))) {
+      hdrIdx = i; break;
+    }
+  }
+  if (hdrIdx === -1) return [];
+
+  const dateRow = data[hdrIdx + 1] as unknown[];
+  // Collect columns where Excel serial dates live
+  const dayCols: { col: number; date: string }[] = [];
+  dateRow.forEach((v, col) => {
+    if (typeof v === "number" && v > 40000) {
+      const d = XLSX.SSF.parse_date_code(v);
+      dayCols.push({ col, date: `${String(d.d).padStart(2,"0")}/${String(d.m).padStart(2,"0")}/${d.y}` });
+    }
+  });
+  if (dayCols.length === 0) return [];
+
+  const results: WeighImportRow[] = [];
+  for (let i = hdrIdx + 2; i < data.length; i++) {
+    const row = data[i] as unknown[];
+    const col1 = String(row[1] ?? "");
+    if (!/\d+\s*\(/.test(col1)) continue;           // must be like "3(CB)"
+    const shedNum = parseInt(col1.replace(/\D.*/, ""), 10);
+    if (!shedNum) continue;
+    dayCols.forEach(({ col, date }) => {
+      const birds = row[col + 5];                    // birds count is at offset +5
+      const age   = row[col];
+      if (typeof birds === "number" && birds > 0) {
+        results.push({ shedNum, date, age: typeof age === "number" ? String(age) : "", birds: String(birds) });
+      }
+    });
+  }
+  return results;
+}
+
 
 function parseEmailCatchText(text: string): ParsedEmailRow[] {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -2369,6 +2415,10 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
   const [emailParsed, setEmailParsed] = useState<ParsedEmailRow[] | null>(null);
   const [emailParseError, setEmailParseError] = useState("");
   const [emailImportMode, setEmailImportMode] = useState<"add" | "replace">("add");
+  const [weighRows, setWeighRows]   = useState<WeighImportRow[] | null>(null);
+  const [weighError, setWeighError] = useState("");
+  const [weighParsing, setWeighParsing] = useState(false);
+  const weighFileRef = useRef<HTMLInputElement>(null);
   const todayDateStr = () => { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`; };
   const [emailCatchDate, setEmailCatchDate] = useState(todayDateStr);
   const [batchHistory]  = useState<BatchHistoryEntry[]>(readBatchHistory);
@@ -2631,13 +2681,42 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? `Batch #${bn}` : <span style={{ opacity: 0.5 }}>Batch #</span>; })()}
           </div>
         )}
-        <button
-          onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setEmailCatchDate(todayDateStr()); setShowEmailImport(true); }}
-          style={{ marginLeft: "auto", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-          title="Import catch data from a Baiada weighbridge email"
-        >
-          📧 Import Catches
-        </button>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() => weighFileRef.current?.click()}
+            disabled={weighParsing}
+            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, opacity: weighParsing ? 0.7 : 1 }}
+            title="Upload a weigh sheet Excel file to import catch bird numbers"
+          >
+            📂 {weighParsing ? "Reading…" : "Upload Weigh Sheet"}
+          </button>
+          <input
+            ref={weighFileRef}
+            type="file"
+            accept=".xlsx,.xls"
+            style={{ display: "none" }}
+            onChange={async e => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setWeighError(""); setWeighParsing(true);
+              try {
+                const buf = await file.arrayBuffer();
+                const rows = await parseWeighSheetBuffer(buf);
+                if (rows.length === 0) setWeighError("No catch data found — make sure this is a Weigh Sheet file.");
+                else setWeighRows(rows);
+              } catch { setWeighError("Could not read file. Please try again."); }
+              finally { setWeighParsing(false); e.target.value = ""; }
+            }}
+          />
+          <button
+            onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setEmailCatchDate(todayDateStr()); setShowEmailImport(true); }}
+            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            title="Import catch data from a Baiada weighbridge email"
+          >
+            📧 Email Catches
+          </button>
+        </div>
+        {weighError && <div style={{ color: "#ffcccc", fontSize: 12, marginTop: 4 }}>{weighError}</div>}
       </div>
 
       {/* ── Sub-tab bar ──────────────────────────────────────────── */}
@@ -3414,6 +3493,78 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Weigh Sheet Import Modal ─────────────────────────────────────── */}
+      {weighRows && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          onClick={() => setWeighRows(null)}>
+          <div style={{ background: "#fff", borderRadius: 14, maxWidth: 540, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 12px 50px rgba(0,0,0,0.35)" }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ background: "var(--pm-primary)", padding: "16px 20px", borderRadius: "14px 14px 0 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ color: "#fff", fontWeight: 800, fontSize: 16 }}>📂 Weigh Sheet — Catch Data</div>
+                <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, marginTop: 2 }}>
+                  Found {weighRows.length} catch{weighRows.length !== 1 ? "es" : ""} across {new Set(weighRows.map(r => r.shedNum)).size} sheds
+                </div>
+              </div>
+              <button onClick={() => setWeighRows(null)} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            </div>
+
+            <div style={{ padding: "18px 20px" }}>
+              {/* Preview table */}
+              <div style={{ border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "#f3f4f6" }}>
+                      <th style={{ padding: "8px 12px", textAlign: "left", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Shed</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Date</th>
+                      <th style={{ padding: "8px 12px", textAlign: "center", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Age (days)</th>
+                      <th style={{ padding: "8px 12px", textAlign: "right", fontWeight: 700, color: "#374151", borderBottom: "1px solid #e5e7eb" }}>Birds Out</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weighRows.map((r, i) => (
+                      <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f0f0f0" }}>
+                        <td style={{ padding: "9px 12px", fontWeight: 700, color: "var(--pm-primary)" }}>Shed {r.shedNum}</td>
+                        <td style={{ padding: "9px 12px", textAlign: "center", color: "#374151" }}>{r.date}</td>
+                        <td style={{ padding: "9px 12px", textAlign: "center", color: "#6b7280" }}>{r.age || "—"}</td>
+                        <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 600, color: "#111827" }}>{parseInt(r.birds).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#92400e", marginBottom: 16 }}>
+                ⚠️ These catches will be <strong>added</strong> to each shed's catch list. The app will then calculate birds remaining and plan feed accordingly.
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => setWeighRows(null)}
+                  style={{ flex: 1, background: "#f0f0f0", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#333" }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    const next = { ...catchMap };
+                    weighRows.forEach(({ shedNum, date, age, birds }) => {
+                      const entry: EditableCatch = { date, age, birds, aveWgt: "", totalWgt: "" };
+                      next[shedNum] = [...(next[shedNum] ?? []), entry];
+                    });
+                    saveCatchMap(next);
+                    setWeighRows(null);
+                  }}
+                  style={{ flex: 2, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
+                >
+                  ✅ Import {weighRows.length} Catch{weighRows.length !== 1 ? "es" : ""} into All Sheds
+                </button>
+              </div>
             </div>
           </div>
         </div>
