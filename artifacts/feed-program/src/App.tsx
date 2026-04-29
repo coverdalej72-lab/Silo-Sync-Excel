@@ -2246,13 +2246,34 @@ function parseCatches(map: CatchMap, shedNum: number) {
 }
 
 interface ParsedEmailRow { shedNum: number; age: string; birds: string; aveWgt: string; totalWgt: string; }
-interface WeighImportRow  { shedNum: number; date: string; age: string; birds: string; }
+interface WeighImportRow  { shedNum: number; date: string; age: string; birds: string; empty?: boolean; }
 
 async function parseWeighSheetBuffer(buffer: ArrayBuffer): Promise<WeighImportRow[]> {
   const XLSX = await import("xlsx");
-  const wb   = XLSX.read(new Uint8Array(buffer), { type: "array" });
+  // cellStyles:true lets us read fill colours to detect red (empty) rows
+  const wb   = XLSX.read(new Uint8Array(buffer), { type: "array", cellStyles: true });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const data: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown[][];
+
+  // Detect whether a cell has a red-dominant fill
+  function isRedCell(rowIdx: number, colIdx: number): boolean {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cell = sheet[XLSX.utils.encode_cell({ r: rowIdx, c: colIdx })] as any;
+      if (!cell?.s) return false;
+      // fgColor is the pattern fill colour; bgColor is the background
+      const raw: string = cell.s.fgColor?.rgb ?? cell.s.bgColor?.rgb
+                       ?? cell.s.fgColor?.argb ?? cell.s.bgColor?.argb ?? "";
+      // Strip optional 2-char alpha prefix (ARGB → RGB)
+      const rgb = raw.length === 8 ? raw.slice(2) : raw;
+      if (rgb.length !== 6) return false;
+      const r = parseInt(rgb.slice(0, 2), 16);
+      const g = parseInt(rgb.slice(2, 4), 16);
+      const b = parseInt(rgb.slice(4, 6), 16);
+      // Red dominant: r is the highest channel and significantly exceeds g and b
+      return r >= g && r >= b && r > 160 && (r - g) + (r - b) > 60;
+    } catch { return false; }
+  }
 
   // Find row that has "MONDAY" / "TUESDAY" etc.
   let hdrIdx = -1;
@@ -2281,13 +2302,23 @@ async function parseWeighSheetBuffer(buffer: ArrayBuffer): Promise<WeighImportRo
     if (!/\d+\s*\(/.test(col1)) continue;           // must be like "3(CB)"
     const shedNum = parseInt(col1.replace(/\D.*/, ""), 10);
     if (!shedNum) continue;
-    dayCols.forEach(({ col, date }) => {
-      const birds = row[col + 5];                    // birds count is at offset +5
-      const age   = row[col];
-      if (typeof birds === "number" && birds > 0) {
-        results.push({ shedNum, date, age: typeof age === "number" ? String(age) : "", birds: String(birds) });
-      }
-    });
+
+    // A red-highlighted shed name cell means the shed is empty
+    const shedIsEmpty = isRedCell(i, 1) || isRedCell(i, 0);
+
+    if (shedIsEmpty) {
+      // Record as empty using the first date column — one entry per shed
+      const firstDay = dayCols[0];
+      results.push({ shedNum, date: firstDay?.date ?? "", age: "", birds: "0", empty: true });
+    } else {
+      dayCols.forEach(({ col, date }) => {
+        const birds = row[col + 5];                  // birds count is at offset +5
+        const age   = row[col];
+        if (typeof birds === "number" && birds > 0) {
+          results.push({ shedNum, date, age: typeof age === "number" ? String(age) : "", birds: String(birds) });
+        }
+      });
+    }
   }
   return results;
 }
@@ -3547,12 +3578,14 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             <div style={{ padding: "18px 20px" }}>
               {/* Preview table */}
               {(() => {
-                const newCount    = weighRows.filter(r => !(catchMap[r.shedNum] ?? []).some(c => c.date === r.date)).length;
-                const updateCount = weighRows.length - newCount;
+                const catchRows  = weighRows.filter(r => !r.empty);
+                const emptyRows  = weighRows.filter(r => r.empty);
+                const newCount   = catchRows.filter(r => !(catchMap[r.shedNum] ?? []).some(c => c.date === r.date)).length;
+                const updateCount = catchRows.length - newCount;
                 return (
                   <>
                     {/* Summary pills */}
-                    <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                       {newCount > 0 && (
                         <span style={{ background: "#dcfce7", color: "#166534", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
                           ＋{newCount} new
@@ -3563,7 +3596,12 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                           ↻ {updateCount} update{updateCount !== 1 ? "s" : ""}
                         </span>
                       )}
-                      {newCount === 0 && updateCount === 0 && (
+                      {emptyRows.length > 0 && (
+                        <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
+                          🔴 {emptyRows.length} shed{emptyRows.length !== 1 ? "s" : ""} empty
+                        </span>
+                      )}
+                      {newCount === 0 && updateCount === 0 && emptyRows.length === 0 && (
                         <span style={{ background: "#f3f4f6", color: "#6b7280", borderRadius: 20, padding: "3px 12px", fontSize: 12, fontWeight: 700 }}>
                           No changes
                         </span>
@@ -3583,6 +3621,19 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                         </thead>
                         <tbody>
                           {weighRows.map((r, i) => {
+                            if (r.empty) {
+                              return (
+                                <tr key={i} style={{ background: "#fff5f5", borderBottom: "1px solid #fecaca" }}>
+                                  <td style={{ padding: "9px 12px", fontWeight: 700, color: "#991b1b" }}>Shed {r.shedNum}</td>
+                                  <td colSpan={3} style={{ padding: "9px 12px", textAlign: "center", color: "#b91c1c", fontWeight: 600, fontSize: 12 }}>
+                                    — shed is empty (highlighted red in weigh sheet) —
+                                  </td>
+                                  <td style={{ padding: "9px 8px", textAlign: "center" }}>
+                                    <span style={{ background: "#fee2e2", color: "#991b1b", borderRadius: 12, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>🔴 EMPTY</span>
+                                  </td>
+                                </tr>
+                              );
+                            }
                             const isUpdate = (catchMap[r.shedNum] ?? []).some(c => c.date === r.date);
                             const existingBirds = (catchMap[r.shedNum] ?? []).find(c => c.date === r.date)?.birds;
                             const changed = isUpdate && existingBirds !== r.birds;
@@ -3612,8 +3663,13 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                       </table>
                     </div>
 
+                    {emptyRows.length > 0 && (
+                      <div style={{ background: "#fff5f5", border: "1px solid #fecaca", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#991b1b", marginBottom: 10 }}>
+                        🔴 <strong>{emptyRows.length} shed{emptyRows.length !== 1 ? "s are" : " is"} empty</strong> — highlighted red in the weigh sheet. These sheds will be marked as having no birds remaining so feed planning skips them.
+                      </div>
+                    )}
                     <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#1e40af", marginBottom: 16 }}>
-                      ℹ️ <strong>Safe to re-upload.</strong> Rows marked <em>UPDATE</em> replace the existing entry for that shed and date. Rows marked <em>SAME</em> are unchanged. New catches are added. Upload the same sheet twice — nothing changes.
+                      ℹ️ <strong>Safe to re-upload.</strong> Rows marked <em>UPDATE</em> replace the existing entry for that shed and date. <em>SAME</em> rows are unchanged. Upload the same sheet twice — nothing changes.
                     </div>
                   </>
                 );
