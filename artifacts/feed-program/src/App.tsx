@@ -2681,42 +2681,70 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
             {(() => { const bn = overrideBatchNum ?? summary?.batchNum; return bn && bn > 0 ? `Batch #${bn}` : <span style={{ opacity: 0.5 }}>Batch #</span>; })()}
           </div>
         )}
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            onClick={() => weighFileRef.current?.click()}
-            disabled={weighParsing}
-            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, opacity: weighParsing ? 0.7 : 1 }}
-            title="Upload a weigh sheet Excel file to import catch bird numbers"
-          >
-            📂 {weighParsing ? "Reading…" : "Upload Weigh Sheet"}
-          </button>
-          <input
-            ref={weighFileRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: "none" }}
-            onChange={async e => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setWeighError(""); setWeighParsing(true);
-              try {
-                const buf = await file.arrayBuffer();
-                const rows = await parseWeighSheetBuffer(buf);
-                if (rows.length === 0) setWeighError("No catch data found — make sure this is a Weigh Sheet file.");
-                else setWeighRows(rows);
-              } catch { setWeighError("Could not read file. Please try again."); }
-              finally { setWeighParsing(false); e.target.value = ""; }
-            }}
-          />
-          <button
-            onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setEmailCatchDate(todayDateStr()); setShowEmailImport(true); }}
-            style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-            title="Import catch data from a Baiada weighbridge email"
-          >
-            📧 Email Catches
-          </button>
+        <div style={{ marginLeft: "auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {/* Weigh sheet upload button — changes appearance when catches already exist */}
+            {(() => {
+              const shedsWithCatches = Object.keys(catchMap).filter(k => (catchMap[Number(k)]?.length ?? 0) > 0).length;
+              const hasData = shedsWithCatches > 0;
+              return (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                  <button
+                    onClick={() => weighFileRef.current?.click()}
+                    disabled={weighParsing}
+                    style={{
+                      background: hasData ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.15)",
+                      border: hasData ? "2px solid #fff" : "1px solid rgba(255,255,255,0.4)",
+                      color: hasData ? "var(--pm-primary)" : "#fff",
+                      borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13,
+                      cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+                      opacity: weighParsing ? 0.7 : 1
+                    }}
+                    title="Upload a weigh sheet Excel file to import catch bird numbers"
+                  >
+                    {weighParsing ? "⏳ Reading…" : hasData ? "📂 Re-upload Weigh Sheet" : "📂 Upload Weigh Sheet"}
+                  </button>
+                  {hasData && (
+                    <div style={{ background: "#22c55e", color: "#fff", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, letterSpacing: 0.3 }}>
+                      ✓ {shedsWithCatches} shed{shedsWithCatches !== 1 ? "s" : ""} loaded
+                    </div>
+                  )}
+                  {!hasData && !weighParsing && (
+                    <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: 600 }}>
+                      ← needed to plan catches
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            <input
+              ref={weighFileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: "none" }}
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setWeighError(""); setWeighParsing(true);
+                try {
+                  const buf = await file.arrayBuffer();
+                  const rows = await parseWeighSheetBuffer(buf);
+                  if (rows.length === 0) setWeighError("No catch data found — make sure this is a Weigh Sheet file.");
+                  else setWeighRows(rows);
+                } catch { setWeighError("Could not read file. Please try again."); }
+                finally { setWeighParsing(false); e.target.value = ""; }
+              }}
+            />
+            <button
+              onClick={() => { setEmailText(""); setEmailParsed(null); setEmailParseError(""); setEmailCatchDate(todayDateStr()); setShowEmailImport(true); }}
+              style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 7, padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+              title="Import catch data from a Baiada weighbridge email"
+            >
+              📧 Email Catches
+            </button>
+          </div>
+          {weighError && <div style={{ color: "#ffcccc", fontSize: 12 }}>{weighError}</div>}
         </div>
-        {weighError && <div style={{ color: "#ffcccc", fontSize: 12, marginTop: 4 }}>{weighError}</div>}
       </div>
 
       {/* ── Sub-tab bar ──────────────────────────────────────────── */}
