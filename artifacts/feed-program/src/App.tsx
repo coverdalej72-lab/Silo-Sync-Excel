@@ -6105,69 +6105,6 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
               })()}
             </div>
 
-            {/* Per-shed catch summary strip */}
-            {(() => {
-              const shedNums = [info.sgId * 2 - 1, info.sgId * 2];
-              const shedNames = [info.shed1, info.shed2];
-              const hasAnyCatch = shedNums.some(n => (catchMap[n] ?? []).length > 0);
-              if (!hasAnyCatch) return null;
-              return (
-                <div style={{ borderTop: "1px solid #e8f0ec", background: "#f8fdf9", padding: "10px 18px" }}>
-                  <div style={{ fontWeight: 700, fontSize: 11, color: "var(--pm-primary)", textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 8 }}>🏭 Catch Summary</div>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    {shedNums.map((shedNum, si) => {
-                      const rows = catchMap[shedNum] ?? [];
-                      if (rows.length === 0) return null;
-                      const isEmptyShed = rows.every(r => parseInt(r.birds) === 0);
-                      const birdCount = si === 0 ? info.birds1 : info.birds2;
-
-                      // Empty shed card
-                      if (isEmptyShed) {
-                        return (
-                          <div key={shedNum} style={{ background: "#fff5f5", border: "2px solid #dc2626", borderRadius: 8, padding: "10px 14px", minWidth: 180, flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ fontSize: 22 }}>🔴</div>
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: 13, color: "#dc2626" }}>{shedNames[si]} — Shed {shedNum}</div>
-                              <div style={{ fontSize: 12, color: "#991b1b", fontWeight: 600, marginTop: 2 }}>SHED EMPTY</div>
-                              {birdCount > 0 && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{birdCount.toLocaleString()} birds placed</div>}
-                            </div>
-                          </div>
-                        );
-                      }
-
-                      const totalCaught = rows.reduce((a, r) => a + (parseFloat(r.birds) || 0), 0);
-                      const totalWgtKg  = rows.reduce((a, r) => {
-                        const tw = parseFloat(r.totalWgt);
-                        const bw = (parseFloat(r.birds) || 0) * (parseFloat(r.aveWgt) || 0);
-                        return a + (tw > 0 ? tw * 1000 : bw);
-                      }, 0);
-                      const aveWgt = totalCaught > 0 ? totalWgtKg / totalCaught : 0;
-                      const mortPct = birdCount > 0 && totalCaught > 0 ? ((birdCount - totalCaught) / birdCount * 100) : null;
-                      return (
-                        <div key={shedNum} style={{ background: "#fff", border: "1px solid #d4ead8", borderRadius: 8, padding: "8px 14px", minWidth: 180, flex: 1 }}>
-                          <div style={{ fontWeight: 800, fontSize: 13, color: "var(--pm-primary)", marginBottom: 5 }}>{shedNames[si]} — Shed {shedNum}</div>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-                            {[
-                              { label: "Birds Caught",   val: totalCaught > 0 ? totalCaught.toLocaleString() : "—" },
-                              { label: "Avg Weight",     val: aveWgt > 0 ? `${aveWgt.toFixed(3)} kg` : "—" },
-                              { label: "Total Live",     val: totalWgtKg > 0 ? `${Math.round(totalWgtKg).toLocaleString()} kg` : "—" },
-                              { label: "Catches",        val: String(rows.length) },
-                              { label: "Mortality %",    val: mortPct != null ? `${mortPct.toFixed(2)}%` : "—" },
-                              { label: "Placed",         val: birdCount > 0 ? birdCount.toLocaleString() : "—" },
-                            ].map(({ label, val }) => (
-                              <div key={label}>
-                                <div style={{ fontSize: 9, color: "#aaa", textTransform: "uppercase" as const, letterSpacing: 0.4 }}>{label}</div>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: "#333" }}>{val}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         );
       })}
