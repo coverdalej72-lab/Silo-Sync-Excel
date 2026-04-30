@@ -5744,6 +5744,14 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
     const projWt = Math.round(tgtPt.weight * ratio);
 
     const latestWt = latest ? wi[latest.age] : 0;
+
+    // Remaining birds = placed birds minus any already caught
+    const shed1Num = info.sgId * 2 - 1;
+    const shed2Num = info.sgId * 2;
+    const caught1  = (catchMap[shed1Num] ?? []).reduce((s, r) => s + (parseFloat(r.birds) || 0), 0);
+    const caught2  = (catchMap[shed2Num] ?? []).reduce((s, r) => s + (parseFloat(r.birds) || 0), 0);
+    const remainingBirds = Math.max(0, info.birds - caught1 - caught2);
+
     const wgKg     = info.birds > 0 && latestWt > 0 ? ((latestWt - 42) / 1000) * info.birds : 0;
     const actFCR   = wgKg > 0 && info.feedUsed > 0 ? info.feedUsed / wgKg : null;
     const latestFCR = latest?.fcr ?? tgtPt.fcr;
@@ -5752,9 +5760,9 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
     const curPt    = breed.data.find(p => p.age >= info.age) ?? breed.data[0];
     const curProjWt = curPt.weight * ratio;
     const wgNeeded = Math.max(0, (projWt - (latestWt || curProjWt)) / 1000);
-    const feedNeeded = info.birds > 0 && wgNeeded > 0 ? Math.round(info.birds * wgNeeded * projFCR) : 0;
+    const feedNeeded = remainingBirds > 0 && wgNeeded > 0 ? Math.round(remainingBirds * wgNeeded * projFCR) : 0;
 
-    return { ratio, projWt, actFCR, projFCR, feedNeeded, stdWt: tgtPt.weight, stdFCR: tgtPt.fcr, daysLeft: Math.max(0, targetAge - info.age), latestAge: latest?.age ?? null };
+    return { ratio, projWt, actFCR, projFCR, feedNeeded, remainingBirds, stdWt: tgtPt.weight, stdFCR: tgtPt.fcr, daysLeft: Math.max(0, targetAge - info.age), latestAge: latest?.age ?? null };
   };
 
   const hdr = (txt: string) => (
