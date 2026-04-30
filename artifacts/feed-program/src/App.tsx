@@ -2230,6 +2230,7 @@ async function loadBatchResultsXlsx(baseUrl: string): Promise<{ sheds: ShedBatch
 }
 
 const BATCH_CATCHES_KEY = "silo-batch-catches";
+const WEIGH_PLAN_KEY    = "silo-weigh-plan";    // weigh-sheet catches — feed planning only, never shown in Catches tab
 interface EditableCatch { date: string; age: string; birds: string; aveWgt: string; totalWgt: string; }
 type CatchMap = Record<number, EditableCatch[]>;
 
@@ -2503,6 +2504,17 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
     }
   }, [loadState, xlSheds]);
 
+  // Weigh-plan map — stored separately, only used for shed feed planning tabs
+  const [weighPlanMap, setWeighPlanMap] = useState<CatchMap>(() => {
+    try { return JSON.parse(localStorage.getItem(WEIGH_PLAN_KEY) || "{}"); } catch { return {}; }
+  });
+  const saveWeighPlanMap = (next: CatchMap) => {
+    setWeighPlanMap(next);
+    localStorage.setItem(WEIGH_PLAN_KEY, JSON.stringify(next));
+    // Notify main App so FlockForecastView stays in sync (custom event within same tab)
+    window.dispatchEvent(new CustomEvent("weighPlanUpdated"));
+  };
+
   const saveCatchMap = (next: CatchMap) => {
     setCatchMap(next);
     localStorage.setItem(BATCH_CATCHES_KEY, JSON.stringify(next));
@@ -2716,7 +2728,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {/* Weigh sheet upload button — changes appearance when catches already exist */}
             {(() => {
-              const shedsWithCatches = Object.keys(catchMap).filter(k => (catchMap[Number(k)]?.length ?? 0) > 0).length;
+              const shedsWithCatches = Object.keys(weighPlanMap).filter(k => (weighPlanMap[Number(k)]?.length ?? 0) > 0).length;
               const hasData = shedsWithCatches > 0;
               return (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
@@ -3580,7 +3592,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
               {(() => {
                 const catchRows  = weighRows.filter(r => !r.empty);
                 const emptyRows  = weighRows.filter(r => r.empty);
-                const newCount   = catchRows.filter(r => !(catchMap[r.shedNum] ?? []).some(c => c.date === r.date)).length;
+                const newCount   = catchRows.filter(r => !(weighPlanMap[r.shedNum] ?? []).some(c => c.date === r.date)).length;
                 const updateCount = catchRows.length - newCount;
                 return (
                   <>
@@ -3634,8 +3646,8 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                                 </tr>
                               );
                             }
-                            const isUpdate = (catchMap[r.shedNum] ?? []).some(c => c.date === r.date);
-                            const existingBirds = (catchMap[r.shedNum] ?? []).find(c => c.date === r.date)?.birds;
+                            const isUpdate = (weighPlanMap[r.shedNum] ?? []).some(c => c.date === r.date);
+                            const existingBirds = (weighPlanMap[r.shedNum] ?? []).find(c => c.date === r.date)?.birds;
                             const changed = isUpdate && existingBirds !== r.birds;
                             return (
                               <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa", borderBottom: "1px solid #f0f0f0" }}>
@@ -3682,13 +3694,13 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                 </button>
                 <button
                   onClick={() => {
-                    const next = { ...catchMap };
+                    const next = { ...weighPlanMap };
                     weighRows.forEach(({ shedNum, date, age, birds }) => {
                       const entry: EditableCatch = { date, age, birds, aveWgt: "", totalWgt: "" };
                       const existing = next[shedNum] ?? [];
                       const idx = existing.findIndex(c => c.date === date);
                       if (idx >= 0) {
-                        // Amendment: replace the existing catch for this date
+                        // Amendment: replace the existing entry for this shed+date
                         const updated = [...existing];
                         updated[idx] = { ...updated[idx], birds, age };
                         next[shedNum] = updated;
@@ -3697,7 +3709,7 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
                         next[shedNum] = [...existing, entry];
                       }
                     });
-                    saveCatchMap(next);
+                    saveWeighPlanMap(next);
                     setWeighRows(null);
                   }}
                   style={{ flex: 2, background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
@@ -6166,6 +6178,27 @@ export default function App() {
   const [catchMap, setCatchMap] = useState<CatchMap>(() => {
     try { return JSON.parse(localStorage.getItem(BATCH_CATCHES_KEY) || "{}"); } catch { return {}; }
   });
+  // Weigh-sheet plan data — kept separate from catchMap, merged only for feed planning tabs
+  const [weighPlanMap, setWeighPlanMap] = useState<CatchMap>(() => {
+    try { return JSON.parse(localStorage.getItem(WEIGH_PLAN_KEY) || "{}"); } catch { return {}; }
+  });
+  useEffect(() => {
+    // BatchResultsView dispatches this custom event (same tab) when it saves a new weigh plan
+    const handler = () => {
+      try { setWeighPlanMap(JSON.parse(localStorage.getItem(WEIGH_PLAN_KEY) ?? "{}")); } catch { /* noop */ }
+    };
+    window.addEventListener("weighPlanUpdated", handler);
+    return () => window.removeEventListener("weighPlanUpdated", handler);
+  }, []);
+  // Merge catchMap + weighPlanMap — only used by FlockForecastView
+  const planningCatchMap: CatchMap = (() => {
+    const merged: CatchMap = { ...catchMap };
+    Object.entries(weighPlanMap).forEach(([k, rows]) => {
+      const n = Number(k);
+      merged[n] = [...(merged[n] ?? []), ...rows];
+    });
+    return merged;
+  })();
   const [showSettings, setShowSettings] = useState(false);
   const [newBatchLocked, setNewBatchLocked] = useState(true);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
@@ -7418,7 +7451,7 @@ export default function App() {
           </div>
         ) : activeView === "flockForecast" ? (
           <div className="flex-1 overflow-auto safe-bottom">
-            <FlockForecastView sheets={sheets} edits={edits} farmConfig={farmConfig} catchMap={catchMap} />
+            <FlockForecastView sheets={sheets} edits={edits} farmConfig={farmConfig} catchMap={planningCatchMap} />
           </div>
         ) : activeView === "history" ? (
           <div className="flex-1 overflow-auto safe-bottom">
