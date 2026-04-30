@@ -6190,12 +6190,23 @@ export default function App() {
     window.addEventListener("weighPlanUpdated", handler);
     return () => window.removeEventListener("weighPlanUpdated", handler);
   }, []);
-  // Merge catchMap + weighPlanMap — only used by FlockForecastView
+  // Merge weighPlanMap + catchMap for FlockForecastView (shed feed planning tabs).
+  // Rule: catchMap (actual Weighbridge email data) always overrides weighPlanMap (planned
+  // weigh-sheet data) for the same shed+date — so pasting the email after a catch
+  // automatically corrects the planned numbers without any manual deletion.
   const planningCatchMap: CatchMap = (() => {
-    const merged: CatchMap = { ...catchMap };
+    const merged: CatchMap = {};
+    // 1. Start with planned weigh-sheet entries
     Object.entries(weighPlanMap).forEach(([k, rows]) => {
+      merged[Number(k)] = [...rows];
+    });
+    // 2. Overlay actual email entries — for any date present in catchMap, drop the
+    //    corresponding weigh-plan entry and use the actual data instead
+    Object.entries(catchMap).forEach(([k, rows]) => {
       const n = Number(k);
-      merged[n] = [...(merged[n] ?? []), ...rows];
+      const actualDates = new Set(rows.map(r => r.date).filter(Boolean));
+      const planRows = (merged[n] ?? []).filter(r => !actualDates.has(r.date));
+      merged[n] = [...planRows, ...rows];
     });
     return merged;
   })();
