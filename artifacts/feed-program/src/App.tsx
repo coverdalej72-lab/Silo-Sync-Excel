@@ -5821,14 +5821,18 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
                   const shedNum   = info.sgId * 2 - (slot === 1 ? 1 : 0);
                   const catches   = catchMap[shedNum] ?? [];
                   const totalCaught = catches.reduce((a, r) => a + (parseFloat(r.birds) || 0), 0);
+                  const shedIsEmpty = catches.length > 0 && catches.every(r => parseInt(r.birds) === 0);
                   return (
-                    <div key={slot} style={{ background: "rgba(255,255,255,0.12)", borderRadius: 8, padding: "7px 12px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flex: 1, minWidth: 200 }}>
+                    <div key={slot} style={{ background: shedIsEmpty ? "rgba(220,38,38,0.25)" : "rgba(255,255,255,0.12)", border: shedIsEmpty ? "1px solid rgba(255,100,100,0.5)" : "none", borderRadius: 8, padding: "7px 12px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flex: 1, minWidth: 200 }}>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: 13 }}>{shedName}</div>
+                        <div style={{ fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                          {shedName}
+                          {shedIsEmpty && <span style={{ background: "#dc2626", color: "#fff", borderRadius: 10, padding: "1px 8px", fontSize: 10, fontWeight: 800, letterSpacing: 0.3 }}>SHED EMPTY</span>}
+                        </div>
                         <div style={{ fontSize: 11, opacity: 0.75 }}>
                           {birdCount > 0 ? birdCount.toLocaleString() : "—"} birds
                           {mortPct ? <span style={{ marginLeft: 6, color: "#ffc3c3" }}>{mortPct}% mort</span> : null}
-                          {totalCaught > 0 ? <span style={{ marginLeft: 6, color: "#c3ffd1" }}>✓ {totalCaught.toLocaleString()} caught</span> : null}
+                          {!shedIsEmpty && totalCaught > 0 ? <span style={{ marginLeft: 6, color: "#c3ffd1" }}>✓ {totalCaught.toLocaleString()} caught</span> : null}
                         </div>
                       </div>
                       <select
@@ -6114,7 +6118,23 @@ function FlockForecastView({ sheets, edits, farmConfig, catchMap }: {
                     {shedNums.map((shedNum, si) => {
                       const rows = catchMap[shedNum] ?? [];
                       if (rows.length === 0) return null;
+                      const isEmptyShed = rows.every(r => parseInt(r.birds) === 0);
                       const birdCount = si === 0 ? info.birds1 : info.birds2;
+
+                      // Empty shed card
+                      if (isEmptyShed) {
+                        return (
+                          <div key={shedNum} style={{ background: "#fff5f5", border: "2px solid #dc2626", borderRadius: 8, padding: "10px 14px", minWidth: 180, flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ fontSize: 22 }}>🔴</div>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: 13, color: "#dc2626" }}>{shedNames[si]} — Shed {shedNum}</div>
+                              <div style={{ fontSize: 12, color: "#991b1b", fontWeight: 600, marginTop: 2 }}>SHED EMPTY</div>
+                              {birdCount > 0 && <div style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>{birdCount.toLocaleString()} birds placed</div>}
+                            </div>
+                          </div>
+                        );
+                      }
+
                       const totalCaught = rows.reduce((a, r) => a + (parseFloat(r.birds) || 0), 0);
                       const totalWgtKg  = rows.reduce((a, r) => {
                         const tw = parseFloat(r.totalWgt);
