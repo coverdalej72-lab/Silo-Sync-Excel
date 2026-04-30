@@ -2923,19 +2923,16 @@ function BatchResultsView({ sheets, edits, farmConfig, shedPlacement, onEobCatch
           </div>
         )}
         {(() => {
-          const cageFcr    = summary && summary.cage > 0 ? summary.cage : null;
-          const totalCages = Object.values(catchMap).reduce((s, rows) => s + rows.length, 0);
+          const cageAge = summary && summary.cage > 0 ? summary.cage : null;
           return (
             <div style={cardStyle("#7f8c8d")}>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#7f8c8d" }}>
-                {cageFcr != null
-                  ? cageFcr.toFixed(3)
-                  : totalCages > 0
-                    ? <>{totalCages} <span style={{ fontSize: 13 }}>cages</span></>
-                    : "—"}
+                {cageAge != null
+                  ? <>{cageAge.toFixed(2)} <span style={{ fontSize: 13 }}>days</span></>
+                  : "—"}
               </div>
               <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                {cageFcr != null ? "Cage FCR" : "Cage"}
+                Cage Age
               </div>
             </div>
           );
