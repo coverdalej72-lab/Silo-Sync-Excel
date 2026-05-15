@@ -20,21 +20,28 @@ export interface FarmConfig {
 
 const SILO_LETTERS = ["A", "B", "C"] as const;
 
+const DEFAULT_SHED_GROUPS: ShedGroupConfig[] = [
+  { shedGroupId: 1,  customName: "Sheds 1 & 2",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 2,  customName: "Sheds 3 & 4",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 3,  customName: "Sheds 5 & 6",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 4,  customName: "Sheds 7 & 8",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 5,  customName: "Sheds 9 & 10",  active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 6,  customName: "Sheds 11 & 12", active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 7,  customName: "Sheds 13 & 14", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 8,  customName: "Sheds 15 & 16", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 9,  customName: "Sheds 17 & 18", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 10, customName: "Sheds 19 & 20", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 11, customName: "Sheds 21 & 22", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 12, customName: "Sheds 23 & 24", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 13, customName: "Sheds 25 & 26", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 14, customName: "Sheds 27 & 28", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+  { shedGroupId: 15, customName: "Sheds 29 & 30", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
+];
+
 const DEFAULT_CONFIG: FarmConfig = {
   farmName: "Double B Farm",
   setupLocked: false,
-  shedGroups: [
-    { shedGroupId: 1,  customName: "Sheds 1 & 2",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 2,  customName: "Sheds 3 & 4",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 3,  customName: "Sheds 5 & 6",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 4,  customName: "Sheds 7 & 8",   active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 5,  customName: "Sheds 9 & 10",  active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 6,  customName: "Sheds 11 & 12", active: true,  silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 7,  customName: "Sheds 13 & 14", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 8,  customName: "Sheds 15 & 16", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 9,  customName: "Sheds 17 & 18", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-    { shedGroupId: 10, customName: "Sheds 19 & 20", active: false, silos: [{ letter: "A", tonnesCapacity: 0 }, { letter: "B", tonnesCapacity: 0 }, { letter: "C", tonnesCapacity: 0 }] },
-  ],
+  shedGroups: DEFAULT_SHED_GROUPS,
 };
 
 export const STORAGE_KEY = "silo-farm-config";
@@ -47,7 +54,7 @@ function loadConfig(): FarmConfig {
     return {
       farmName: parsed.farmName ?? DEFAULT_CONFIG.farmName,
       setupLocked: parsed.setupLocked ?? false,
-      shedGroups: DEFAULT_CONFIG.shedGroups.map((def) => {
+      shedGroups: DEFAULT_SHED_GROUPS.map((def) => {
         const stored = parsed.shedGroups?.find((s) => s.shedGroupId === def.shedGroupId);
         if (!stored) return def;
         const silos: SiloConfig[] =
@@ -147,6 +154,22 @@ export function useFarmConfig() {
     });
   }, []);
 
+  const setTotalSheds = useCallback((totalSheds: number) => {
+    const clamped = Math.min(Math.max(2, totalSheds), DEFAULT_SHED_GROUPS.length * 2);
+    const numGroups = Math.ceil(clamped / 2);
+    setConfig((prev) => {
+      const next = {
+        ...prev,
+        shedGroups: prev.shedGroups.map((g) => ({
+          ...g,
+          active: g.shedGroupId <= numGroups,
+        })),
+      };
+      saveConfig(next);
+      return next;
+    });
+  }, []);
+
   const updateSiloTonnage = useCallback((shedGroupId: number, letter: string, tonnes: number) => {
     setConfig((prev) => {
       const next = {
@@ -199,6 +222,7 @@ export function useFarmConfig() {
     updateFarmName,
     updateShedName,
     toggleShedActive,
+    setTotalSheds,
     addSilo,
     removeSilo,
     updateSiloTonnage,

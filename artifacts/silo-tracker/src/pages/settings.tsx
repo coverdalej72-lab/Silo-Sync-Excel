@@ -262,7 +262,7 @@ function DefaultUnitToggle() {
 }
 
 export default function Settings() {
-  const { config, updateFarmName, updateShedName, updateSiloTonnage, toggleShedActive, addSilo, removeSilo, toggleSetupLock } = useFarmConfig();
+  const { config, updateFarmName, updateShedName, updateSiloTonnage, toggleShedActive, setTotalSheds, addSilo, removeSilo, toggleSetupLock } = useFarmConfig();
   const { theme, toggle: toggleTheme } = useTheme();
   const { toast } = useToast();
   const [expandedSheds, setExpandedSheds] = useState<Record<number, boolean>>({});
@@ -399,6 +399,33 @@ export default function Settings() {
       {/* Sheds & Silos */}
       <div>
         <SectionLabel title="Sheds & Silo Capacity" />
+        {/* Total Sheds quick-set */}
+        <div className={cn("bg-card border border-border/50 rounded-2xl overflow-hidden mb-3", locked && "opacity-60")}>
+          <div className="flex items-center justify-between px-4 py-3 gap-3">
+            <div>
+              <span className="text-sm font-semibold text-foreground">Total Sheds</span>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Sets how many sheds are active across the whole app</p>
+            </div>
+            <input
+              type="number"
+              min={2}
+              max={30}
+              step={2}
+              disabled={locked}
+              defaultValue={config.shedGroups.filter(g => g.active).length * 2}
+              key={config.shedGroups.filter(g => g.active).length}
+              onBlur={e => {
+                if (locked) return;
+                const val = parseInt(e.target.value);
+                if (!isNaN(val) && val >= 2) setTotalSheds(val);
+              }}
+              className={cn(
+                "bg-secondary border border-border/50 rounded-lg px-3 py-2 text-sm text-right text-foreground w-24 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                locked && "cursor-not-allowed"
+              )}
+            />
+          </div>
+        </div>
         <div className={cn("bg-card border border-border/50 rounded-2xl overflow-hidden", locked && "opacity-60")}>
           {config.shedGroups.map((group, gi) => {
             const isOpen = !!expandedSheds[group.shedGroupId];
