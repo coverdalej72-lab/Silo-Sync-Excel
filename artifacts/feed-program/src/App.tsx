@@ -7801,6 +7801,40 @@ export default function App() {
             </div>
 
             <div style={{ padding: "20px 20px 32px", flex: 1, display: "flex", flexDirection: "column", gap: 24 }}>
+
+              {/* ── Total Sheds ── */}
+              <div style={{ background: "var(--pm-primary-soft)", border: "2px solid var(--pm-primary)", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <label style={{ fontWeight: 800, fontSize: 14, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>🏠 Total Sheds</label>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--pm-primary-soft)", color: "var(--pm-primary)", borderRadius: 20, padding: "1px 8px", border: "1px solid var(--pm-primary)", letterSpacing: 0.3 }}>Synced with Silo Base Mate</span>
+                </div>
+                <p style={{ fontSize: 12, color: "#555", marginBottom: 10 }}>Enter your total number of sheds — activates all sections across the app instantly.</p>
+                <input
+                  type="number"
+                  min={2}
+                  max={30}
+                  step={2}
+                  defaultValue={(farmConfig.shedGroups?.filter((g: {active?: boolean}) => g.active !== false).length ?? 6) * 2}
+                  key={(farmConfig.shedGroups?.filter((g: {active?: boolean}) => g.active !== false).length ?? 6)}
+                  onBlur={e => {
+                    const val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 2) return;
+                    const clamped = Math.min(Math.max(2, val), 30);
+                    const numGroups = Math.ceil(clamped / 2);
+                    const updated = {
+                      ...farmConfig,
+                      shedGroups: (farmConfig.shedGroups ?? []).map((g: {shedGroupId: number}) => ({
+                        ...g,
+                        active: g.shedGroupId <= numGroups,
+                      })),
+                    };
+                    saveFarmConfig(updated);
+                    setFarmConfig(updated);
+                  }}
+                  style={{ width: "100%", border: "2px solid var(--pm-primary)", borderRadius: 8, padding: "10px 14px", fontSize: 18, fontWeight: 800, color: "var(--pm-primary)", outline: "none", boxSizing: "border-box" as const, textAlign: "center" }}
+                />
+              </div>
+
               {/* Farm Name */}
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
