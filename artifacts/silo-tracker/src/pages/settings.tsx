@@ -270,6 +270,19 @@ export default function Settings() {
   const [resetting, setResetting] = useState(false);
   const [farmNameInput, setFarmNameInput] = useState(config.farmName);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const activeCount = config.shedGroups.filter(g => g.active).length;
+  const [totalShedsInput, setTotalShedsInput] = useState<string>(String(activeCount * 2));
+  useEffect(() => { setTotalShedsInput(String(activeCount * 2)); }, [activeCount]);
+
+  const applyTotalSheds = (raw: string) => {
+    const val = parseInt(raw, 10);
+    if (!isNaN(val) && val >= 2) {
+      setTotalSheds(val);
+      setTotalShedsInput(String(Math.min(Math.max(2, val), 30)));
+    } else {
+      setTotalShedsInput(String(activeCount * 2));
+    }
+  };
 
   const locked = config.setupLocked;
 
@@ -411,14 +424,12 @@ export default function Settings() {
               type="number"
               min={2}
               max={30}
-              step={2}
               disabled={locked}
-              defaultValue={config.shedGroups.filter(g => g.active).length * 2}
-              key={config.shedGroups.filter(g => g.active).length}
-              onBlur={e => {
-                if (locked) return;
-                const val = parseInt(e.target.value);
-                if (!isNaN(val) && val >= 2) setTotalSheds(val);
+              value={totalShedsInput}
+              onChange={e => { if (!locked) setTotalShedsInput(e.target.value); }}
+              onBlur={() => { if (!locked) applyTotalSheds(totalShedsInput); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") { e.currentTarget.blur(); }
               }}
               className={cn(
                 "bg-secondary border border-border/50 rounded-lg px-3 py-2 text-sm text-right text-foreground w-24 focus:outline-none focus:ring-2 focus:ring-primary/50",
