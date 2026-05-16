@@ -149,6 +149,7 @@ const BATCH_HISTORY_KEY    = "feedmate-batch-history";
 // v2: renamed from "feedmate-edits-autosave" to invalidate stale date-column
 //     saves from the old code that wrote wrong placement dates for SHED 9 & 10.
 const EDITS_AUTOSAVE_KEY   = "feedmate-edits-autosave-v2";
+const EDITS_SHEET_NAMES_KEY = "feedmate-edits-sheet-names";
 
 function serializeEdits(edits: Map<string, string>[]): string {
   return JSON.stringify(edits.map(m => [...m.entries()]));
@@ -664,9 +665,88 @@ interface SheetParsed {
   colWidths: number[];
   rowHeights: number[];
   merges: { r: number; c: number; rs: number; cs: number }[];
+  isVirtual?: boolean; // true for shed sheets generated from farm config, not from xlsx
 }
 
 const BASE = import.meta.env.BASE_URL;
+
+// Creates a virtual clone of a SHED sheet for a shed group that has no xlsx sheet.
+// Copies the full cell structure from the template, presets shed numbers, and clears
+// the placement date + bird counts so the user enters their own data.
+function createVirtualShedSheet(template: SheetParsed, groupId: number): SheetParsed {
+  const odd  = groupId * 2 - 1;
+  const even = groupId * 2;
+  const name = `SHED ${odd} & ${even}`;
+  const cells = new Map<string, CellInfo>();
+  template.cells.forEach((cell, key) => {
+    cells.set(key, { ...cell });
+  });
+  // Set shed number name cells (row 3 = odd shed, row 4 = even shed)
+  const patchCell = (row: number, col: number, val: string) => {
+    const existing = cells.get(`${row},${col}`);
+    if (existing) cells.set(`${row},${col}`, { ...existing, value: val });
+    else cells.set(`${row},${col}`, { value: val } as CellInfo);
+  };
+  patchCell(3, 1, `SHED ${odd}`);
+  patchCell(4, 1, `SHED ${even}`);
+  // Clear placement date and bird counts
+  patchCell(2, 2, "");
+  patchCell(3, 2, "0");
+  patchCell(4, 2, "0");
+  return {
+    name, rawName: name,
+    tabColor: "#C9A227",
+    cells,
+    minRow: template.minRow, maxRow: template.maxRow,
+    minCol: template.minCol, maxCol: template.maxCol,
+    colWidths: [...template.colWidths],
+    rowHeights: [...template.rowHeights],
+    merges: template.merges.map(m => ({ ...m })),
+    isVirtual: true,
+  };
+}
+
+// Appends virtual SHED sheets to `result` for any active farm-config shed groups
+// that don't already have a sheet in the xlsx. Virtual sheets are appended at the
+// end so existing sheet indices (and therefore the autosave index mapping) are
+// not disturbed.
+function injectVirtualShedSheets(result: SheetParsed[]): void {
+  try {
+    const farmCfgRaw = localStorage.getItem("silo-farm-config");
+    if (!farmCfgRaw) return;
+    const farmCfg = JSON.parse(farmCfgRaw) as { shedGroups?: { shedGroupId: number; active?: boolean }[] };
+    const activeGroupIds = (farmCfg.shedGroups ?? [])
+      .filter(g => g.active !== false)
+      .map(g => g.shedGroupId)
+      .sort((a, b) => a - b);
+    if (activeGroupIds.length === 0) return;
+
+    // Find template = first SHED sheet that is not WEEKLY STOCK TAKE / end of batch
+    const template = result.find(s => {
+      const n = s.name.trim().toUpperCase();
+      return n.includes("SHED") && !n.includes("WEEKLY") && !n.includes("END") && !n.includes("CONSUMPTION");
+    });
+    if (!template) return;
+
+    // Which groupIds already have xlsx sheets?
+    let xlsxShedCount = 0;
+    const existingGroupIds = new Set<number>();
+    for (const s of result) {
+      const n = s.name.trim().toUpperCase();
+      if (n.includes("SHED") && !n.includes("WEEKLY") && !n.includes("END") && !n.includes("CONSUMPTION")) {
+        existingGroupIds.add(SHED_SHEET_ORDER[xlsxShedCount] ?? (xlsxShedCount + 1));
+        xlsxShedCount++;
+      }
+    }
+
+    // Append virtual sheets for active groups without xlsx sheets
+    for (const gid of activeGroupIds) {
+      if (!existingGroupIds.has(gid)) {
+        result.push(createVirtualShedSheet(template, gid));
+      }
+    }
+  } catch { /* ignore */ }
+}
 
 function colLetter(n: number): string {
   let s = "";
@@ -6607,6 +6687,39 @@ export default function App() {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
+  // Re-inject virtual shed sheets whenever the active shed group count changes.
+  // This lets the Feed Program update its tabs live when the user changes Total Sheds
+  // in the Silo Tracker Settings without needing a page refresh.
+  useEffect(() => {
+    const currentSheets = sheetsRef.current;
+    const currentEdits  = editsRef.current;
+    if (currentSheets.length === 0) return;
+
+    // Split into real (from xlsx) and virtual (injected by us)
+    const realSheets = currentSheets.filter(s => !s.isVirtual);
+    const extended   = [...realSheets];
+    injectVirtualShedSheets(extended); // reads farmConfig from localStorage
+
+    if (extended.length === currentSheets.length &&
+        extended.every((s, i) => s.name === currentSheets[i]?.name)) return; // no change
+
+    // Build new edits: keep real-sheet edits, carry over matching virtual-sheet edits
+    const newEdits: Map<string, string>[] = realSheets.map((_, i) => currentEdits[i] ?? new Map());
+    for (let i = realSheets.length; i < extended.length; i++) {
+      const virtualSheet = extended[i];
+      const prevIdx = currentSheets.findIndex(s => s.isVirtual && s.name === virtualSheet.name);
+      newEdits.push(
+        prevIdx >= 0 && currentEdits[prevIdx]
+          ? currentEdits[prevIdx]
+          : buildInitialEditsForSheet(virtualSheet)
+      );
+    }
+
+    setSheets(extended);
+    setEdits(newEdits);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [farmConfig.shedGroups]);
+
   useEffect(() => {
     const xlsxUrl = `${BASE}feed-program.xlsx`;
     const styleUrl = `${BASE}style-data.json`;
@@ -6644,6 +6757,9 @@ export default function App() {
           result.push(parsed);
         });
 
+        // Inject virtual SHED sheets for active shed groups that have no xlsx sheet
+        injectVirtualShedSheets(result);
+
         setSheets(result);
 
         // Seed initial edits: cascade Feed Alloc (col G=6) from cream row down
@@ -6669,39 +6785,47 @@ export default function App() {
           const saved = localStorage.getItem(EDITS_AUTOSAVE_KEY);
           if (saved) {
             const savedMaps = deserializeEdits(saved);
-            for (let i = 0; i < Math.min(initialEdits.length, savedMaps.length); i++) {
-              const savedMap = savedMaps[i];
-              if (savedMap && savedMap.size > 0) {
-                const merged = new Map(initialEdits[i]);
-                const freshPlacementDate = merged.get("2,2");
-                const hasValidFreshDate = !!(freshPlacementDate && parseDateString(freshPlacementDate));
-                savedMap.forEach((v, k) => {
-                  if (hasValidFreshDate) {
-                    // Protect canonical placement-date edit
-                    if (k === "2,2") return;
-                    // Protect every data-row date cell (COL_B = 1, rows 12+)
-                    const [rStr, cStr] = k.split(",");
-                    if (cStr === String(COL_B) && parseInt(rStr) >= 12) return;
-                  }
-                  // Silo reading columns (K/L/M/J): restore non-empty values only.
-                  // Non-empty values are either manually entered readings or values that
-                  // were applied by a previous Farm Buddy sync — both are valid to keep.
-                  // Empty values (cleared by buildInitialEditsForSheet) are skipped so we
-                  // don't overwrite blank-column initialisation with stale empty strings.
-                  // The live Farm Buddy auto-sync will overwrite these with current data
-                  // when it runs after load.  New-batch imports clear the autosave
-                  // entirely, so cross-batch bleed is not possible.
-                  const cNum = parseInt(k.split(",")[1]);
-                  if ((cNum === COL_K || cNum === COL_L || cNum === COL_M || cNum === COL_J) && !v) return;
-                  // Skip stale date-string values that were accidentally autosaved into
-                  // allocation cells (H2-H5 = rows 1-4, col 7).  These appear when a
-                  // previous buggy version displayed a date-formatted kg value and the
-                  // user clicked through the Summary card, causing onBlur to persist it.
-                  const rNum = parseInt(k.split(",")[0]);
-                  if (cNum === COL_H && rNum >= 1 && rNum <= 4 && isNaN(parseFloat(v))) return;
-                  merged.set(k, v);
-                });
-                initialEdits[i] = merged;
+            // Build name→savedMap from the previously saved sheet order (if available)
+            // so that virtual-sheet insertion doesn't misalign indices.
+            const savedNamesRaw = localStorage.getItem(EDITS_SHEET_NAMES_KEY);
+            const savedNames: string[] | null = savedNamesRaw ? JSON.parse(savedNamesRaw) : null;
+            const namedSavedMap = new Map<string, Map<string, string>>();
+            if (savedNames) {
+              savedNames.forEach((name, idx) => {
+                if (savedMaps[idx]) namedSavedMap.set(name.trim(), savedMaps[idx]);
+              });
+            }
+
+            const applyMap = (savedMap: Map<string, string>, targetIdx: number) => {
+              if (!savedMap || savedMap.size === 0) return;
+              const merged = new Map(initialEdits[targetIdx]);
+              const freshPlacementDate = merged.get("2,2");
+              const hasValidFreshDate = !!(freshPlacementDate && parseDateString(freshPlacementDate));
+              savedMap.forEach((v, k) => {
+                if (hasValidFreshDate) {
+                  if (k === "2,2") return;
+                  const [rStr, cStr] = k.split(",");
+                  if (cStr === String(COL_B) && parseInt(rStr) >= 12) return;
+                }
+                const cNum = parseInt(k.split(",")[1]);
+                if ((cNum === COL_K || cNum === COL_L || cNum === COL_M || cNum === COL_J) && !v) return;
+                const rNum = parseInt(k.split(",")[0]);
+                if (cNum === COL_H && rNum >= 1 && rNum <= 4 && isNaN(parseFloat(v))) return;
+                merged.set(k, v);
+              });
+              initialEdits[targetIdx] = merged;
+            };
+
+            if (namedSavedMap.size > 0) {
+              // Name-keyed restore: handles virtual sheet insertion correctly
+              result.forEach((sheet, idx) => {
+                const sm = namedSavedMap.get(sheet.name.trim());
+                if (sm) applyMap(sm, idx);
+              });
+            } else {
+              // Fallback: index-based restore (old format, no sheet names saved)
+              for (let i = 0; i < Math.min(initialEdits.length, savedMaps.length); i++) {
+                applyMap(savedMaps[i], i);
               }
             }
           }
@@ -6914,6 +7038,9 @@ export default function App() {
         result.push(parseSheet(ws, trimmedName, rawName, tabArgb, richStyles));
       });
 
+      // Inject virtual SHED sheets for active shed groups that have no xlsx sheet
+      injectVirtualShedSheets(result);
+
       // Seed initial edits — cascade Feed Alloc (col G=6) from cream row down.
       // Also seeds Feed Ordered (E) and Silo readings (K/L/M) from the spreadsheet
       // template so they are preserved when importing an old spreadsheet.
@@ -7099,6 +7226,7 @@ export default function App() {
     autoSaveTimerRef.current = setTimeout(() => {
       try {
         localStorage.setItem(EDITS_AUTOSAVE_KEY, serializeEdits(edits));
+        localStorage.setItem(EDITS_SHEET_NAMES_KEY, JSON.stringify(sheets.map(s => s.name)));
         setAutoSaveFlash(true);
         setTimeout(() => setAutoSaveFlash(false), 2500);
       } catch { /* storage full — silently skip */ }
@@ -7296,60 +7424,84 @@ export default function App() {
           ☰ Summary
         </button>
         {(() => {
-          let shedCount = 0;
-          return sheets.map((s, i) => {
-          const tabName = s.name.trim().toUpperCase();
-          if (tabName === "WEEKLY STOCK TAKE" || tabName === "CONSUMPTION GUIDE") return null;
+          // Build a sorted tab list: SHED tabs first (sorted by first shed number),
+          // then all other tabs in their original order. This ensures virtual SHED
+          // sheets (appended at the end of the array) appear alongside real SHED tabs
+          // rather than after "end of batch".
+          const shedEntries: { s: SheetParsed; i: number; firstNum: number }[] = [];
+          const otherEntries: { s: SheetParsed; i: number }[] = [];
+          sheets.forEach((s, i) => {
+            const n = s.name.trim().toUpperCase();
+            if (n === "WEEKLY STOCK TAKE" || n === "CONSUMPTION GUIDE") return;
+            if (n.includes("SHED")) {
+              const m = s.name.match(/(\d+)/);
+              shedEntries.push({ s, i, firstNum: m ? parseInt(m[1]) : 999 });
+            } else {
+              otherEntries.push({ s, i });
+            }
+          });
+          shedEntries.sort((a, b) => a.firstNum - b.firstNum);
 
-          // Check if this is a shed tab and if its group is active
-          if (tabName.includes("SHED")) {
-            const shedGroupId = SHED_SHEET_ORDER[shedCount];
-            shedCount++;
-            // Always hide disabled groups (e.g. Shed 9 & 10 pending bug fix)
-            if (DISABLED_SHED_GROUPS.has(shedGroupId)) return null;
-            const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === shedGroupId);
-            // If user has configured any shed groups, unconfigured groups default to inactive.
-            // If no config yet (first use), all shed tabs default to active.
-            const tabHasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
-            const groupActive = groupCfg ? groupCfg.active !== false : !tabHasConfig;
-            if (!groupActive) return null;
-          }
+          // Determine groupId from shed number for farmConfig lookup
+          const getShedGroupId = (sheetName: string, ordinalCount: number): number => {
+            const m = sheetName.match(/(\d+)\s*(?:&|and)\s*(\d+)/i);
+            if (m) return Math.ceil(parseInt(m[1]) / 2);
+            return SHED_SHEET_ORDER[ordinalCount] ?? (ordinalCount + 1);
+          };
 
-          const isActive = i === active;
-          const hasEdits = edits[i]?.size > 0;
-          const tabAlert = feedAlerts.find(a => a.sheetIdx === i);
-          const alertDotColor = tabAlert?.urgency === "critical" ? "#c0392b" : tabAlert?.urgency === "warning" ? "#e67e22" : tabAlert ? "#f39c12" : null;
-          return (
-            <button
-              key={i}
-              onClick={() => { setActive(i); setActiveView(null); }}
-              className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-              style={{
-                backgroundColor: isActive ? "#fff" : "#C9A227",
-                color: isActive ? "#7a5b00" : "#2a1f00",
-                borderColor: isActive ? "#ccc" : alertDotColor ?? "#a88020",
-                borderWidth: alertDotColor ? 2 : 1,
-                transform: isActive ? "translateY(1px)" : "translateY(3px)",
-              }}
-            >
-              {tabAlert && (() => {
-                const bellColor = tabAlert.urgency === "critical" ? "#e53935" : tabAlert.urgency === "warning" ? "#f9a825" : "#43a047";
-                return (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill={bellColor} style={{ marginRight: 4, verticalAlign: "middle", flexShrink: 0, animation: tabAlert.urgency === "critical" ? "pulse 1.2s infinite" : "none", display: "inline-block" }}>
-                    <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                  </svg>
-                );
-              })()}
-              {(() => {
-                if (!tabName.includes("SHED")) return s.name;
-                const pd = findPlacementDate(s, edits[i])?.date ?? null;
-                if (!pd) return s.name;
-                const dateLabel = pd.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
-                return <>{dateLabel} · {s.name}</>;
-              })()}{hasEdits ? " •" : ""}
-            </button>
-          );
-        });
+          const renderTabButton = (s: SheetParsed, i: number, isShed: boolean, groupId: number) => {
+            const tabName = s.name.trim().toUpperCase();
+            if (isShed) {
+              if (DISABLED_SHED_GROUPS.has(groupId)) return null;
+              const groupCfg = farmConfig.shedGroups?.find(g => g.shedGroupId === groupId);
+              const tabHasConfig = (farmConfig.shedGroups?.length ?? 0) > 0;
+              const groupActive = groupCfg ? groupCfg.active !== false : !tabHasConfig;
+              if (!groupActive) return null;
+            }
+            const isActive = i === active;
+            const hasEdits = edits[i]?.size > 0;
+            const tabAlert = feedAlerts.find(a => a.sheetIdx === i);
+            const alertDotColor = tabAlert?.urgency === "critical" ? "#c0392b" : tabAlert?.urgency === "warning" ? "#e67e22" : tabAlert ? "#f39c12" : null;
+            return (
+              <button
+                key={i}
+                onClick={() => { setActive(i); setActiveView(null); }}
+                className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+                style={{
+                  backgroundColor: isActive ? "#fff" : "#C9A227",
+                  color: isActive ? "#7a5b00" : "#2a1f00",
+                  borderColor: isActive ? "#ccc" : alertDotColor ?? "#a88020",
+                  borderWidth: alertDotColor ? 2 : 1,
+                  transform: isActive ? "translateY(1px)" : "translateY(3px)",
+                }}
+              >
+                {tabAlert && (() => {
+                  const bellColor = tabAlert.urgency === "critical" ? "#e53935" : tabAlert.urgency === "warning" ? "#f9a825" : "#43a047";
+                  return (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill={bellColor} style={{ marginRight: 4, verticalAlign: "middle", flexShrink: 0, animation: tabAlert.urgency === "critical" ? "pulse 1.2s infinite" : "none", display: "inline-block" }}>
+                      <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                    </svg>
+                  );
+                })()}
+                {(() => {
+                  if (!tabName.includes("SHED")) return s.name;
+                  const pd = findPlacementDate(s, edits[i])?.date ?? null;
+                  if (!pd) return s.name;
+                  const dateLabel = pd.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+                  return <>{dateLabel} · {s.name}</>;
+                })()}{hasEdits ? " •" : ""}
+              </button>
+            );
+          };
+
+          return [
+            ...shedEntries.map(({ s, i }, ordinal) =>
+              renderTabButton(s, i, true, getShedGroupId(s.name, ordinal))
+            ),
+            ...otherEntries.map(({ s, i }) =>
+              renderTabButton(s, i, false, 0)
+            ),
+          ];
         })()}
         {/* ── Broiler-only tabs ── */}
         {(farmConfig.farmType ?? "broiler") === "broiler" && (<>
@@ -7821,9 +7973,9 @@ export default function App() {
                     if (isNaN(val) || val < 2) return;
                     const clamped = Math.min(Math.max(2, val), 30);
                     const numGroups = Math.ceil(clamped / 2);
-                    const updated = {
+                    const updated: FarmConfigData = {
                       ...farmConfig,
-                      shedGroups: (farmConfig.shedGroups ?? []).map((g: {shedGroupId: number}) => ({
+                      shedGroups: (farmConfig.shedGroups ?? []).map(g => ({
                         ...g,
                         active: g.shedGroupId <= numGroups,
                       })),
