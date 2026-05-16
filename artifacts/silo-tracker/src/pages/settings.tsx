@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash, Smartphone, Share2 } from "lucide-react";
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, RefreshCw, Plus, Minus, Lock, LockOpen, Link2, Check, LayoutGrid, Sun, Moon, Hash, Smartphone, Share2, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
@@ -609,73 +610,84 @@ export default function Settings() {
 
       {/* Share */}
       <div>
-        <SectionLabel title="Share App Links" />
+        <SectionLabel title="Open on Your Phone" />
         <div className="bg-card border border-border/50 rounded-2xl overflow-hidden">
-          {/* Feed Mate link */}
-          {(() => {
-            const feedUrl = `${window.location.origin}/feed-program/`;
-            const feedCopied = copiedLink === "feed";
-            return (
-              <div className="flex items-center gap-3 px-4 py-4 border-b border-border/40">
-                <div className="w-9 h-9 rounded-xl bg-[#217346]/20 flex items-center justify-center shrink-0">
-                  <FileSpreadsheet className="h-5 w-5 text-[#4caf50]" />
+          {/* QR code cards — side by side on desktop, stacked on mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
+            {/* Silo Base Mate QR */}
+            {(() => {
+              const siloUrl = `${window.location.origin}/`;
+              const siloCopied = copiedLink === "silo";
+              return (
+                <div className="flex flex-col items-center gap-3 px-6 py-6">
+                  <div className="flex items-center gap-2 self-start">
+                    <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                      <LayoutGrid className="h-4 w-4 text-primary" />
+                    </div>
+                    <p className="font-bold text-sm text-foreground">Silo Base Mate</p>
+                  </div>
+                  <div className="bg-white rounded-2xl p-3 shadow-sm">
+                    <QRCodeSVG value={siloUrl} size={160} level="M" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground text-center">Scan with your phone camera to open</p>
+                  <button
+                    onClick={() => copyLink("silo", siloUrl)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all w-full justify-center",
+                      siloCopied
+                        ? "border-primary/60 text-primary bg-primary/10"
+                        : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+                    )}
+                  >
+                    {siloCopied
+                      ? <><Check className="w-3.5 h-3.5" /> Copied!</>
+                      : <><Link2 className="w-3.5 h-3.5" /> Copy Link</>
+                    }
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground">Feed Mate</p>
-                  <p className="text-xs text-muted-foreground truncate">{feedUrl}</p>
-                </div>
-                <button
-                  onClick={() => copyLink("feed", feedUrl)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all shrink-0",
-                    feedCopied
-                      ? "border-primary/60 text-primary bg-primary/10"
-                      : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
-                  )}
-                >
-                  {feedCopied
-                    ? <><Check className="w-3.5 h-3.5" /> Copied!</>
-                    : <><Link2 className="w-3.5 h-3.5" /> Copy Link</>
-                  }
-                </button>
-              </div>
-            );
-          })()}
+              );
+            })()}
 
-          {/* Farm Buddy link */}
-          {(() => {
-            const siloUrl = `${window.location.origin}/`;
-            const siloCopied = copiedLink === "silo";
-            return (
-              <div className="flex items-center gap-3 px-4 py-4">
-                <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
-                  <LayoutGrid className="h-5 w-5 text-primary" />
+            {/* Broiler Base Mate QR */}
+            {(() => {
+              const feedUrl = `${window.location.origin}/feed-program/`;
+              const feedCopied = copiedLink === "feed";
+              return (
+                <div className="flex flex-col items-center gap-3 px-6 py-6">
+                  <div className="flex items-center gap-2 self-start">
+                    <div className="w-7 h-7 rounded-lg bg-[#217346]/20 flex items-center justify-center shrink-0">
+                      <FileSpreadsheet className="h-4 w-4 text-[#4caf50]" />
+                    </div>
+                    <p className="font-bold text-sm text-foreground">Broiler Base Mate</p>
+                  </div>
+                  <div className="bg-white rounded-2xl p-3 shadow-sm">
+                    <QRCodeSVG value={feedUrl} size={160} level="M" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground text-center">Scan with your phone camera to open</p>
+                  <button
+                    onClick={() => copyLink("feed", feedUrl)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all w-full justify-center",
+                      feedCopied
+                        ? "border-primary/60 text-primary bg-primary/10"
+                        : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
+                    )}
+                  >
+                    {feedCopied
+                      ? <><Check className="w-3.5 h-3.5" /> Copied!</>
+                      : <><Link2 className="w-3.5 h-3.5" /> Copy Link</>
+                    }
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground">Farm Buddy</p>
-                  <p className="text-xs text-muted-foreground truncate">{siloUrl}</p>
-                </div>
-                <button
-                  onClick={() => copyLink("silo", siloUrl)}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all shrink-0",
-                    siloCopied
-                      ? "border-primary/60 text-primary bg-primary/10"
-                      : "border-border/50 text-muted-foreground hover:text-foreground hover:border-border"
-                  )}
-                >
-                  {siloCopied
-                    ? <><Check className="w-3.5 h-3.5" /> Copied!</>
-                    : <><Link2 className="w-3.5 h-3.5" /> Copy Link</>
-                  }
-                </button>
-              </div>
-            );
-          })()}
+              );
+            })()}
+          </div>
+          <div className="px-4 py-3 border-t border-border/40 bg-secondary/30">
+            <p className="text-[11px] text-muted-foreground text-center">
+              Set up your farm on desktop first, then scan to open on any phone or tablet — your settings sync automatically.
+            </p>
+          </div>
         </div>
-        <p className="text-[10px] text-muted-foreground px-1 mt-1.5">
-          Paste either link in any browser on PC, Mac, tablet, or phone to open the app.
-        </p>
       </div>
 
       {/* Add to Home Screen */}
