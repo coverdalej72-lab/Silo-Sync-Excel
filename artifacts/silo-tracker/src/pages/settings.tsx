@@ -428,42 +428,29 @@ export default function Settings() {
           </div>
         </div>
         <div className={cn("bg-card border border-border/50 rounded-2xl overflow-hidden", locked && "opacity-60")}>
-          {config.shedGroups.map((group, gi) => {
+          {config.shedGroups.filter(g => g.active).map((group, gi, activeGroups) => {
             const isOpen = !!expandedSheds[group.shedGroupId];
-            const isLast = gi === config.shedGroups.length - 1;
+            const isLast = gi === activeGroups.length - 1;
             return (
               <div key={group.shedGroupId} className={cn(!isLast && "border-b border-border/40")}>
                 {/* Header row */}
-                <div className="flex items-center px-4 py-3.5 gap-3">
-                  {/* Active toggle */}
-                  <Toggle
-                    on={group.active}
-                    onChange={() => toggleShedActive(group.shedGroupId)}
-                    disabled={locked}
-                  />
-
-                  {/* Expand/collapse button */}
-                  <button
-                    onClick={() => toggleShed(group.shedGroupId)}
-                    className="flex-1 flex items-center justify-between hover:opacity-80 transition-opacity min-w-0"
-                  >
-                    <span className={cn(
-                      "font-semibold text-sm transition-colors",
-                      group.active ? "text-foreground" : "text-muted-foreground line-through"
-                    )}>
-                      {group.customName}
+                <button
+                  onClick={() => toggleShed(group.shedGroupId)}
+                  className="w-full flex items-center px-4 py-3.5 gap-3 hover:bg-secondary/40 transition-colors text-left"
+                >
+                  <span className="font-semibold text-sm text-foreground flex-1 min-w-0">
+                    {group.customName}
+                  </span>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="hidden sm:block">
+                      {group.silos.map(s => s.letter).join(" / ")}
+                      {group.silos.some(s => s.tonnesCapacity > 0)
+                        ? " · " + group.silos.map(s => `${s.letter}:${s.tonnesCapacity}t`).join(" ")
+                        : ""}
                     </span>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground ml-3">
-                      <span className="hidden sm:block">
-                        {group.silos.map(s => s.letter).join(" / ")}
-                        {group.silos.some(s => s.tonnesCapacity > 0)
-                          ? " · " + group.silos.map(s => `${s.letter}:${s.tonnesCapacity}t`).join(" ")
-                          : ""}
-                      </span>
-                      {isOpen ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
-                    </div>
-                  </button>
-                </div>
+                    {isOpen ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+                  </div>
+                </button>
 
                 {isOpen && (
                   <div className="bg-secondary/30 px-4 pt-2 pb-4 space-y-4 border-t border-border/30">
