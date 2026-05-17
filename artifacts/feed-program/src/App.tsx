@@ -6476,6 +6476,9 @@ export default function App() {
     return merged;
   })();
   const [showSettings, setShowSettings] = useState(false);
+  const [showFlockForecast, setShowFlockForecast] = useState<boolean>(() =>
+    localStorage.getItem("feedmate-show-flock-forecast") !== "off"
+  );
   const [newBatchLocked, setNewBatchLocked] = useState(true);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
   const [alertSnooze, setAlertSnooze] = useState<Record<string, number>>(() => {
@@ -7742,11 +7745,13 @@ export default function App() {
             style={{ backgroundColor: activeView === "batchResults" ? "#fff" : "#2d9e5f", color: activeView === "batchResults" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "batchResults" ? "#ccc" : "#27885200", transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             📊 Batch Results
           </button>
+          {showFlockForecast && (
           <button onClick={() => setActiveView("flockForecast")}
             className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
             style={{ backgroundColor: activeView === "flockForecast" ? "#fff" : "#8b3fc8", color: activeView === "flockForecast" ? "#4e1a6e" : "#fff", borderColor: activeView === "flockForecast" ? "#ccc" : "#6a2faa00", transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
             🔮 Flock Forecast
           </button>
+          )}
           {isTouchDevice && (
             <button onClick={() => setActiveView("weighBirds")}
               className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
@@ -7806,7 +7811,7 @@ export default function App() {
           <div className="flex-1 overflow-auto safe-bottom">
             <BirdWeighView farmConfig={farmConfig} />
           </div>
-        ) : activeView === "flockForecast" ? (
+        ) : activeView === "flockForecast" && showFlockForecast ? (
           <div className="flex-1 overflow-auto safe-bottom">
             <FlockForecastView sheets={sheets} edits={edits} farmConfig={farmConfig} catchMap={planningCatchMap} />
           </div>
@@ -8351,6 +8356,42 @@ export default function App() {
                       {u === "kg" ? "kg  (kilograms)" : "t  (tonnes)"}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Flock Forecast toggle */}
+              <div style={{ background: "#f8f0ff", border: "2px solid #8b3fc8", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "#6a2faa", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>🔮 Flock Forecast</div>
+                    <div style={{ fontSize: 12, color: "#555", lineHeight: 1.4 }}>Experimental feature — predictive weight, FCR and feed-use forecasts. Turn off until you're ready to use it.</div>
+                  </div>
+                  {/* Toggle switch */}
+                  <button
+                    onClick={() => {
+                      const next = !showFlockForecast;
+                      setShowFlockForecast(next);
+                      localStorage.setItem("feedmate-show-flock-forecast", next ? "on" : "off");
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      width: 52, height: 28, borderRadius: 14, border: "none", cursor: "pointer",
+                      background: showFlockForecast ? "#8b3fc8" : "#ccc",
+                      position: "relative", transition: "background 0.2s", padding: 0,
+                    }}
+                    aria-label="Toggle Flock Forecast"
+                  >
+                    <span style={{
+                      display: "block", width: 22, height: 22, borderRadius: "50%", background: "#fff",
+                      position: "absolute", top: 3,
+                      left: showFlockForecast ? 27 : 3,
+                      transition: "left 0.2s",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                    }} />
+                  </button>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: showFlockForecast ? "#6a2faa" : "#999", textTransform: "uppercase", letterSpacing: 0.3 }}>
+                  {showFlockForecast ? "On — tab visible in Batch Results" : "Off — tab hidden"}
                 </div>
               </div>
 
