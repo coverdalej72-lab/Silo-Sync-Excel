@@ -1104,7 +1104,11 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
 }
 
 // ── EobInfoPanel ──────────────────────────────────────────────────────────
-function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: Map<string, string>; farmName: string }) {
+function EobInfoPanel({ sheet, edits, farmName, shedPlacement, catchMap }: {
+  sheet: SheetParsed; edits: Map<string, string>; farmName: string;
+  shedPlacement?: Map<number, number>;
+  catchMap?: Record<number, { birds: string }[]>;
+}) {
   const { cells } = sheet;
   const g = (r: number, c: number) => {
     const edited = edits.get(`${r},${c}`);
@@ -1133,12 +1137,23 @@ function EobInfoPanel({ sheet, edits, farmName }: { sheet: SheetParsed; edits: M
   }
   const totalPurchased = liveTotalPurchased > 0 ? String(liveTotalPurchased) : g(11, 18);
 
-  // Bird totals — EOB totals row (row 16, 0-indexed); col 22=placed, 23=catched, 24=morts
-  const totalBirdsPlaced  = g(16, 22);
-  const totalBirdsCatched = g(16, 23);
-  const totalMorts        = g(16, 24);
+  // Bird totals — compute live from all configured sheds (supports up to 30 shed groups / 60 sheds).
+  // Sum shedPlacement for "placed" and catchMap for "caught" so farms with >12 sheds are included.
+  // Falls back to the xlsx template totals row (row 16) only if no live data is available.
+  let livePlaced = 0, liveCaught = 0;
+  if (shedPlacement) shedPlacement.forEach(birds => { livePlaced += (birds || 0); });
+  if (catchMap) Object.values(catchMap).forEach(rows =>
+    rows.forEach(r => { liveCaught += (parseFloat(r.birds) || 0); })
+  );
+  const hasliveData = livePlaced > 0;
+  const totalBirdsPlaced  = hasliveData ? String(livePlaced)  : g(16, 22);
+  const totalBirdsCatched = hasliveData ? String(liveCaught)  : g(16, 23);
   const placedNum  = parseFloat(totalBirdsPlaced.replace(/,/g, ""))  || 0;
   const catchedNum = parseFloat(totalBirdsCatched.replace(/,/g, "")) || 0;
+  // Morts: placed − caught (birds remaining unaccounted = dead/culled). When live data is used
+  // this equals the running mortality count. Fall back to the xlsx formula cell otherwise.
+  const liveMorts  = hasliveData ? Math.max(0, livePlaced - liveCaught) : 0;
+  const totalMorts = hasliveData ? String(liveMorts) : g(16, 24);
   const mortsNum   = parseFloat(totalMorts.replace(/,/g, ""))        || 0;
   const balanceNum = placedNum - catchedNum - mortsNum;
   const balanceStr = placedNum > 0 ? String(balanceNum) : "";
@@ -2014,11 +2029,12 @@ function ShedSummaryCard({
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>{t("birdsPerShed")}</div>
         <SummaryInputField label={shed1Name} value={shed1Birds} onSave={v => {
           onEdit(sheetIdx, "3,2", v);
-          if (eobSheetIdx >= 0) onEdit(eobSheetIdx, `${shed1Num + 3},22`, v);
+          // EOB rows 4-15 = sheds 1-12; row 16 is the template totals formula — skip it for sheds 13+
+          if (eobSheetIdx >= 0) onEdit(eobSheetIdx, `${shed1Num + (shed1Num <= 12 ? 3 : 4)},22`, v);
         }} />
         <SummaryInputField label={shed2Name} value={shed2Birds} onSave={v => {
           onEdit(sheetIdx, "4,2", v);
-          if (eobSheetIdx >= 0) onEdit(eobSheetIdx, `${shed2Num + 3},22`, v);
+          if (eobSheetIdx >= 0) onEdit(eobSheetIdx, `${shed2Num + (shed2Num <= 12 ? 3 : 4)},22`, v);
         }} />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>{t("feedAllocations")}</div>
@@ -7870,8 +7886,9 @@ export default function App() {
               onEobCatch={(shedNum, totalCaught) => {
                 const eobIdx = sheets.findIndex(s => s.name.trim().toLowerCase() === "end of batch");
                 if (eobIdx < 0) return;
-                // EOB row for shed N is (N + 3) 0-indexed; col 23 = "birds catched"
-                handleEdit(eobIdx, `${shedNum + 3},23`, String(totalCaught));
+                // EOB rows 4-15 = sheds 1-12; row 16 is the template totals formula — skip it for sheds 13+
+                const eobRow = shedNum + (shedNum <= 12 ? 3 : 4);
+                handleEdit(eobIdx, `${eobRow},23`, String(totalCaught));
               }}
             />
           </div>
@@ -7883,7 +7900,7 @@ export default function App() {
           return (
             <>
               {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} />}
-              {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} />}
+              {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} shedPlacement={shedPlacement} catchMap={catchMap} />}
               <div className="flex-1 overflow-auto safe-bottom">
                 {isEob ? (
                   <EndOfBatchContent
