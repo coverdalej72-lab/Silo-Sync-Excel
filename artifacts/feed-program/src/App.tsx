@@ -545,9 +545,24 @@ function recalculate(
     newEdits.set(`${r},${c}`, String(Math.round(val * 100) / 100));
   };
 
-  // ── Bird count (C2, r=1, c=2) → allocation headers + daily feed usage ──
-  if (triggeredRow === 1 && triggeredCol === COL_C) {
-    const birds = getNum(1, COL_C);
+  // ── Bird count → allocation headers + daily feed usage ──────────────────
+  // Triggers when:
+  //   • C2 (row 1, col 2) is edited directly (total bird count cell), OR
+  //   • C3 / C4 (rows 3-4, col 2) are edited — individual shed bird counts.
+  //     In the xlsx, C2 = C3+C4 (a formula the app can't evaluate), so we
+  //     mirror that formula here: sum the two individual counts and write the
+  //     total back to C2, then run the cascade from the total.
+  if (triggeredCol === COL_C && (triggeredRow === 1 || triggeredRow === 3 || triggeredRow === 4)) {
+    let birds: number;
+    if (triggeredRow === 3 || triggeredRow === 4) {
+      // Re-derive total from both individual shed counts so C2 stays in sync
+      const b1 = getNum(3, COL_C);
+      const b2 = getNum(4, COL_C);
+      birds = b1 + b2;
+      newEdits.set("1,2", String(birds)); // keep C2 up to date
+    } else {
+      birds = getNum(1, COL_C);
+    }
     setNum(1, COL_H, Math.round(birds * 0.325));   // STR ALL
     setNum(2, COL_H, Math.round(birds * 1.15));    // GWR ALL
     setNum(3, COL_H, Math.round(birds * 1.7));     // FIN ALL
