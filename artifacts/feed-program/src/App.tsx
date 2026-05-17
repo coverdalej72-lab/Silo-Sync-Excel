@@ -1697,6 +1697,8 @@ interface FeedAlert {
   dailyUsage: number;
   daysRemaining: number;
   urgency: "critical" | "warning" | "watch";
+  orderDue: boolean;       // true when daysRemaining <= FEED_ORDER_LEAD_DAYS
+  orderTonnes: number;     // estimated tonnes needed to cover remainder of batch
   sheetIdx: number;
   currentAge: number;
   daysToCAatch: number | null; // null if batch end can't be determined
@@ -1781,12 +1783,19 @@ function computeFeedAlerts(
       : daysRemaining <= FEED_ORDER_LEAD_DAYS ? "warning"
       : "watch";
 
+    const orderDue = daysRemaining <= FEED_ORDER_LEAD_DAYS;
+    // Estimated tonnes needed to cover remaining batch days (days to catch × avg daily usage)
+    const remainingDays = daysToCAatch !== null ? daysToCAatch : Math.ceil(daysRemaining);
+    const orderTonnes = Math.max(0, (remainingDays * avgDailyUsage - feedOnHand) / 1000);
+
     alerts.push({
       shedGroupName: sheets[i].name.trim(),
       feedOnHand,
       dailyUsage: avgDailyUsage,
       daysRemaining,
       urgency,
+      orderDue,
+      orderTonnes,
       sheetIdx: i,
       currentAge,
       daysToCAatch,
@@ -7457,20 +7466,28 @@ export default function App() {
             const activeAlerts = feedAlerts.filter(a => !isSnoozed(a.shedGroupName));
             const isGood = activeAlerts.length === 0;
             const hasCrit = activeAlerts.some(a => a.urgency === "critical");
-            const bg    = isGood ? "#16a34a" : hasCrit ? "#dc2626" : "#f59e0b";
-            const fg    = isGood ? "#fff"    : hasCrit ? "#fff"    : "#7c2d12";
-            const shadow = isGood ? "0 0 0 2px #86efac" : hasCrit ? "0 0 0 2px #fca5a5" : "0 0 0 2px #fde68a";
+            const orderDueAlerts = activeAlerts.filter(a => a.orderDue);
+            const hasOrderDue = orderDueAlerts.length > 0;
             const snoozedCount = feedAlerts.length - activeAlerts.length;
+            // Colour: red for critical, amber for order-due, yellow for watch-only, green for OK
+            const bg     = isGood ? "#16a34a" : hasCrit ? "#dc2626" : hasOrderDue ? "#d97706" : "#f59e0b";
+            const fg     = isGood ? "#fff"    : hasCrit ? "#fff"    : hasOrderDue ? "#fff"    : "#7c2d12";
+            const shadow = isGood ? "0 0 0 2px #86efac" : hasCrit ? "0 0 0 2px #fca5a5" : hasOrderDue ? "0 0 0 2px #fcd34d" : "0 0 0 2px #fde68a";
             const label = isGood
               ? (snoozedCount > 0 ? `Feed OK (${snoozedCount} snoozed)` : "Feed OK")
-              : `${activeAlerts.length} Feed Alert${activeAlerts.length > 1 ? "s" : ""}`;
+              : hasCrit
+              ? `${activeAlerts.length} Feed Alert${activeAlerts.length > 1 ? "s" : ""}`
+              : hasOrderDue
+              ? `🛒 ${orderDueAlerts.length} Order${orderDueAlerts.length > 1 ? "s" : ""} Due`
+              : `${activeAlerts.length} Feed Watch`;
+            const icon = isGood ? "🔔" : hasCrit ? "🚨" : hasOrderDue ? "🛒" : "🔔";
             return (
               <button
                 onClick={() => setShowFeedAlert(true)}
-                title={isGood ? "All sheds have sufficient feed" : `${activeAlerts.length} shed(s) need attention`}
+                title={isGood ? "All sheds have sufficient feed" : hasOrderDue ? `${orderDueAlerts.length} shed(s) need a feed order today` : `${activeAlerts.length} shed(s) to monitor`}
                 style={{ background: bg, color: fg, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, boxShadow: shadow }}
               >
-                <span className={isGood ? "bell-icon-still" : "bell-icon-wiggle"} style={{ fontSize: 16 }}>🔔</span>
+                <span className={isGood ? "bell-icon-still" : "bell-icon-wiggle"} style={{ fontSize: 16 }}>{icon}</span>
                 {label}
               </button>
             );
@@ -7588,7 +7605,7 @@ export default function App() {
             const isActive = i === active;
             const hasEdits = edits[i]?.size > 0;
             const tabAlert = feedAlerts.find(a => a.sheetIdx === i);
-            const alertDotColor = tabAlert?.urgency === "critical" ? "#c0392b" : tabAlert?.urgency === "warning" ? "#e67e22" : tabAlert ? "#f39c12" : null;
+            const alertDotColor = tabAlert?.urgency === "critical" ? "#c0392b" : tabAlert?.orderDue ? "#d97706" : tabAlert ? "#f39c12" : null;
             return (
               <button
                 key={i}
@@ -7603,9 +7620,9 @@ export default function App() {
                 }}
               >
                 {tabAlert && (() => {
-                  const bellColor = tabAlert.urgency === "critical" ? "#e53935" : tabAlert.urgency === "warning" ? "#f9a825" : "#43a047";
+                  const bellColor = tabAlert.urgency === "critical" ? "#e53935" : tabAlert.orderDue ? "#d97706" : "#f9a825";
                   return (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill={bellColor} style={{ marginRight: 4, verticalAlign: "middle", flexShrink: 0, animation: tabAlert.urgency === "critical" ? "pulse 1.2s infinite" : "none", display: "inline-block" }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill={bellColor} style={{ marginRight: 4, verticalAlign: "middle", flexShrink: 0, animation: tabAlert.urgency === "critical" ? "pulse 1.2s infinite" : tabAlert.orderDue ? "pulse 2s infinite" : "none", display: "inline-block" }}>
                       <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
                     </svg>
                   );
@@ -7958,15 +7975,28 @@ export default function App() {
           <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 8px 40px rgba(0,0,0,0.25)", width: 420, maxWidth: "96vw", maxHeight: "88vh", overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
             {/* Header */}
-            <div style={{ background: allGood ? "#16a34a" : hasCrit ? "#dc2626" : "#f59e0b", color: allGood || hasCrit ? "#fff" : "#7c2d12", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: "14px 14px 0 0", flexShrink: 0 }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 16 }}>🔔 Feed On Hand</div>
-                <div style={{ fontSize: 12, opacity: 0.85 }}>
-                  {allGood ? "All sheds have enough feed through to catch" : `${activeAlerts.length} shed${activeAlerts.length !== 1 ? "s" : ""} need attention`}
+            {(() => {
+              const orderDueActive = activeAlerts.filter(a => a.orderDue);
+              const headerBg = allGood ? "#16a34a" : hasCrit ? "#dc2626" : orderDueActive.length > 0 ? "#d97706" : "#f59e0b";
+              const headerFg = allGood || hasCrit || orderDueActive.length > 0 ? "#fff" : "#7c2d12";
+              const headerTitle = allGood ? "🔔 Feed Status" : hasCrit ? "🚨 Feed Critical" : orderDueActive.length > 0 ? "🛒 Feed Orders Due" : "🔔 Feed Watch";
+              const headerSub = allGood
+                ? "All sheds have enough feed through to catch"
+                : hasCrit
+                ? `${activeAlerts.filter(a => a.urgency === "critical").length} shed(s) may run out before catch — order immediately`
+                : orderDueActive.length > 0
+                ? `${orderDueActive.length} shed${orderDueActive.length !== 1 ? "s" : ""} need a feed order placed today (7-day lead time)`
+                : `${activeAlerts.length} shed${activeAlerts.length !== 1 ? "s" : ""} to monitor`;
+              return (
+                <div style={{ background: headerBg, color: headerFg, padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: "14px 14px 0 0", flexShrink: 0 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 16 }}>{headerTitle}</div>
+                    <div style={{ fontSize: 12, opacity: 0.9 }}>{headerSub}</div>
+                  </div>
+                  <button onClick={() => setShowFeedAlert(false)} style={{ background: "none", border: "none", color: "inherit", fontSize: 22, cursor: "pointer", lineHeight: 1, opacity: 0.8 }}>×</button>
                 </div>
-              </div>
-              <button onClick={() => setShowFeedAlert(false)} style={{ background: "none", border: "none", color: "inherit", fontSize: 22, cursor: "pointer", lineHeight: 1, opacity: 0.8 }}>×</button>
-            </div>
+              );
+            })()}
 
             <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
 
@@ -7979,59 +8009,116 @@ export default function App() {
                 </div>
               )}
 
-              {/* Active alerts */}
-              {activeAlerts.map(a => {
-                const urgBg  = a.urgency === "critical" ? "#fee2e2" : a.urgency === "warning" ? "#fff7ed" : "#fefce8";
-                const urgBdr = a.urgency === "critical" ? "#fca5a5" : a.urgency === "warning" ? "#fdba74" : "#fde68a";
-                const urgClr = a.urgency === "critical" ? "#7f1d1d" : a.urgency === "warning" ? "#78350f" : "#713f12";
-                const icon   = a.urgency === "critical" ? "🔴" : a.urgency === "warning" ? "🟠" : "🟡";
-                const catchCtx = a.daysToCAatch != null
-                  ? (a.daysToCAatch <= 0 ? "catch day reached" : `catch in ~${Math.round(a.daysToCAatch)} day${Math.round(a.daysToCAatch) !== 1 ? "s" : ""}`)
-                  : null;
-                return (
-                  <div key={a.shedGroupName} style={{ background: urgBg, border: `1.5px solid ${urgBdr}`, borderRadius: 10, padding: "12px 14px" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <span style={{ fontSize: 20, flexShrink: 0 }}>{icon}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: 14, color: urgClr, marginBottom: 2 }}>{a.shedGroupName}</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                          <span style={{ fontSize: 12, background: "rgba(0,0,0,0.07)", borderRadius: 4, padding: "2px 7px", fontWeight: 600, color: urgClr }}>
-                            {a.daysRemaining.toFixed(1)} days of feed left
-                          </span>
-                          <span style={{ fontSize: 12, background: "rgba(0,0,0,0.07)", borderRadius: 4, padding: "2px 7px", color: "#555" }}>
-                            {(a.feedOnHand / 1000).toFixed(1)} t on hand
-                          </span>
-                          <span style={{ fontSize: 12, background: "rgba(0,0,0,0.07)", borderRadius: 4, padding: "2px 7px", color: "#555" }}>
-                            {(a.dailyUsage / 1000).toFixed(1)} t/day usage
-                          </span>
-                          {catchCtx && (
-                            <span style={{ fontSize: 12, background: "#e0f2fe", borderRadius: 4, padding: "2px 7px", color: "#0369a1", fontWeight: 600 }}>
-                              📅 {catchCtx}
+              {/* Orders Due section — sheds within the 7-day order window */}
+              {activeAlerts.some(a => a.orderDue) && (
+                <div style={{ background: "#fffbeb", border: "2px solid #d97706", borderRadius: 10, overflow: "hidden" }}>
+                  <div style={{ background: "#d97706", color: "#fff", padding: "7px 14px", fontWeight: 800, fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
+                    🛒 PLACE FEED ORDER TODAY
+                    <span style={{ fontWeight: 400, fontSize: 11, opacity: 0.9, marginLeft: 2 }}>— {FEED_ORDER_LEAD_DAYS}-day lead time</span>
+                  </div>
+                  <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {activeAlerts.filter(a => a.orderDue).map(a => {
+                      const isCrit = a.urgency === "critical";
+                      const catchCtx = a.daysToCAatch != null
+                        ? (a.daysToCAatch <= 0 ? "catch day reached" : `catch in ~${Math.round(a.daysToCAatch)}d`)
+                        : null;
+                      return (
+                        <div key={a.shedGroupName} style={{ background: isCrit ? "#fee2e2" : "#fff", border: `1.5px solid ${isCrit ? "#fca5a5" : "#fde68a"}`, borderRadius: 8, padding: "10px 12px" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 18 }}>{isCrit ? "🔴" : "🛒"}</span>
+                              <span style={{ fontWeight: 800, fontSize: 14, color: isCrit ? "#7f1d1d" : "#92400e" }}>{a.shedGroupName}</span>
+                            </div>
+                            <span style={{ fontSize: 11, background: isCrit ? "#dc2626" : "#d97706", color: "#fff", borderRadius: 5, padding: "2px 8px", fontWeight: 700 }}>
+                              {isCrit ? "CRITICAL" : "ORDER NOW"}
                             </span>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 8 }}>
+                            <div style={{ background: "#f9fafb", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: isCrit ? "#dc2626" : "#92400e" }}>{a.daysRemaining.toFixed(1)}</div>
+                              <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>days left</div>
+                            </div>
+                            <div style={{ background: "#f9fafb", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: "#374151" }}>{(a.feedOnHand / 1000).toFixed(1)}t</div>
+                              <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>on hand</div>
+                            </div>
+                            <div style={{ background: "#f9fafb", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: "#374151" }}>{(a.dailyUsage / 1000).toFixed(1)}t</div>
+                              <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>per day</div>
+                            </div>
+                          </div>
+                          {(catchCtx || a.orderTonnes > 0) && (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                              {catchCtx && (
+                                <span style={{ fontSize: 11, background: "#e0f2fe", borderRadius: 4, padding: "2px 7px", color: "#0369a1", fontWeight: 600 }}>📅 {catchCtx}</span>
+                              )}
+                              {a.orderTonnes > 0 && (
+                                <span style={{ fontSize: 11, background: "#fef3c7", borderRadius: 4, padding: "2px 7px", color: "#92400e", fontWeight: 700 }}>
+                                  🛒 Order ~{a.orderTonnes.toFixed(1)}t to cover to catch
+                                </span>
+                              )}
+                            </div>
                           )}
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                            <span style={{ fontSize: 11, color: "#888" }}>Snooze:</span>
+                            {[8, 24, 48].map(h => (
+                              <button key={h} onClick={() => snoozeAlert(a.shedGroupName, h)}
+                                style={{ background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 5, padding: "3px 9px", fontSize: 11, fontWeight: 700, color: "#374151", cursor: "pointer" }}>
+                                {h}h
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 12, color: urgClr, fontWeight: 700, marginBottom: 10 }}>
-                          {a.urgency === "critical"
-                            ? "⚠ CRITICAL — Feed may run out before catch. Order now."
-                            : a.urgency === "warning"
-                            ? "Order needed within next 24–48 hours to avoid shortage."
-                            : "Feed is low — monitor and plan your next order."}
-                        </div>
-                        {/* Snooze buttons */}
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 11, color: "#888", alignSelf: "center" }}>Snooze:</span>
-                          {[8, 24, 48].map(h => (
-                            <button key={h} onClick={() => snoozeAlert(a.shedGroupName, h)}
-                              style={{ background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 5, padding: "3px 9px", fontSize: 11, fontWeight: 700, color: "#374151", cursor: "pointer" }}>
-                              {h}h
-                            </button>
-                          ))}
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Watch-only alerts (> 7 days remaining, just monitoring) */}
+              {activeAlerts.filter(a => !a.orderDue).length > 0 && (
+                <>
+                  <div style={{ fontSize: 11, color: "#aaa", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>Monitor</div>
+                  {activeAlerts.filter(a => !a.orderDue).map(a => {
+                    const catchCtx = a.daysToCAatch != null
+                      ? (a.daysToCAatch <= 0 ? "catch day reached" : `catch in ~${Math.round(a.daysToCAatch)}d`)
+                      : null;
+                    return (
+                      <div key={a.shedGroupName} style={{ background: "#fefce8", border: "1.5px solid #fde68a", borderRadius: 10, padding: "10px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 18, flexShrink: 0 }}>🟡</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 800, fontSize: 13, color: "#713f12", marginBottom: 3 }}>{a.shedGroupName}</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                              <span style={{ fontSize: 11, background: "rgba(0,0,0,0.06)", borderRadius: 4, padding: "2px 6px", fontWeight: 600, color: "#713f12" }}>
+                                {a.daysRemaining.toFixed(1)} days of feed left
+                              </span>
+                              <span style={{ fontSize: 11, background: "rgba(0,0,0,0.06)", borderRadius: 4, padding: "2px 6px", color: "#555" }}>
+                                {(a.dailyUsage / 1000).toFixed(1)} t/day
+                              </span>
+                              {catchCtx && (
+                                <span style={{ fontSize: 11, background: "#e0f2fe", borderRadius: 4, padding: "2px 6px", color: "#0369a1", fontWeight: 600 }}>📅 {catchCtx}</span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#92400e", fontWeight: 600, marginBottom: 6 }}>
+                              Plan your order — feed will hit the 7-day window in ~{Math.ceil(a.daysRemaining - FEED_ORDER_LEAD_DAYS)} day{Math.ceil(a.daysRemaining - FEED_ORDER_LEAD_DAYS) !== 1 ? "s" : ""}.
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                              <span style={{ fontSize: 11, color: "#888" }}>Snooze:</span>
+                              {[8, 24, 48].map(h => (
+                                <button key={h} onClick={() => snoozeAlert(a.shedGroupName, h)}
+                                  style={{ background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 5, padding: "3px 9px", fontSize: 11, fontWeight: 700, color: "#374151", cursor: "pointer" }}>
+                                  {h}h
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </>
+              )}
 
               {/* Snoozed alerts */}
               {snoozedAlerts.length > 0 && (
