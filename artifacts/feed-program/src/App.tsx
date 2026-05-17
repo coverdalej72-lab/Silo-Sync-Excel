@@ -1334,12 +1334,35 @@ function SheetView({
     return v0 === "1" ? 0 : 1;
   }, [isShedSheet, cells, shedDataStartRow]);
 
-  // Clip shed rendering: 60 data rows + 5 rows for summary (Total Morts, Total Birds Caught)
-  // Hides junk formula rows that extend past the template's useful area
+  // Find the last row that has any non-empty cell value — used to trim blank trailing rows
+  const lastNonEmptyRow = useMemo(() => {
+    let last = effectiveStart;
+    for (const [key, info] of cells) {
+      if (info.hidden) continue;
+      if (!String(info.value ?? "").trim()) continue;
+      const r = parseInt(key.split(",")[0]);
+      if (r >= effectiveStart && r <= maxRow && r > last) last = r;
+    }
+    for (const [key, val] of edits) {
+      if (!String(val ?? "").trim()) continue;
+      const r = parseInt(key.split(",")[0]);
+      if (r >= effectiveStart && r <= maxRow && r > last) last = r;
+    }
+    return last;
+  }, [cells, edits, effectiveStart, maxRow]);
+
+  // Clip rendering to remove blank trailing rows.
+  // • SHED sheets: hard cap at shedDataStartRow + 64, but also trim to last data row + 3.
+  //   Always show at least today + 14 rows ahead so the upcoming feed schedule stays visible.
+  // • All other sheets: trim to last non-empty row + 3 rows buffer.
   const shedDisplayEndRow = useMemo(() => {
-    if (!isShedSheet) return maxRow;
-    return Math.min(maxRow, shedDataStartRow + 64);
-  }, [isShedSheet, shedDataStartRow, maxRow]);
+    if (!isShedSheet) return Math.min(maxRow, lastNonEmptyRow + 3);
+    const hardCap = Math.min(maxRow, shedDataStartRow + 64);
+    const minEnd = todayRow !== null
+      ? Math.min(hardCap, todayRow + 14)
+      : shedDataStartRow + 14;
+    return Math.max(minEnd, Math.min(hardCap, lastNonEmptyRow + 3));
+  }, [isShedSheet, shedDataStartRow, maxRow, lastNonEmptyRow, todayRow]);
 
   // Compute worst FOH status across all data rows — used to colour the FEED ON HAND column header
   const worstFohStatus = useMemo<'critical' | 'warning' | 'caution' | null>(() => {
@@ -1381,7 +1404,7 @@ function SheetView({
         })}
       </colgroup>
       <tbody>
-        {Array.from({ length: (isShedSheet ? shedDisplayEndRow : maxRow) - effectiveStart + 1 }, (_, ri) => {
+        {Array.from({ length: shedDisplayEndRow - effectiveStart + 1 }, (_, ri) => {
           const r = effectiveStart + ri;
 
           // Determine row-level background
