@@ -113,6 +113,16 @@ const FARM_CONFIG_KEY = "silo-farm-config";
 interface FarmShedConfig { shedGroupId: number; active: boolean; silos: { letter: string }[]; customName?: string; floorAreaM2?: number }
 interface FarmConfigData { farmName?: string; shedGroups?: FarmShedConfig[]; showExtraShedCols?: boolean; theme?: string; processor?: "baiada" | "ingham"; farmType?: "broiler" | "breeder"; language?: string }
 
+// Default shed group list — mirrors the Silo Tracker's DEFAULT_SHED_GROUPS so that
+// readFarmConfig() always returns all 15 groups even when the stored JSON only has a
+// subset (e.g. a config that was last saved by an older version of the app).
+const DEFAULT_FEED_SHED_GROUPS: FarmShedConfig[] = Array.from({ length: 15 }, (_, i) => ({
+  shedGroupId: i + 1,
+  customName:  `Sheds ${i * 2 + 1} & ${i * 2 + 2}`,
+  active:      i < 6,   // groups 1-6 active by default (sheds 1-12)
+  silos:       [{ letter: "A" }, { letter: "B" }, { letter: "C" }],
+}));
+
 interface AppTheme { id: string; name: string; primary: string; mid: string; pale: string; border: string; soft: string; dim: string }
 const APP_THEMES: AppTheme[] = [
   { id: "forest",  name: "Forest",  primary: "#1a5c36", mid: "#217346", pale: "#e8f5ee", border: "#c8e6d4", soft: "#f0f7f3", dim: "#1a5c3688" },
@@ -137,8 +147,18 @@ applyTheme(getTheme(readFarmConfig().theme));
 function readFarmConfig(): FarmConfigData {
   try {
     const raw = localStorage.getItem(FARM_CONFIG_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
+    if (!raw) return { shedGroups: DEFAULT_FEED_SHED_GROUPS };
+    const parsed = JSON.parse(raw) as Partial<FarmConfigData>;
+    // Merge stored groups with the full 15-group default so the Feed Program
+    // always has groups 1-15 even if the stored JSON was written by an older
+    // version that only saved groups 1-6.
+    const mergedGroups: FarmShedConfig[] = DEFAULT_FEED_SHED_GROUPS.map(def => {
+      const stored = parsed.shedGroups?.find(g => g.shedGroupId === def.shedGroupId);
+      if (!stored) return def;
+      return { ...def, ...stored };
+    });
+    return { ...parsed, shedGroups: mergedGroups };
+  } catch { return { shedGroups: DEFAULT_FEED_SHED_GROUPS }; }
 }
 function saveFarmConfig(cfg: FarmConfigData) {
   localStorage.setItem(FARM_CONFIG_KEY, JSON.stringify(cfg));
