@@ -106,6 +106,7 @@ const COL_J = 9;   // SILO TOTAL
 const COL_K = 10;  // Silo A
 const COL_L = 11;  // Silo B
 const COL_M = 12;  // Silo C
+const COL_CATCH = 13; // CATCH / MORTS (partial depop entries)
 
 // ── Farm config (shared localStorage with Silo Tracker) ─────────────────────
 const FARM_CONFIG_KEY = "silo-farm-config";
@@ -630,8 +631,60 @@ function recalculate(
     return newEdits;
   }
 
-  // Only cascade for silo columns (K,L,M), delivery (E), feed usage (H), or silo total (J)
-  if (![COL_K, COL_L, COL_M, COL_E, COL_H, COL_J].includes(triggeredCol)) return newEdits;
+  // Only cascade for silo columns (K,L,M), delivery (E), feed usage (H), silo total (J), or catch (CATCH)
+  if (![COL_K, COL_L, COL_M, COL_E, COL_H, COL_J, COL_CATCH].includes(triggeredCol)) return newEdits;
+
+  // ── Catch / Morts (col 13) → reduce remaining birds → recalculate feed usage ──
+  // When birds are partially caught (weighbridge pickup), the bird count drops for
+  // that row and every row after it. Recalculate Cobb 500 daily feed usage across
+  // all rows using a running cumulative-catch bird count so FOH stays accurate.
+  if (triggeredCol === COL_CATCH) {
+    let dataStart = 12;
+    for (let dr = 6; dr <= 20; dr++) {
+      if (cells.get(`${dr},0`)?.value?.trim() === "1") { dataStart = dr; break; }
+    }
+    const totalBirds = getNum(1, COL_C);
+    if (totalBirds > 0) {
+      let cumulativeCatch = 0;
+      let firstChangedRow = maxRow + 1;
+      for (let r = dataStart; r <= maxRow; r++) {
+        const age = parseInt(cells.get(`${r},0`)?.value ?? "");
+        if (isNaN(age) || age < 1 || age > COBB500_GRAMS.length) continue;
+        cumulativeCatch += getNum(r, COL_CATCH);
+        const remainingBirds = Math.max(0, totalBirds - cumulativeCatch);
+        const newUsage = Math.round(COBB500_GRAMS[age - 1] * remainingBirds / 1000);
+        if (newUsage !== getNum(r, COL_H)) {
+          setNum(r, COL_H, newUsage);
+          if (r < firstChangedRow) firstChangedRow = r;
+        }
+      }
+      // Cascade COL_G (feed alloc remaining) and COL_I (feed on hand) from first changed row
+      if (firstChangedRow <= maxRow) {
+        for (let r = firstChangedRow; r <= maxRow; r++) {
+          setNum(r, COL_G, getNum(r - 1, COL_G) - getNum(r, COL_H));
+        }
+        const getEditOnly = (row: number, col: number): number => {
+          const ev = newEdits.get(`${row},${col}`);
+          return ev !== undefined ? (parseFloat(ev) || 0) : 0;
+        };
+        for (let r = firstChangedRow; r <= maxRow; r++) {
+          const k = getEditOnly(r, COL_K), l = getEditOnly(r, COL_L), m = getEditOnly(r, COL_M);
+          const j = k + l + m;
+          const hasKLMJ = cells.has(`${r},${COL_K}`) || cells.has(`${r},${COL_L}`)
+            || cells.has(`${r},${COL_M}`) || cells.has(`${r},${COL_J}`)
+            || newEdits.has(`${r},${COL_K}`) || newEdits.has(`${r},${COL_L}`)
+            || newEdits.has(`${r},${COL_M}`);
+          if (hasKLMJ) {
+            setNum(r, COL_J, j);
+            const e = getEditOnly(r, COL_E);
+            const iPrev = getNum(r - 1, COL_I);
+            setNum(r, COL_I, j > 0 ? j - getNum(r, COL_H) + e : iPrev - getNum(r, COL_H) + e);
+          }
+        }
+      }
+    }
+    return newEdits;
+  }
 
   // Cascade G (FEED ALLOC remaining) down when FEED USAGE (H) is edited
   // G(row) = G(row-1) - H(row) — counts down remaining allocation each day
