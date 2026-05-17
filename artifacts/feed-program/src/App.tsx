@@ -193,6 +193,27 @@ const BATCH_HISTORY_KEY    = "feedmate-batch-history";
 //     saves from the old code that wrote wrong placement dates for SHED 9 & 10.
 const EDITS_AUTOSAVE_KEY   = "feedmate-edits-autosave-v2";
 const EDITS_SHEET_NAMES_KEY = "feedmate-edits-sheet-names";
+const SNAPSHOTS_KEY         = "feedmate-snapshots-v1";
+const MAX_SNAPSHOTS         = 7;
+
+interface EditSnapshot {
+  ts: number;         // Unix ms timestamp
+  label: string;      // Human-readable label e.g. "Mon 19 May · 2:34 PM"
+  edits: string;      // serializeEdits() output
+  sheetNames: string[];
+}
+function loadSnapshots(): EditSnapshot[] {
+  try { return JSON.parse(localStorage.getItem(SNAPSHOTS_KEY) ?? "[]"); } catch { return []; }
+}
+function saveSnapshots(snaps: EditSnapshot[]) {
+  try { localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(snaps)); } catch { /* storage full */ }
+}
+function fmtSnapshotLabel(ts: number): string {
+  const d = new Date(ts);
+  const day = d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+  const time = d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${day} · ${time}`;
+}
 
 function serializeEdits(edits: Map<string, string>[]): string {
   return JSON.stringify(edits.map(m => [...m.entries()]));
@@ -6521,6 +6542,20 @@ export default function App() {
   const rawBufferRef = useRef<ArrayBuffer | null>(null);
   const seedDoneRef = useRef(false);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [snapshots, setSnapshots] = useState<EditSnapshot[]>(loadSnapshots);
+  const [restoreConfirm, setRestoreConfirm] = useState<EditSnapshot | null>(null);
+  const lastSnapshotDayRef = useRef<string>("");
+
+  const takeSnapshot = (reason?: string) => {
+    if (sheets.length === 0 || edits.every(m => m.size === 0)) return;
+    const ts = Date.now();
+    const label = (reason ? `${reason} · ` : "") + fmtSnapshotLabel(ts);
+    const snap: EditSnapshot = { ts, label, edits: serializeEdits(edits), sheetNames: sheets.map(s => s.name) };
+    const next = [snap, ...loadSnapshots()].slice(0, MAX_SNAPSHOTS);
+    saveSnapshots(next);
+    setSnapshots(next);
+  };
   const importFileRef = useRef<HTMLInputElement>(null);
   const sheetsRef = useRef(sheets);
   const editsRef = useRef(edits);
@@ -7446,6 +7481,7 @@ export default function App() {
 
   // ── Auto-save edits to localStorage ─────────────────────────────────────────
   // Debounced: waits 2 s after the last change before writing.
+  // Also takes one automatic daily snapshot the first time a save fires each day.
   // Cleared on import / new-batch so stale edits never bleed into a new batch.
   useEffect(() => {
     if (sheets.length === 0) return;
@@ -7456,6 +7492,19 @@ export default function App() {
         localStorage.setItem(EDITS_SHEET_NAMES_KEY, JSON.stringify(sheets.map(s => s.name)));
         setAutoSaveFlash(true);
         setTimeout(() => setAutoSaveFlash(false), 2500);
+        // Daily auto-snapshot — one per calendar day, labelled "Auto"
+        const today = new Date().toDateString();
+        if (lastSnapshotDayRef.current !== today) {
+          lastSnapshotDayRef.current = today;
+          const ts = Date.now();
+          const snap: EditSnapshot = {
+            ts, label: `Auto · ${fmtSnapshotLabel(ts)}`,
+            edits: serializeEdits(edits), sheetNames: sheets.map(s => s.name),
+          };
+          const next = [snap, ...loadSnapshots()].slice(0, MAX_SNAPSHOTS);
+          saveSnapshots(next);
+          setSnapshots(next);
+        }
       } catch { /* storage full — silently skip */ }
     }, 2000);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
@@ -7613,7 +7662,7 @@ export default function App() {
             ⚙ {t("settings")}
           </button>
           <button
-            onClick={downloadFile}
+            onClick={() => setShowSaveModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-semibold transition-colors"
             style={{ background: hasChanges ? "#f59e0b" : "#2d8653", color: hasChanges ? "#000" : "#fff" }}
           >
@@ -8739,6 +8788,129 @@ export default function App() {
           </div>
         </div>
       )}
+      {/* ── Save & Download / Recovery Modal ── */}
+      {showSaveModal && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowSaveModal(false); setRestoreConfirm(null); } }}
+        >
+          <div style={{ width: "100%", maxWidth: 480, background: "#fff", borderRadius: "16px 16px 0 0", boxShadow: "0 -4px 32px rgba(0,0,0,0.22)", maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
+            {/* Header */}
+            <div style={{ background: "var(--pm-primary)", color: "#fff", padding: "14px 18px", borderRadius: "14px 14px 0 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 800, fontSize: 16 }}>⬇ Save & Recovery</span>
+              <button onClick={() => { setShowSaveModal(false); setRestoreConfirm(null); }} style={{ background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+
+            <div style={{ overflowY: "auto", flex: 1, padding: "18px 18px 28px" }}>
+
+              {/* ── Restore confirm prompt ── */}
+              {restoreConfirm && (
+                <div style={{ background: "#fff3cd", border: "2px solid #f59e0b", borderRadius: 10, padding: "14px 16px", marginBottom: 18 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#92400e", marginBottom: 6 }}>⚠️ Restore this recovery point?</div>
+                  <div style={{ fontSize: 13, color: "#555", marginBottom: 12 }}>
+                    <strong>{restoreConfirm.label}</strong><br />
+                    This will replace your current data with this earlier version. Your current data will be saved as a new recovery point first.
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button
+                      onClick={() => {
+                        // Snapshot current state before overwriting
+                        takeSnapshot("Before restore");
+                        // Restore
+                        try {
+                          const maps = deserializeEdits(restoreConfirm.edits);
+                          const namedSaved = new Map<string, Map<string, string>>();
+                          restoreConfirm.sheetNames.forEach((name, idx) => { if (maps[idx]) namedSaved.set(name.trim(), maps[idx]); });
+                          setEdits(prev => prev.map((existing, idx) => {
+                            const sheetName = sheets[idx]?.name.trim() ?? "";
+                            const savedMap = namedSaved.get(sheetName) ?? maps[idx];
+                            if (!savedMap) return existing;
+                            return new Map([...existing, ...savedMap]);
+                          }));
+                        } catch { /* corrupt snapshot */ }
+                        setRestoreConfirm(null);
+                        setShowSaveModal(false);
+                      }}
+                      style={{ flex: 1, background: "#c0392b", color: "#fff", border: "none", borderRadius: 7, padding: "10px 0", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                    >
+                      ✓ Yes, Restore
+                    </button>
+                    <button
+                      onClick={() => setRestoreConfirm(null)}
+                      style={{ flex: 1, background: "#f5f5f5", color: "#333", border: "1px solid #ddd", borderRadius: 7, padding: "10px 0", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Download xlsx ── */}
+              <div style={{ background: "#f0faf4", border: "2px solid var(--pm-primary)", borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "var(--pm-primary)", marginBottom: 4 }}>📥 Download as Excel file</div>
+                <p style={{ fontSize: 12, color: "#555", marginBottom: 12 }}>Saves your full feed program as a .xlsx file to your phone or computer — open in Excel, Google Sheets, or Numbers.</p>
+                <button
+                  onClick={async () => {
+                    takeSnapshot("Manual save");
+                    await downloadFile();
+                    setShowSaveModal(false);
+                  }}
+                  style={{ width: "100%", background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 7, padding: "11px 0", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+                >
+                  ⬇ Download feed-program.xlsx
+                </button>
+              </div>
+
+              {/* ── Auto-save status ── */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, padding: "10px 14px", background: "#f5f5f5", borderRadius: 8 }}>
+                <span style={{ fontSize: 18 }}>✓</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#1a7a40" }}>Auto-save is ON</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>Every change is saved automatically to this device within 2 seconds. Your data survives page close and refresh.</div>
+                </div>
+              </div>
+
+              {/* ── Recovery points ── */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: "#333" }}>🕐 Recovery Points</div>
+                  <button
+                    onClick={() => takeSnapshot("Manual")}
+                    style={{ fontSize: 12, fontWeight: 700, background: "#e8f4fd", color: "#1565c0", border: "1.5px solid #90caf9", borderRadius: 6, padding: "4px 12px", cursor: "pointer" }}
+                  >
+                    + Save point now
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: "#666", marginBottom: 12 }}>
+                  One automatic save point is created each day. Tap Restore to roll back to any earlier version — your current data is always snapshotted first so nothing is lost.
+                </p>
+                {snapshots.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "20px 0", color: "#aaa", fontSize: 13 }}>No recovery points yet — they appear here after your first auto-save today.</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {snapshots.map((snap, i) => (
+                      <div key={snap.ts} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: i === 0 ? "#f0faf4" : "#fafafa", border: `1.5px solid ${i === 0 ? "#86efac" : "#e5e5e5"}`, borderRadius: 8, padding: "10px 12px" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: "#222", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{snap.label}</div>
+                          {i === 0 && <div style={{ fontSize: 11, color: "#1a7a40", fontWeight: 600, marginTop: 2 }}>Most recent</div>}
+                        </div>
+                        <button
+                          onClick={() => setRestoreConfirm(snap)}
+                          style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, background: "#c0392b", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", cursor: "pointer" }}
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
       <PwaUpdateBanner />
     </div>
     </LanguageContext.Provider>
