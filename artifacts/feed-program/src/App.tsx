@@ -1696,12 +1696,14 @@ interface FeedAlert {
   feedOnHand: number;
   dailyUsage: number;
   daysRemaining: number;
+  effectiveDaysRemaining: number; // daysRemaining after counting incoming Feed Ordered entries
+  incomingKg: number;             // sum of future Feed Ordered rows (split loads entered on shed tab)
   urgency: "critical" | "warning" | "watch";
-  orderDue: boolean;       // true when daysRemaining <= FEED_ORDER_LEAD_DAYS
-  orderTonnes: number;     // estimated tonnes needed to cover remainder of batch
+  orderDue: boolean;       // true when effectiveDaysRemaining <= FEED_ORDER_LEAD_DAYS
+  orderTonnes: number;     // estimated tonnes still needed to cover remainder of batch
   sheetIdx: number;
   currentAge: number;
-  daysToCAatch: number | null; // null if batch end can't be determined
+  daysToCAatch: number | null;
 }
 const ALERT_SNOOZE_KEY = "feedmate-alert-snooze";
 
@@ -1779,20 +1781,37 @@ function computeFeedAlerts(
     // This eliminates false alarms for sheds that are close to catch day.
     if (daysToCAatch !== null && daysRemaining > daysToCAatch + 1) continue;
 
-    const urgency = daysRemaining <= 3 ? "critical"
-      : daysRemaining <= FEED_ORDER_LEAD_DAYS ? "warning"
+    // ── Incoming feed: scan future rows for Feed Ordered (COL_E) entries ──
+    // When the user splits bulk loads across the farm by entering kg amounts in
+    // the Feed Ordered column on future rows, count those as incoming tonnes so
+    // the alert reflects effective coverage, not just what's physically in the silo now.
+    let incomingKg = 0;
+    const lookAheadRows = Math.min(maxRow, latestRow + 30); // max 30 days ahead
+    for (let r = latestRow + 1; r <= lookAheadRows; r++) {
+      const age = getV(r, 0);
+      if (age < 1) continue; // skip non-data rows
+      const ordered = getV(r, COL_E);
+      if (ordered > 0) incomingKg += ordered;
+    }
+    const effectiveFeedOnHand = feedOnHand + incomingKg;
+    const effectiveDaysRemaining = effectiveFeedOnHand / avgDailyUsage;
+
+    const urgency = effectiveDaysRemaining <= 3 ? "critical"
+      : effectiveDaysRemaining <= FEED_ORDER_LEAD_DAYS ? "warning"
       : "watch";
 
-    const orderDue = daysRemaining <= FEED_ORDER_LEAD_DAYS;
-    // Estimated tonnes needed to cover remaining batch days (days to catch × avg daily usage)
-    const remainingDays = daysToCAatch !== null ? daysToCAatch : Math.ceil(daysRemaining);
-    const orderTonnes = Math.max(0, (remainingDays * avgDailyUsage - feedOnHand) / 1000);
+    const orderDue = effectiveDaysRemaining <= FEED_ORDER_LEAD_DAYS;
+    // Estimated tonnes still needed to cover remaining batch days
+    const remainingDays = daysToCAatch !== null ? daysToCAatch : Math.ceil(effectiveDaysRemaining);
+    const orderTonnes = Math.max(0, (remainingDays * avgDailyUsage - effectiveFeedOnHand) / 1000);
 
     alerts.push({
       shedGroupName: sheets[i].name.trim(),
       feedOnHand,
       dailyUsage: avgDailyUsage,
       daysRemaining,
+      effectiveDaysRemaining,
+      incomingKg,
       urgency,
       orderDue,
       orderTonnes,
@@ -8035,18 +8054,26 @@ export default function App() {
                           </div>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 8 }}>
                             <div style={{ background: "#f9fafb", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
-                              <div style={{ fontSize: 15, fontWeight: 800, color: isCrit ? "#dc2626" : "#92400e" }}>{a.daysRemaining.toFixed(1)}</div>
-                              <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>days left</div>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: isCrit ? "#dc2626" : "#92400e" }}>{a.effectiveDaysRemaining.toFixed(1)}</div>
+                              <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>eff. days left</div>
                             </div>
                             <div style={{ background: "#f9fafb", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
                               <div style={{ fontSize: 15, fontWeight: 800, color: "#374151" }}>{(a.feedOnHand / 1000).toFixed(1)}t</div>
-                              <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>on hand</div>
+                              <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>in silo now</div>
                             </div>
                             <div style={{ background: "#f9fafb", borderRadius: 6, padding: "6px 8px", textAlign: "center" }}>
                               <div style={{ fontSize: 15, fontWeight: 800, color: "#374151" }}>{(a.dailyUsage / 1000).toFixed(1)}t</div>
                               <div style={{ fontSize: 9, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>per day</div>
                             </div>
                           </div>
+                          {a.incomingKg > 0 && (
+                            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, padding: "5px 10px", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontSize: 14 }}>🚚</span>
+                              <span style={{ fontSize: 12, color: "#15803d", fontWeight: 700 }}>
+                                {(a.incomingKg / 1000).toFixed(1)}t already ordered in Feed Ordered column
+                              </span>
+                            </div>
+                          )}
                           {(catchCtx || a.orderTonnes > 0) && (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                               {catchCtx && (
@@ -8054,7 +8081,7 @@ export default function App() {
                               )}
                               {a.orderTonnes > 0 && (
                                 <span style={{ fontSize: 11, background: "#fef3c7", borderRadius: 4, padding: "2px 7px", color: "#92400e", fontWeight: 700 }}>
-                                  🛒 Order ~{a.orderTonnes.toFixed(1)}t to cover to catch
+                                  🛒 Still need ~{a.orderTonnes.toFixed(1)}t to cover to catch
                                 </span>
                               )}
                             </div>
