@@ -165,6 +165,28 @@ function saveFarmConfig(cfg: FarmConfigData) {
   window.dispatchEvent(new StorageEvent("storage", { key: FARM_CONFIG_KEY }));
 }
 
+// ── Feed allocation rates (kg per bird) ─────────────────────────────────────
+// Stored per shed sheet name so each shed can have its own rates.
+// The grower company changes specs from batch to batch, so users can override.
+const ALLOC_RATES_KEY = "feedmate-alloc-rates";
+const DEFAULT_ALLOC_RATES = { str: 0.325, gwr: 1.15, fin: 1.7, wdw: 1.5 } as const;
+type AllocRates = { str: number; gwr: number; fin: number; wdw: number };
+
+function readAllocRates(sheetName: string): AllocRates {
+  try {
+    const all = JSON.parse(localStorage.getItem(ALLOC_RATES_KEY) || "{}") as Record<string, Partial<AllocRates>>;
+    return { ...DEFAULT_ALLOC_RATES, ...(all[sheetName] ?? {}) };
+  } catch { return { ...DEFAULT_ALLOC_RATES }; }
+}
+
+function saveAllocRates(sheetName: string, rates: AllocRates): void {
+  try {
+    const all = JSON.parse(localStorage.getItem(ALLOC_RATES_KEY) || "{}") as Record<string, Partial<AllocRates>>;
+    all[sheetName] = rates;
+    localStorage.setItem(ALLOC_RATES_KEY, JSON.stringify(all));
+  } catch {}
+}
+
 const BATCH_HISTORY_KEY    = "feedmate-batch-history";
 // v2: renamed from "feedmate-edits-autosave" to invalidate stale date-column
 //     saves from the old code that wrote wrong placement dates for SHED 9 & 10.
@@ -527,7 +549,8 @@ function recalculate(
   edits: Map<string, string>,
   triggeredRow: number,
   triggeredCol: number,
-  maxRow: number
+  maxRow: number,
+  allocRates: AllocRates = { ...DEFAULT_ALLOC_RATES }
 ): Map<string, string> {
   const newEdits = new Map(edits);
 
@@ -563,10 +586,10 @@ function recalculate(
     } else {
       birds = getNum(1, COL_C);
     }
-    setNum(1, COL_H, Math.round(birds * 0.325));   // STR ALL
-    setNum(2, COL_H, Math.round(birds * 1.15));    // GWR ALL
-    setNum(3, COL_H, Math.round(birds * 1.7));     // FIN ALL
-    setNum(4, COL_H, Math.round(birds * 1.5));     // WDW ALL
+    setNum(1, COL_H, Math.round(birds * allocRates.str));  // STR ALL
+    setNum(2, COL_H, Math.round(birds * allocRates.gwr));  // GWR ALL
+    setNum(3, COL_H, Math.round(birds * allocRates.fin));  // FIN ALL
+    setNum(4, COL_H, Math.round(birds * allocRates.wdw));  // WDW ALL
     // Cascade daily feed usage using Cobb 500 table: H = grams[age-1] × birds / 1000.
     // IMPORTANT: Only iterate actual data rows. Header/allocation rows 0-11 contain
     // numeric values in col A (e.g. 12, 16, 19) that must NOT be treated as ages —
@@ -1845,6 +1868,26 @@ function ShedSummaryCard({
   const b2 = parseFloat(shed2Birds.replace(/,/g, "")) || 0;
   const totalBirds = b1 + b2;
 
+  // Editable per-shed feed allocation rates (kg per bird)
+  const [rates, setRates] = React.useState<AllocRates>(() => readAllocRates(sheet.name));
+  const [editingRate, setEditingRate] = React.useState<keyof AllocRates | null>(null);
+  const [rateDraft, setRateDraft] = React.useState("");
+
+  const handleRateSave = (key: keyof AllocRates, rawVal: string) => {
+    const n = parseFloat(rawVal);
+    setEditingRate(null);
+    if (isNaN(n) || n <= 0) return;
+    const newRates = { ...rates, [key]: n };
+    setRates(newRates);
+    saveAllocRates(sheet.name, newRates);
+    if (totalBirds > 0) {
+      onEdit(sheetIdx, "1,7", String(Math.round(totalBirds * newRates.str)));
+      onEdit(sheetIdx, "2,7", String(Math.round(totalBirds * newRates.gwr)));
+      onEdit(sheetIdx, "3,7", String(Math.round(totalBirds * newRates.fin)));
+      onEdit(sheetIdx, "4,7", String(Math.round(totalBirds * newRates.wdw)));
+    }
+  };
+
   let totalFeed = 0;
   for (let r = 12; r <= 71; r++) {
     const f = parseFloat(getCell(sheetIdx, r, 4).replace(/,/g, ""));
@@ -1875,9 +1918,34 @@ function ShedSummaryCard({
         }} />
         <div style={{ height: 1, background: "#eee", margin: "8px 0" }} />
         <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, color: "#888", marginBottom: 5 }}>{t("feedAllocations")}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
-          {([["STR", "1,7", strAlloc], ["GWR", "2,7", gwrAlloc], ["FIN", "3,7", finAlloc], ["WDW", "4,7", wdwAlloc]] as [string, string, string][]).map(([lbl, key, val]) => (
-            <SummaryInputField key={lbl} label={lbl} value={val} onSave={v => onEdit(sheetIdx, key, v)} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px" }}>
+          {([["STR", "1,7", strAlloc, "str"], ["GWR", "2,7", gwrAlloc, "gwr"], ["FIN", "3,7", finAlloc, "fin"], ["WDW", "4,7", wdwAlloc, "wdw"]] as [string, string, string, keyof AllocRates][]).map(([lbl, key, val, rateKey]) => (
+            <div key={lbl}>
+              <SummaryInputField label={lbl} value={val} onSave={v => onEdit(sheetIdx, key, v)} />
+              <div style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 86, marginBottom: 2 }}>
+                {editingRate === rateKey ? (
+                  <input
+                    autoFocus
+                    value={rateDraft}
+                    onChange={e => setRateDraft(e.target.value)}
+                    onBlur={() => handleRateSave(rateKey, rateDraft)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") handleRateSave(rateKey, rateDraft);
+                      if (e.key === "Escape") setEditingRate(null);
+                    }}
+                    style={{ width: 52, fontSize: 10, border: "1px solid var(--pm-primary)", borderRadius: 3, padding: "1px 4px", outline: "none" }}
+                  />
+                ) : (
+                  <span
+                    onClick={() => { setRateDraft(String(rates[rateKey])); setEditingRate(rateKey); }}
+                    title="Tap to edit rate (kg per bird)"
+                    style={{ fontSize: 9, color: "#999", cursor: "pointer", borderBottom: "1px dashed #ccc" }}
+                  >
+                    {rates[rateKey]} kg/bird
+                  </span>
+                )}
+              </div>
+            </div>
           ))}
         </div>
         {(totalFeed > 0 || kgPerBird) && (
@@ -6964,7 +7032,8 @@ export default function App() {
       const [r, c] = key.split(",").map(Number);
       const sheet = sheets[sheetIdx];
       const isEobSheet = sheet ? /end.{0,4}batch/i.test(sheet.name.trim()) : false;
-      const recalculated = (sheet && !isEobSheet) ? recalculate(sheet.cells, m, r, c, sheet.maxRow) : m;
+      const sheetAllocRates = readAllocRates(sheets[sheetIdx]?.name ?? "");
+      const recalculated = (sheet && !isEobSheet) ? recalculate(sheet.cells, m, r, c, sheet.maxRow, sheetAllocRates) : m;
 
       // When the placement date ("2,2") changes, re-derive the date column
       // (COL_B) for all data rows so dates stay consistent in the current
