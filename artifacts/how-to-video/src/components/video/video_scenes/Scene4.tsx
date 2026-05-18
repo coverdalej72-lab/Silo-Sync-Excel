@@ -1,184 +1,111 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { ScreenCallout } from '../ScreenCallout';
 
 const BASE = import.meta.env.BASE_URL;
+
+const BULLETS = [
+  'Every column updates as you enter silo readings each day',
+  'See feed ordered, feed used, and feed on hand — all in one row',
+  'Compare every shed side by side — nothing falls through the cracks',
+];
 
 export function Scene4() {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 300),
-      setTimeout(() => setPhase(2), 1400),
-      setTimeout(() => setPhase(3), 3000),
-      setTimeout(() => setPhase(4), 4800),
-      setTimeout(() => setPhase(5), 6500),
+      setTimeout(() => setPhase(1), 400),
+      setTimeout(() => setPhase(2), 1800),
+      setTimeout(() => setPhase(3), 5000),
+      setTimeout(() => setPhase(4), 9000),
+      setTimeout(() => setPhase(5), 13000),
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
-  const rows = [
-    { day: 21, target: '120 g', total: '4.80 t', isToday: false },
-    { day: 22, target: '126 g', total: '5.04 t', isToday: false },
-    { day: 23, target: '132 g', total: '5.28 t', isToday: true },
-    { day: 24, target: '138 g', total: '5.52 t', isToday: false },
-    { day: 25, target: '144 g', total: '5.76 t', isToday: false },
-  ];
-
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center overflow-hidden"
+      className="absolute inset-0 flex items-center overflow-hidden"
       style={{ background: 'var(--color-primary)' }}
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '-100%' }}
-      transition={{ duration: 0.7, ease: [0.76, 0, 0.24, 1] }}
+      transition={{ duration: 0.65, ease: [0.76, 0, 0.24, 1] }}
     >
-      <motion.div
-        className="absolute top-0 left-0 w-[50vw] h-[50vw] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(circle, rgba(201,162,39,0.1) 0%, transparent 70%)' }}
-        animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
-        transition={{ duration: 8, repeat: Infinity }}
-      />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 20% 80%, rgba(201,162,39,0.06) 0%, transparent 50%)' }} />
 
-      {/* Push notification banner */}
-      {phase >= 4 && (
+      {/* LEFT */}
+      <div className="relative z-20 flex flex-col justify-center h-full pl-[5%] w-[38%] pr-4">
         <motion.div
-          className="absolute top-8 left-1/2 -translate-x-1/2 z-40 flex items-start gap-3 rounded-2xl px-5 py-3.5 shadow-2xl"
-          style={{
-            background: 'rgba(15,20,15,0.95)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(234,88,12,0.5)',
-            maxWidth: '85%',
-          }}
-          initial={{ opacity: 0, y: -60, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: 'spring', damping: 18 }}
+          className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-black mb-4 self-start"
+          style={{ background: 'rgba(201,162,39,0.15)', color: 'var(--color-accent)', border: '1px solid rgba(201,162,39,0.3)', fontSize: 'clamp(9px, 1.2vw, 13px)' }}
+          initial={{ opacity: 0, y: -8 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
         >
-          <span style={{ fontSize: 'clamp(18px, 2.5vw, 24px)' }}>⚠️</span>
-          <div>
-            <div className="font-black text-white" style={{ fontSize: 'clamp(10px, 1.5vw, 14px)' }}>Farm Buddy Alert</div>
-            <div className="text-orange-400" style={{ fontSize: 'clamp(9px, 1.2vw, 12px)' }}>Shed 3 & 4 — 2.8 days feed remaining</div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Left */}
-      <div className="absolute left-[5%] top-1/2 -translate-y-1/2 z-20 flex flex-col w-[36%]">
-        <motion.div
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full font-black mb-4 self-start"
-          style={{ background: 'rgba(201,162,39,0.15)', color: 'var(--color-accent)', border: '1px solid rgba(201,162,39,0.3)', fontSize: 'clamp(10px, 1.4vw, 14px)' }}
-          initial={{ opacity: 0, y: -10 }}
-          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
-        >
-          🐔 FEED PROGRAM
+          STEP 3 OF 5
         </motion.div>
 
         <motion.h2
-          className="font-black text-white leading-none mb-3"
-          style={{ fontSize: 'clamp(22px, 5vw, 60px)' }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          className="font-black text-white leading-none mb-4"
+          style={{ fontSize: 'clamp(22px, 4.2vw, 52px)' }}
+          initial={{ opacity: 0, y: 18 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
+          transition={{ delay: 0.08 }}
         >
           ALWAYS<br /><span style={{ color: 'var(--color-accent)' }}>UP TO DATE</span>
         </motion.h2>
 
-        <motion.p
-          className="text-white/70 leading-snug mb-5"
-          style={{ fontSize: 'clamp(11px, 1.8vw, 18px)' }}
-          initial={{ opacity: 0 }}
-          animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }}
-        >
-          Today's row highlights automatically. Feed alerts fire to your phone before you run out.
-        </motion.p>
+        <div className="flex flex-col gap-3">
+          {BULLETS.map((b, i) => (
+            <motion.div
+              key={b}
+              className="flex items-start gap-3"
+              initial={{ opacity: 0, x: -14 }}
+              animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: -14 }}
+              transition={{ delay: i * 0.18, type: 'spring', damping: 22 }}
+            >
+              <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center font-black text-[#0a2415]"
+                style={{ background: 'var(--color-accent)', fontSize: 'clamp(8px, 1vw, 11px)' }}>✓</span>
+              <span className="text-white/80 leading-snug" style={{ fontSize: 'clamp(11px, 1.5vw, 16px)' }}>{b}</span>
+            </motion.div>
+          ))}
+        </div>
 
         <motion.div
-          className="rounded-2xl p-4"
-          style={{ background: 'rgba(201,162,39,0.1)', border: '1.5px solid rgba(201,162,39,0.25)' }}
-          initial={{ opacity: 0, y: 10 }}
-          animate={phase >= 3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+          className="mt-6 rounded-2xl px-4 py-3"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
+          initial={{ opacity: 0 }}
+          animate={phase >= 5 ? { opacity: 1 } : { opacity: 0 }}
         >
-          <div className="text-white/50 font-bold mb-1" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)' }}>TODAY'S TARGET — DAY 23</div>
-          <div className="font-black" style={{ fontSize: 'clamp(18px, 3.5vw, 38px)', color: 'var(--color-accent)' }}>5.28 t</div>
-          <div className="text-white/50 mt-0.5" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)' }}>132 g/bird × 40,000 birds</div>
+          <div className="font-black text-white" style={{ fontSize: 'clamp(11px, 1.5vw, 16px)' }}>No spreadsheet skills needed.</div>
+          <div className="text-white/50 mt-0.5" style={{ fontSize: 'clamp(9px, 1.2vw, 13px)' }}>Farm Buddy does all the maths for you.</div>
         </motion.div>
       </div>
 
-      {/* Spreadsheet mockup */}
+      {/* RIGHT */}
       <motion.div
-        className="absolute right-[4%] top-1/2 -translate-y-1/2 z-20"
-        style={{ width: 'clamp(180px, 36vw, 420px)' }}
+        className="relative z-20 flex items-center justify-center h-full"
+        style={{ width: '57%', paddingRight: '2%' }}
         initial={{ opacity: 0, x: 50 }}
         animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
-        transition={{ type: 'spring', damping: 22, delay: 0.1 }}
+        transition={{ type: 'spring', damping: 24, delay: 0.1 }}
       >
-        <div
-          className="rounded-2xl overflow-hidden shadow-2xl"
-          style={{ background: '#0d1f12', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          {/* Tab bar */}
-          <div className="flex px-3 pt-3 gap-1.5">
-            {['1 & 2', '3 & 4', '5 & 6'].map((tab, i) => (
-              <div
-                key={tab}
-                className="px-3 py-1.5 rounded-t-lg font-bold relative"
-                style={{
-                  background: i === 0 ? 'rgba(255,255,255,0.1)' : 'transparent',
-                  color: i === 0 ? '#fff' : 'rgba(255,255,255,0.4)',
-                  fontSize: 'clamp(8px, 1.1vw, 11px)',
-                }}
-              >
-                {tab}
-                {i === 1 && phase >= 4 && (
-                  <motion.div
-                    className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-500"
-                    animate={{ scale: [1, 1.4, 1] }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+        <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl" style={{ border: '2px solid rgba(255,255,255,0.1)' }}>
+          <img
+            src={`${BASE}screen-feed-program.jpg`}
+            alt="Broiler Base Mate live program"
+            className="w-full h-auto block"
+          />
 
-          {/* Table */}
-          <div className="p-3">
-            <div className="flex gap-2 mb-2 px-2">
-              {['DAY', 'G/BIRD', 'TOTAL'].map(h => (
-                <div key={h} className="flex-1 font-black text-white/30" style={{ fontSize: 'clamp(7px, 1vw, 10px)' }}>{h}</div>
-              ))}
-            </div>
-            {rows.map((row, i) => (
-              <motion.div
-                key={row.day}
-                className="flex gap-2 px-2 py-2 rounded-lg mb-1"
-                style={{
-                  background: row.isToday
-                    ? 'rgba(201,162,39,0.18)'
-                    : 'rgba(255,255,255,0.03)',
-                  border: row.isToday ? '1px solid rgba(201,162,39,0.35)' : '1px solid transparent',
-                }}
-                initial={{ opacity: 0, x: 10 }}
-                animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: 10 }}
-                transition={{ delay: i * 0.08 }}
-              >
-                <div className="flex-1 font-black" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)', color: row.isToday ? 'var(--color-accent)' : 'rgba(255,255,255,0.7)' }}>
-                  {row.isToday ? '▶ ' : ''}{row.day}
-                </div>
-                <div className="flex-1" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)', color: 'rgba(255,255,255,0.6)' }}>{row.target}</div>
-                <div className="flex-1 font-bold" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)', color: row.isToday ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{row.total}</div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Screenshot */}
-          <motion.div
-            className="mx-3 mb-3 rounded-xl overflow-hidden"
-            style={{ maxHeight: '8vw' }}
-            initial={{ opacity: 0 }}
-            animate={phase >= 5 ? { opacity: 1 } : { opacity: 0 }}
-          >
-            <img src={`${BASE}screenshot-feed-program.jpg`} alt="Feed Program" className="w-full object-cover object-top" />
-          </motion.div>
+          {/* Callout: Feed summary row */}
+          <ScreenCallout top="43%" left="0%" width="60%" height="8%" label="Total feed ordered this batch" labelSide="bottom" visible={phase === 3} />
+          {/* Callout: kg/bird */}
+          <ScreenCallout top="43%" left="60%" width="20%" height="8%" label="kg/bird — auto calculated" labelSide="bottom" visible={phase === 3} color="#4ade80" />
+          {/* Callout: Column headers */}
+          <ScreenCallout top="51%" left="33%" width="55%" height="10%" label="Feed ordered · Feed used · Feed on hand" labelSide="bottom" visible={phase === 4} />
+          {/* Callout: Today's row */}
+          <ScreenCallout top="82%" left="0%" width="100%" height="8%" label="Today — highlighted automatically every day" labelSide="top" visible={phase === 5} />
         </div>
       </motion.div>
     </motion.div>

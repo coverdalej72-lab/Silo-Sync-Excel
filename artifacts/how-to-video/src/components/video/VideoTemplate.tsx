@@ -11,13 +11,13 @@ import { Scene7 } from './video_scenes/Scene7';
 import { useNarration } from '@/lib/narration';
 
 const SCENE_DURATIONS = {
-  problem:      7000,
-  placement:   11000,
-  siloReading: 11000,
-  feedProgram: 11000,
-  weightSheet: 11000,
-  endOfBatch:  12000,
-  closer:       8000,
+  hook:         8000,
+  feedProgram: 18000,
+  siloReading: 18000,
+  liveProgram: 17000,
+  weightFCR:   17000,
+  endOfBatch:  17000,
+  closer:       9000,
 };
 
 export default function VideoTemplate() {
@@ -25,33 +25,44 @@ export default function VideoTemplate() {
   const { currentScene } = useVideoPlayer({ durations: SCENE_DURATIONS, paused: !started });
   useNarration(started ? currentScene : -1);
 
+  const sceneLabels = ['Intro', 'Feed Program', 'Silo Readings', 'Live Program', 'Weights & FCR', 'End of Batch', 'Farm Buddy™'];
+
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[var(--color-bg-dark)] font-sans select-none">
+    <div className="relative w-full h-screen overflow-hidden bg-[#060d08] font-sans select-none">
 
       <AnimatePresence mode="popLayout">
-        {currentScene === 0 && <Scene1 key="problem" />}
-        {currentScene === 1 && <Scene2 key="placement" />}
+        {currentScene === 0 && <Scene1 key="hook" />}
+        {currentScene === 1 && <Scene2 key="feedProgram" />}
         {currentScene === 2 && <Scene3 key="siloReading" />}
-        {currentScene === 3 && <Scene4 key="feedProgram" />}
-        {currentScene === 4 && <Scene5 key="weightSheet" />}
+        {currentScene === 3 && <Scene4 key="liveProgram" />}
+        {currentScene === 4 && <Scene5 key="weightFCR" />}
         {currentScene === 5 && <Scene6 key="endOfBatch" />}
         {currentScene === 6 && <Scene7 key="closer" />}
       </AnimatePresence>
 
-      {/* Scene progress dots */}
+      {/* Bottom progress bar + scene label */}
       {started && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-50">
-          {Object.keys(SCENE_DURATIONS).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-full transition-all duration-500"
-              style={{
-                width: i === currentScene ? 20 : 6,
-                height: 6,
-                background: i === currentScene ? 'var(--color-accent)' : 'rgba(255,255,255,0.3)',
-              }}
-            />
-          ))}
+        <div className="absolute bottom-0 left-0 right-0 z-50 px-6 pb-4 pt-2"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }}>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-white/50 font-bold" style={{ fontSize: 'clamp(9px, 1.1vw, 12px)' }}>
+              {sceneLabels[currentScene]}
+            </span>
+            <div className="flex-1 flex gap-1">
+              {Object.keys(SCENE_DURATIONS).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="h-1 rounded-full flex-1"
+                  style={{ background: i < currentScene ? 'var(--color-accent)' : i === currentScene ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.15)' }}
+                  animate={i === currentScene ? { opacity: [0.5, 1, 0.5] } : {}}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+              ))}
+            </div>
+            <span className="text-white/40 font-bold" style={{ fontSize: 'clamp(9px, 1.1vw, 12px)' }}>
+              {currentScene + 1} / {Object.keys(SCENE_DURATIONS).length}
+            </span>
+          </div>
         </div>
       )}
 
@@ -60,11 +71,10 @@ export default function VideoTemplate() {
         {!started && (
           <motion.div
             className="absolute inset-0 z-50 flex flex-col items-center justify-center cursor-pointer"
-            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+            style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(8px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
             onClick={() => setStarted(true)}
           >
             <motion.div
@@ -74,24 +84,30 @@ export default function VideoTemplate() {
               transition={{ delay: 0.2, type: 'spring', damping: 18 }}
             >
               <motion.div
-                className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center"
-                style={{ background: 'var(--color-accent)', boxShadow: '0 0 60px rgba(201,162,39,0.5)' }}
+                className="rounded-full flex items-center justify-center"
+                style={{
+                  width: 'clamp(80px, 12vw, 128px)',
+                  height: 'clamp(80px, 12vw, 128px)',
+                  background: 'var(--color-accent)',
+                }}
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
-                animate={{ boxShadow: ['0 0 40px rgba(201,162,39,0.4)', '0 0 80px rgba(201,162,39,0.7)', '0 0 40px rgba(201,162,39,0.4)'] }}
+                animate={{ boxShadow: ['0 0 40px rgba(201,162,39,0.4)', '0 0 80px rgba(201,162,39,0.75)', '0 0 40px rgba(201,162,39,0.4)'] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-10 h-10 md:w-14 md:h-14 text-[#0a2415] translate-x-1">
+                <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: '40%', height: '40%', color: '#0a2415', transform: 'translateX(8%)' }}>
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </motion.div>
-
               <div className="text-center">
-                <div className="text-white font-black text-[5vw] md:text-[2.5vw] uppercase tracking-wide drop-shadow-lg">
+                <div className="text-white font-black uppercase tracking-wide" style={{ fontSize: 'clamp(18px, 3vw, 32px)' }}>
                   Tap to Play
                 </div>
-                <div className="text-white/60 font-medium text-[3vw] md:text-[1.4vw] mt-1">
-                  Farm Buddy™ — Full Walkthrough
+                <div className="text-white/50 font-medium mt-1" style={{ fontSize: 'clamp(12px, 1.6vw, 16px)' }}>
+                  Farm Buddy™ — How It Works
+                </div>
+                <div className="text-white/30 mt-2" style={{ fontSize: 'clamp(10px, 1.2vw, 13px)' }}>
+                  ~2 min · voice-over included
                 </div>
               </div>
             </motion.div>

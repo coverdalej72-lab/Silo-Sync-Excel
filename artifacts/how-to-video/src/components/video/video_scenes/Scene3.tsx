@@ -1,5 +1,14 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { ScreenCallout } from '../ScreenCallout';
+
+const BASE = import.meta.env.BASE_URL;
+
+const BULLETS = [
+  'Open the app from the shed floor — works on any phone',
+  'Type how many tonnes in each silo — A, B and C',
+  'Tap Save All Readings — every shed recorded in 30 seconds',
+];
 
 export function Scene3() {
   const [phase, setPhase] = useState(0);
@@ -7,175 +16,101 @@ export function Scene3() {
   useEffect(() => {
     const timers = [
       setTimeout(() => setPhase(1), 400),
-      setTimeout(() => setPhase(2), 1600),
-      setTimeout(() => setPhase(3), 3200),
-      setTimeout(() => setPhase(4), 5000),
-      setTimeout(() => setPhase(5), 6800),
+      setTimeout(() => setPhase(2), 1800),
+      setTimeout(() => setPhase(3), 5000),
+      setTimeout(() => setPhase(4), 9000),
+      setTimeout(() => setPhase(5), 13000),
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
-  const silos = [
-    { label: 'Silo 1', feed: 'Starter', pct: 72, tonnes: '12.4t', color: '#16a34a' },
-    { label: 'Silo 2', feed: 'Starter', pct: 38, tonnes: '6.5t', color: '#ea580c' },
-    { label: 'Silo 3', feed: 'Grower', pct: 55, tonnes: '9.4t', color: '#16a34a' },
-  ];
-
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center overflow-hidden"
+      className="absolute inset-0 flex items-center overflow-hidden"
       style={{ background: '#0b1f12' }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.6 }}
+      exit={{ opacity: 0, x: -30 }}
+      transition={{ duration: 0.55 }}
     >
-      <motion.div
-        className="absolute bottom-0 left-0 right-0 h-[40%] pointer-events-none"
-        style={{ background: 'linear-gradient(to top, rgba(15,61,36,0.8), transparent)' }}
-      />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 30% 60%, rgba(15,61,36,0.8) 0%, transparent 60%)' }} />
 
-      {/* Left text */}
-      <div className="absolute left-[6%] top-1/2 -translate-y-1/2 z-20 flex flex-col w-[38%]">
+      {/* LEFT */}
+      <div className="relative z-20 flex flex-col justify-center h-full pl-[5%] w-[38%] pr-4">
         <motion.div
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full font-black mb-4 self-start"
-          style={{ background: '#1a5c36', color: 'var(--color-accent)', fontSize: 'clamp(10px, 1.4vw, 14px)', border: '1px solid rgba(201,162,39,0.3)' }}
-          initial={{ opacity: 0, y: -10 }}
-          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+          className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-black mb-4 self-start"
+          style={{ background: 'rgba(201,162,39,0.12)', color: 'var(--color-accent)', border: '1px solid rgba(201,162,39,0.25)', fontSize: 'clamp(9px, 1.2vw, 13px)' }}
+          initial={{ opacity: 0, y: -8 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
         >
-          🌾 DAILY SILO READING
+          STEP 2 OF 5
         </motion.div>
 
         <motion.h2
-          className="font-black text-white leading-none mb-3"
-          style={{ fontSize: 'clamp(22px, 5vw, 60px)' }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-          transition={{ delay: 0.1 }}
+          className="font-black text-white leading-none mb-4"
+          style={{ fontSize: 'clamp(22px, 4.2vw, 52px)' }}
+          initial={{ opacity: 0, y: 18 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
+          transition={{ delay: 0.08 }}
         >
-          FROM THE<br /><span style={{ color: 'var(--color-accent)' }}>SHED FLOOR</span>
+          DAILY SILO<br /><span style={{ color: 'var(--color-accent)' }}>READINGS</span>
         </motion.h2>
 
-        <motion.p
-          className="text-white/70 leading-snug mb-5"
-          style={{ fontSize: 'clamp(11px, 1.8vw, 18px)' }}
-          initial={{ opacity: 0 }}
-          animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }}
-        >
-          Open Silo Base Mate, tap a silo, enter your reading. Feed on hand updates instantly across every bin.
-        </motion.p>
+        <div className="flex flex-col gap-3">
+          {BULLETS.map((b, i) => (
+            <motion.div
+              key={b}
+              className="flex items-start gap-3"
+              initial={{ opacity: 0, x: -14 }}
+              animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: -14 }}
+              transition={{ delay: i * 0.18, type: 'spring', damping: 22 }}
+            >
+              <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center font-black text-[#0a2415]"
+                style={{ background: 'var(--color-accent)', fontSize: 'clamp(8px, 1vw, 11px)' }}>✓</span>
+              <span className="text-white/80 leading-snug" style={{ fontSize: 'clamp(11px, 1.5vw, 16px)' }}>{b}</span>
+            </motion.div>
+          ))}
+        </div>
 
-        {/* Feed on hand total */}
         <motion.div
-          className="rounded-2xl p-4"
-          style={{ background: 'rgba(201,162,39,0.12)', border: '1.5px solid rgba(201,162,39,0.3)' }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={phase >= 5 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.9 }}
-          transition={{ type: 'spring', damping: 18 }}
+          className="mt-6 rounded-2xl px-4 py-3 flex items-center gap-3"
+          style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.2)' }}
+          initial={{ opacity: 0 }}
+          animate={phase >= 5 ? { opacity: 1 } : { opacity: 0 }}
         >
-          <div className="text-white/60 font-bold mb-1" style={{ fontSize: 'clamp(9px, 1.2vw, 12px)' }}>TOTAL FEED ON HAND</div>
-          <div className="font-black" style={{ fontSize: 'clamp(20px, 4vw, 44px)', color: 'var(--color-accent)' }}>28.3t</div>
-          <div className="text-white/50 mt-1" style={{ fontSize: 'clamp(9px, 1.1vw, 11px)' }}>Across 3 silos — Shed 1 & 2</div>
+          <span style={{ fontSize: 'clamp(18px, 2.5vw, 26px)' }}>⚠️</span>
+          <div>
+            <div className="text-orange-400 font-black" style={{ fontSize: 'clamp(10px, 1.3vw, 14px)' }}>Low feed alert fires automatically</div>
+            <div className="text-white/50" style={{ fontSize: 'clamp(9px, 1.1vw, 12px)' }}>Farm Buddy warns you before you run out</div>
+          </div>
         </motion.div>
       </div>
 
-      {/* Phone mockup */}
+      {/* RIGHT — screenshot with callouts */}
       <motion.div
-        className="absolute right-[5%] top-1/2 -translate-y-1/2 z-20"
-        style={{ width: 'clamp(150px, 26vw, 300px)' }}
-        initial={{ opacity: 0, y: 40 }}
-        animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
-        transition={{ type: 'spring', damping: 22 }}
+        className="relative z-20 flex items-center justify-center h-full"
+        style={{ width: '57%', paddingRight: '2%' }}
+        initial={{ opacity: 0, x: 50 }}
+        animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
+        transition={{ type: 'spring', damping: 24, delay: 0.1 }}
       >
-        <div
-          className="relative rounded-[4vw] overflow-hidden"
-          style={{
-            aspectRatio: '9/19',
-            background: '#0d1f13',
-            border: '2px solid rgba(255,255,255,0.1)',
-            boxShadow: '0 30px 80px rgba(0,0,0,0.7)',
-          }}
-        >
-          <div className="absolute inset-0 p-3 flex flex-col" style={{ paddingTop: '8%' }}>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <span className="font-black text-white" style={{ fontSize: 'clamp(8px, 1.4vw, 13px)' }}>🌾 Silo Base Mate</span>
-              <span className="text-green-400 font-bold" style={{ fontSize: 'clamp(7px, 1vw, 10px)' }}>● LIVE</span>
-            </div>
+        <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl" style={{ border: '2px solid rgba(255,255,255,0.08)' }}>
+          <img
+            src={`${BASE}screen-silo-dashboard.jpg`}
+            alt="Silo Base Mate"
+            className="w-full h-auto block"
+          />
 
-            {/* Silo gauges */}
-            <div className="flex gap-2 mb-4">
-              {silos.map((silo, i) => (
-                <div key={silo.label} className="flex-1 flex flex-col items-center gap-1">
-                  {/* Gauge bar */}
-                  <div className="w-full relative rounded-t-full overflow-hidden" style={{ height: 'clamp(40px, 8vw, 80px)', background: 'rgba(255,255,255,0.06)' }}>
-                    <motion.div
-                      className="absolute bottom-0 left-0 right-0 rounded-t-full"
-                      style={{ background: silo.color }}
-                      initial={{ height: '5%' }}
-                      animate={phase >= 2 ? { height: `${silo.pct}%` } : { height: '5%' }}
-                      transition={{ duration: 1.2, ease: 'easeOut', delay: i * 0.15 }}
-                    />
-                  </div>
-                  <span style={{ fontSize: 'clamp(6px, 0.9vw, 9px)', color: 'rgba(255,255,255,0.5)' }}>{silo.label}</span>
-                  <motion.span
-                    className="font-black text-white"
-                    style={{ fontSize: 'clamp(7px, 1vw, 10px)' }}
-                    initial={{ opacity: 0 }}
-                    animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }}
-                    transition={{ delay: 0.8 + i * 0.1 }}
-                  >
-                    {silo.tonnes}
-                  </motion.span>
-                </div>
-              ))}
-            </div>
-
-            {/* Reading entry */}
-            <motion.div
-              className="rounded-xl p-2.5 mb-3"
-              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
-              initial={{ opacity: 0 }}
-              animate={phase >= 3 ? { opacity: 1 } : { opacity: 0 }}
-            >
-              <div className="text-white/50 mb-1.5" style={{ fontSize: 'clamp(6px, 0.9vw, 9px)' }}>ADD READING — SILO 2</div>
-              <motion.div
-                className="flex items-center gap-2 rounded-lg p-2"
-                style={{ background: phase >= 3 ? 'rgba(22,163,74,0.15)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(22,163,74,0.3)' }}
-                animate={phase >= 3 ? { borderColor: 'rgba(22,163,74,0.5)' } : {}}
-              >
-                <span className="font-black text-white" style={{ fontSize: 'clamp(9px, 1.4vw, 14px)' }}>
-                  {phase >= 3 ? '6.5' : '___'}
-                </span>
-                <span className="text-white/50" style={{ fontSize: 'clamp(7px, 1vw, 10px)' }}>tonnes</span>
-              </motion.div>
-            </motion.div>
-
-            {/* Save button */}
-            <motion.div
-              className="rounded-xl py-2 text-center font-black"
-              style={{ background: phase >= 4 ? '#16a34a' : 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 'clamp(8px, 1.2vw, 12px)' }}
-              animate={phase >= 4 ? { scale: [1, 1.06, 1] } : {}}
-              transition={{ duration: 0.3 }}
-            >
-              {phase >= 4 ? '✓ Saved' : 'Save Reading'}
-            </motion.div>
-
-            {/* Low feed warning */}
-            {phase >= 4 && (
-              <motion.div
-                className="mt-2 rounded-xl p-2 flex items-center gap-2"
-                style={{ background: 'rgba(234,88,12,0.2)', border: '1px solid rgba(234,88,12,0.4)' }}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <span style={{ fontSize: 'clamp(10px, 1.5vw, 14px)' }}>⚠️</span>
-                <span style={{ fontSize: 'clamp(6px, 0.9vw, 9px)', color: '#fb923c' }} className="font-bold">
-                  Silo 2 low — order in 2 days
-                </span>
-              </motion.div>
-            )}
-          </div>
+          {/* Callout: Farm name header */}
+          <ScreenCallout top="0%" left="0%" width="40%" height="13%" label="Your farm name" labelSide="bottom" visible={phase === 3} />
+          {/* Callout: Today date */}
+          <ScreenCallout top="0%" left="72%" width="28%" height="13%" label="Today's date — auto-set" labelSide="bottom" visible={phase === 3} />
+          {/* Callout: Shed 1&2 card */}
+          <ScreenCallout top="17%" left="0%" width="33%" height="40%" label="Each shed's silos" labelSide="right" visible={phase === 4} />
+          {/* Callout: Silo A/B/C inputs */}
+          <ScreenCallout top="35%" left="1%" width="31%" height="25%" label="Silo A, B and C — type the tonnes" labelSide="right" visible={phase === 4} color="#4ade80" />
+          {/* Callout: Save All Readings */}
+          <ScreenCallout top="85%" left="0%" width="100%" height="13%" label="One tap — all sheds saved at once" labelSide="top" visible={phase === 5} />
         </div>
       </motion.div>
     </motion.div>

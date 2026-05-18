@@ -1,5 +1,18 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { ScreenCallout } from '../ScreenCallout';
+
+const BASE = import.meta.env.BASE_URL;
+
+const SUMMARY_ITEMS = [
+  { label: 'Placement Date', value: '20 March 2026', color: 'rgba(255,255,255,0.85)' },
+  { label: 'Birds Placed',   value: '80,000',         color: 'rgba(255,255,255,0.85)' },
+  { label: 'Days on Farm',   value: '60 days',         color: 'rgba(255,255,255,0.85)' },
+  { label: 'Total Feed Used',value: '138,000 kg',      color: '#4ade80' },
+  { label: 'FCR',            value: '1.725',           color: '#4ade80' },
+  { label: 'Total Morts',    value: 'Tracked',         color: '#f87171' },
+  { label: 'Birds Caught',   value: 'Full breakdown',  color: 'var(--color-accent)' },
+];
 
 export function Scene6() {
   const [phase, setPhase] = useState(0);
@@ -7,153 +20,115 @@ export function Scene6() {
   useEffect(() => {
     const timers = [
       setTimeout(() => setPhase(1), 300),
-      setTimeout(() => setPhase(2), 1200),
-      setTimeout(() => setPhase(3), 2600),
-      setTimeout(() => setPhase(4), 4600),
-      setTimeout(() => setPhase(5), 7000),
-      setTimeout(() => setPhase(6), 9000),
+      setTimeout(() => setPhase(2), 1500),
+      setTimeout(() => setPhase(3), 5000),
+      setTimeout(() => setPhase(4), 9500),
+      setTimeout(() => setPhase(5), 13500),
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
-  const summaryRows = [
-    { label: 'Placement Date',    value: '15 May 2026',  color: 'rgba(255,255,255,0.8)' },
-    { label: 'Birds Placed',       value: '40,000',        color: 'rgba(255,255,255,0.8)' },
-    { label: 'Days on Farm',       value: '42 days',       color: 'rgba(255,255,255,0.8)' },
-    { label: 'Mortality',          value: '2.8% (1,120)',  color: '#f87171' },
-    { label: 'Total Feed Used',    value: '152.4 t',       color: 'rgba(255,255,255,0.8)' },
-    { label: 'FCR',                value: '1.58',          color: '#4ade80' },
-    { label: 'Avg Live Weight',    value: '2.68 kg',       color: '#4ade80' },
-  ];
-
-  const catches = [
-    { label: 'Catch 1', birds: '21,120 birds', trucks: '5 trucks', date: 'Day 40' },
-    { label: 'Catch 2', birds: '17,760 birds', trucks: '4 trucks', date: 'Day 42' },
-  ];
-
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center overflow-hidden"
+      className="absolute inset-0 flex items-center overflow-hidden"
       style={{ background: 'var(--color-primary)' }}
-      initial={{ opacity: 0, scale: 0.96 }}
-      animate={{ opacity: 1, scale: 1 }}
+      initial={{ clipPath: 'polygon(100% 0, 100% 0, 100% 100%, 100% 100%)' }}
+      animate={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.7 }}
+      transition={{ duration: 0.65, ease: [0.76, 0, 0.24, 1] }}
     >
-      <motion.div
-        className="absolute inset-0 pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse at 60% 40%, rgba(201,162,39,0.08) 0%, transparent 60%)' }}
-      />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse at 65% 50%, rgba(201,162,39,0.08) 0%, transparent 55%)' }} />
 
-      {/* Left label */}
-      <div className="absolute left-[5%] top-1/2 -translate-y-1/2 z-20 flex flex-col w-[32%]">
+      {/* LEFT */}
+      <div className="relative z-20 flex flex-col justify-center h-full pl-[5%] w-[38%] pr-4">
         <motion.div
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full font-black mb-4 self-start"
-          style={{ background: 'rgba(201,162,39,0.15)', color: 'var(--color-accent)', border: '1px solid rgba(201,162,39,0.3)', fontSize: 'clamp(10px, 1.4vw, 14px)' }}
-          initial={{ opacity: 0, y: -10 }}
-          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+          className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-black mb-4 self-start"
+          style={{ background: 'rgba(201,162,39,0.15)', color: 'var(--color-accent)', border: '1px solid rgba(201,162,39,0.3)', fontSize: 'clamp(9px, 1.2vw, 13px)' }}
+          initial={{ opacity: 0, y: -8 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
         >
-          🏁 END OF BATCH
+          STEP 5 OF 5
         </motion.div>
 
         <motion.h2
-          className="font-black text-white leading-none mb-3"
-          style={{ fontSize: 'clamp(22px, 4.5vw, 56px)' }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+          className="font-black text-white leading-none mb-4"
+          style={{ fontSize: 'clamp(22px, 4.2vw, 52px)' }}
+          initial={{ opacity: 0, y: 18 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
         >
-          COMPLETE<br /><span style={{ color: 'var(--color-accent)' }}>SUMMARY</span>
+          END OF<br /><span style={{ color: 'var(--color-accent)' }}>BATCH</span>
         </motion.h2>
 
-        <motion.p
-          className="text-white/70 leading-snug mb-5"
-          style={{ fontSize: 'clamp(11px, 1.7vw, 17px)' }}
-          initial={{ opacity: 0 }}
-          animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }}
-        >
-          Every number your processor needs — automatically compiled from your records.
-        </motion.p>
-
-        {/* Export badge */}
+        {/* Summary card */}
         <motion.div
-          className="flex items-center gap-3 px-5 py-3 rounded-2xl"
-          style={{ background: '#16a34a', boxShadow: '0 8px 30px rgba(22,163,74,0.35)' }}
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={phase >= 6 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.85 }}
-          transition={{ type: 'spring', damping: 16 }}
+          className="rounded-2xl overflow-hidden shadow-xl"
+          style={{ background: '#0f2718', border: '1px solid rgba(255,255,255,0.08)' }}
+          initial={{ opacity: 0, y: 14 }}
+          animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
+          transition={{ type: 'spring', damping: 22 }}
         >
-          <span style={{ fontSize: 'clamp(16px, 2.5vw, 24px)' }}>📤</span>
+          <div className="px-4 py-3" style={{ background: 'rgba(201,162,39,0.12)', borderBottom: '1px solid rgba(201,162,39,0.15)' }}>
+            <span className="font-black" style={{ fontSize: 'clamp(9px, 1.2vw, 13px)', color: 'var(--color-accent)' }}>BATCH SUMMARY — AUTO COMPILED</span>
+          </div>
+          <div className="px-4 py-2 flex flex-col gap-1.5">
+            {SUMMARY_ITEMS.map((item, i) => (
+              <motion.div
+                key={item.label}
+                className="flex justify-between items-center py-1 border-b"
+                style={{ borderColor: 'rgba(255,255,255,0.05)' }}
+                initial={{ opacity: 0, x: -8 }}
+                animate={phase >= 3 ? { opacity: 1, x: 0 } : { opacity: 0, x: -8 }}
+                transition={{ delay: i * 0.09 }}
+              >
+                <span className="text-white/45 font-medium" style={{ fontSize: 'clamp(8px, 1vw, 11px)' }}>{item.label}</span>
+                <span className="font-black" style={{ fontSize: 'clamp(9px, 1.1vw, 12px)', color: item.color }}>{item.value}</span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div
+          className="mt-4 flex items-center gap-3 rounded-2xl px-4 py-3"
+          style={{ background: '#16a34a', boxShadow: '0 8px 30px rgba(22,163,74,0.3)' }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={phase >= 5 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.9 }}
+          transition={{ type: 'spring', damping: 18 }}
+        >
+          <span style={{ fontSize: 'clamp(18px, 2vw, 22px)' }}>📤</span>
           <div>
-            <div className="font-black text-white" style={{ fontSize: 'clamp(10px, 1.5vw, 15px)' }}>Export Ready</div>
-            <div className="text-white/70" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)' }}>CSV · PDF · Share</div>
+            <div className="font-black text-white" style={{ fontSize: 'clamp(11px, 1.4vw, 15px)' }}>Export in one tap</div>
+            <div className="text-white/70" style={{ fontSize: 'clamp(9px, 1.1vw, 12px)' }}>CSV ready to send to your processor</div>
           </div>
         </motion.div>
       </div>
 
-      {/* Right: Summary card */}
+      {/* RIGHT */}
       <motion.div
-        className="absolute right-[4%] top-1/2 -translate-y-1/2 z-20"
-        style={{ width: 'clamp(200px, 40vw, 480px)' }}
-        initial={{ opacity: 0, x: 60, rotateY: 15 }}
-        animate={phase >= 2 ? { opacity: 1, x: 0, rotateY: 0 } : { opacity: 0, x: 60, rotateY: 15 }}
-        transition={{ type: 'spring', damping: 22 }}
+        className="relative z-20 flex items-center justify-center h-full"
+        style={{ width: '57%', paddingRight: '2%' }}
+        initial={{ opacity: 0, x: 60, rotateY: -10 }}
+        animate={phase >= 1 ? { opacity: 1, x: 0, rotateY: 0 } : { opacity: 0, x: 60, rotateY: -10 }}
+        transition={{ type: 'spring', damping: 24, delay: 0.12 }}
       >
-        <div
-          className="rounded-2xl overflow-hidden shadow-2xl"
-          style={{ background: '#0f2718', border: '1px solid rgba(255,255,255,0.08)' }}
-        >
-          {/* Header */}
-          <div
-            className="px-5 py-4"
-            style={{ background: 'linear-gradient(135deg, #1a5c36 0%, #0f3d24 100%)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            <div className="font-black text-white" style={{ fontSize: 'clamp(11px, 1.8vw, 18px)' }}>Batch Summary — Shed 1 & 2</div>
-            <div className="text-white/50 mt-0.5" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)' }}>Auto-compiled by Farm Buddy™</div>
-          </div>
+        <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl" style={{ border: '2px solid rgba(255,255,255,0.1)' }}>
+          <img
+            src={`${BASE}screen-feed-batch.jpg`}
+            alt="End of batch"
+            className="w-full h-auto block"
+          />
 
-          {/* Summary rows */}
-          <div className="p-4 flex flex-col gap-1.5">
-            {summaryRows.map((row, i) => (
-              <motion.div
-                key={row.label}
-                className="flex justify-between items-center px-3 py-2 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.04)' }}
-                initial={{ opacity: 0, x: -10 }}
-                animate={phase >= 3 ? { opacity: 1, x: 0 } : { opacity: 0, x: -10 }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <span className="text-white/50 font-medium" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)' }}>{row.label}</span>
-                <span className="font-black" style={{ fontSize: 'clamp(9px, 1.3vw, 13px)', color: row.color }}>{row.value}</span>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Catch breakdown */}
-          <motion.div
-            className="mx-4 mb-4 rounded-xl overflow-hidden"
-            style={{ border: '1px solid rgba(201,162,39,0.2)' }}
-            initial={{ opacity: 0, y: 10 }}
-            animate={phase >= 4 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-          >
-            <div className="px-3 py-2" style={{ background: 'rgba(201,162,39,0.1)', borderBottom: '1px solid rgba(201,162,39,0.15)' }}>
-              <span className="font-black" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)', color: 'var(--color-accent)' }}>🚛 CATCH PLAN</span>
-            </div>
-            {catches.map((c, i) => (
-              <motion.div
-                key={c.label}
-                className="flex items-center justify-between px-3 py-2.5"
-                style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
-                initial={{ opacity: 0 }}
-                animate={phase >= 5 ? { opacity: 1 } : { opacity: 0 }}
-                transition={{ delay: i * 0.15 }}
-              >
-                <span className="font-black text-white" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)' }}>{c.label}</span>
-                <span className="text-white/60" style={{ fontSize: 'clamp(7px, 1vw, 10px)' }}>{c.birds}</span>
-                <span className="text-white/60" style={{ fontSize: 'clamp(7px, 1vw, 10px)' }}>{c.trucks}</span>
-                <span style={{ fontSize: 'clamp(7px, 1vw, 10px)', color: 'var(--color-accent)' }}>{c.date}</span>
-              </motion.div>
-            ))}
-          </motion.div>
+          {/* Callout: End of batch button */}
+          <ScreenCallout top="12%" left="31%" width="14%" height="8%" label="Tap End of Batch" labelSide="bottom" visible={phase === 3} color="#4ade80" />
+          {/* Callout: Shed header with placement date */}
+          <ScreenCallout top="29%" left="0%" width="55%" height="12%" label="Shed — placement date auto-shown" labelSide="bottom" visible={phase === 4} />
+          {/* Callout: Total birds */}
+          <ScreenCallout top="29%" left="73%" width="26%" height="12%" label="Total birds placed" labelSide="bottom" visible={phase === 4} />
+          {/* Callout: Feed summary row */}
+          <ScreenCallout top="42%" left="0%" width="55%" height="9%" label="Total feed ordered · kg/bird" labelSide="bottom" visible={phase === 4} />
+          {/* Callout: Total morts at bottom */}
+          <ScreenCallout top="82%" left="0%" width="60%" height="9%" label="Total morts — auto-totalled" labelSide="top" visible={phase === 5} color="#f87171" />
+          {/* Callout: Birds caught */}
+          <ScreenCallout top="89%" left="0%" width="70%" height="9%" label="Total birds caught" labelSide="top" visible={phase === 5} color="#4ade80" />
         </div>
       </motion.div>
     </motion.div>
