@@ -7862,34 +7862,59 @@ export default function App() {
             const hasEdits = edits[i]?.size > 0;
             const tabAlert = feedAlerts.find(a => a.sheetIdx === i);
             const alertDotColor = tabAlert?.urgency === "critical" ? "#c0392b" : tabAlert?.orderDue ? "#d97706" : tabAlert ? "#f39c12" : null;
+            // For shed tabs: extract just the numbers (e.g. "1 & 2" from "SHED 1 & 2")
+            // and show them large with the date underneath — keeps tabs narrow even at 30 sheds
+            const shedNumLabel = (() => {
+              if (!tabName.includes("SHED")) return null;
+              const m = s.name.match(/(\d+\s*(?:&|and)\s*\d+|\d+)/i);
+              return m ? m[0].replace(/\s*&\s*/, " & ") : null;
+            })();
+            const pd = null; // dates removed from tabs — numbers only
+            const dateLabel = pd ? pd.toLocaleDateString("en-AU", { day: "numeric", month: "short" }) : null;
+
             return (
               <button
                 key={i}
                 onClick={() => { setActive(i); setActiveView(null); }}
-                className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+                className="rounded-t border border-b-0 transition-all shrink-0"
                 style={{
+                  padding: shedNumLabel ? "4px 8px 3px" : "7px 12px",
                   backgroundColor: isActive ? "#fff" : "#C9A227",
                   color: isActive ? "#7a5b00" : "#2a1f00",
                   borderColor: isActive ? "#ccc" : alertDotColor ?? "#a88020",
                   borderWidth: alertDotColor ? 2 : 1,
                   transform: isActive ? "translateY(1px)" : "translateY(3px)",
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  minWidth: shedNumLabel ? 44 : undefined,
+                  position: "relative",
                 }}
               >
                 {tabAlert && (() => {
                   const bellColor = tabAlert.urgency === "critical" ? "#e53935" : tabAlert.orderDue ? "#d97706" : "#f9a825";
                   return (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill={bellColor} style={{ marginRight: 4, verticalAlign: "middle", flexShrink: 0, animation: tabAlert.urgency === "critical" ? "pulse 1.2s infinite" : tabAlert.orderDue ? "pulse 2s infinite" : "none", display: "inline-block" }}>
-                      <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-                    </svg>
+                    <span style={{ position: "absolute", top: 2, right: 2 }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill={bellColor} style={{ animation: tabAlert.urgency === "critical" ? "pulse 1.2s infinite" : tabAlert.orderDue ? "pulse 2s infinite" : "none", display: "block" }}>
+                        <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+                      </svg>
+                    </span>
                   );
                 })()}
-                {(() => {
-                  if (!tabName.includes("SHED")) return s.name;
-                  const pd = findPlacementDate(s, edits[i])?.date ?? null;
-                  if (!pd) return s.name;
-                  const dateLabel = pd.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
-                  return <>{dateLabel} · {s.name}</>;
-                })()}{hasEdits ? " •" : ""}
+                {shedNumLabel ? (
+                  <>
+                    <span style={{ fontSize: 11, fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap" }}>
+                      {shedNumLabel}{hasEdits ? " •" : ""}
+                    </span>
+                    {dateLabel && (
+                      <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.7, lineHeight: 1.1, whiteSpace: "nowrap", marginTop: 1 }}>
+                        {dateLabel}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+                    {s.name}{hasEdits ? " •" : ""}
+                  </span>
+                )}
               </button>
             );
           };
