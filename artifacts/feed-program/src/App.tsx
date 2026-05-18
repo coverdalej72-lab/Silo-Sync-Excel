@@ -4508,23 +4508,64 @@ function DensityView({ shedPlacement, farmConfig }: { shedPlacement: Map<number,
                   )}
                 </div>
 
-                {/* Gauge bar — kg/m² scale */}
-                {floorArea > 0 && (
-                  <div>
-                    <div style={{ background: "#f0f0f0", borderRadius: 99, height: 10, position: "relative", overflow: "hidden" }}>
-                      {/* green zone 0-30, amber 30-36, red 36+ */}
-                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${(30/maxGauge)*100}%`, background: "#27ae6018", borderRight: "2px dashed #27ae6055" }} />
-                      <div style={{ position: "absolute", left: `${(30/maxGauge)*100}%`, top: 0, height: "100%", width: `${((36-30)/maxGauge)*100}%`, background: "#f39c1218", borderRight: "2px dashed #f39c1255" }} />
-                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pctFill}%`, background: densityColor, borderRadius: 99, transition: "width 0.5s ease" }} />
+                {/* Gauge bar — kg/m² scale with density break markers */}
+                {floorArea > 0 && (() => {
+                  const break1 = 30, break2 = 36;
+                  const overBreak2 = primaryVal != null && primaryVal >= break2;
+                  const overBreak1 = primaryVal != null && primaryVal >= break1 && primaryVal < break2;
+                  // Birds to remove to get back to target density (28 kg/m² for break1, 30 kg/m² for break2)
+                  const targetDensity = overBreak2 ? 28 : 26;
+                  const birdsToRemove = (primaryVal != null && latestKg != null && latestKg > 0 && floorArea > 0 && currentBirds > 0)
+                    ? Math.max(0, Math.round(currentBirds - (targetDensity * floorArea / latestKg)))
+                    : null;
+                  return (
+                    <div>
+                      {/* Break alert badge */}
+                      {(overBreak1 || overBreak2) && (
+                        <div style={{
+                          background: overBreak2 ? "#ffeaea" : "#fff8e6",
+                          border: `1.5px solid ${overBreak2 ? "#e74c3c" : "#f39c12"}`,
+                          borderRadius: 8, padding: "8px 12px", marginBottom: 8,
+                          fontSize: 12, fontWeight: 700, color: overBreak2 ? "#c0392b" : "#b07000",
+                          display: "flex", alignItems: "center", gap: 8,
+                        }}>
+                          <span style={{ fontSize: 16 }}>{overBreak2 ? "🚨" : "⚡"}</span>
+                          <div>
+                            <div>{overBreak2 ? "Break 2 overdue — depop now" : "Break 1 due — thin the flock"}</div>
+                            {birdsToRemove != null && birdsToRemove > 0 && (
+                              <div style={{ fontWeight: 400, fontSize: 11, marginTop: 2, color: "#555" }}>
+                                Remove ~{birdsToRemove.toLocaleString()} birds to reach {targetDensity} kg/m²
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {/* Gauge track */}
+                      <div style={{ background: "#f0f0f0", borderRadius: 99, height: 12, position: "relative" }}>
+                        {/* Zone backgrounds */}
+                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${(break1/maxGauge)*100}%`, background: "#27ae6022", borderRadius: "99px 0 0 99px" }} />
+                        <div style={{ position: "absolute", left: `${(break1/maxGauge)*100}%`, top: 0, height: "100%", width: `${((break2-break1)/maxGauge)*100}%`, background: "#f39c1222" }} />
+                        <div style={{ position: "absolute", left: `${(break2/maxGauge)*100}%`, top: 0, height: "100%", right: 0, background: "#e74c3c22", borderRadius: "0 99px 99px 0" }} />
+                        {/* Break marker lines */}
+                        <div style={{ position: "absolute", left: `${(break1/maxGauge)*100}%`, top: -3, bottom: -3, width: 2, background: "#f39c12", borderRadius: 1, zIndex: 2 }} />
+                        <div style={{ position: "absolute", left: `${(break2/maxGauge)*100}%`, top: -3, bottom: -3, width: 2, background: "#e74c3c", borderRadius: 1, zIndex: 2 }} />
+                        {/* Fill bar */}
+                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${pctFill}%`, background: densityColor, borderRadius: 99, transition: "width 0.5s ease", zIndex: 1 }} />
+                      </div>
+                      {/* Break labels */}
+                      <div style={{ position: "relative", height: 18, marginTop: 4, fontSize: 10 }}>
+                        <span style={{ position: "absolute", left: 0, color: "#aaa" }}>0</span>
+                        <span style={{ position: "absolute", left: `${(break1/maxGauge)*100}%`, transform: "translateX(-50%)", color: "#e07b00", fontWeight: 700, whiteSpace: "nowrap" }}>
+                          Break 1 · {break1}
+                        </span>
+                        <span style={{ position: "absolute", left: `${(break2/maxGauge)*100}%`, transform: "translateX(-50%)", color: "#c0392b", fontWeight: 700, whiteSpace: "nowrap" }}>
+                          Break 2 · {break2}
+                        </span>
+                        <span style={{ position: "absolute", right: 0, color: "#aaa" }}>{maxGauge}+</span>
+                      </div>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#aaa", marginTop: 3 }}>
-                      <span>0</span>
-                      <span style={{ color: "#27ae60" }}>30 ✓</span>
-                      <span style={{ color: "#f39c12" }}>36 ⚡</span>
-                      <span style={{ color: "#e74c3c" }}>36+ ⚠</span>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Weight info */}
                 {weightSource === "weighin" && latestWeighInKg != null && (
@@ -6500,6 +6541,8 @@ export default function App() {
   const [showFlockForecast, setShowFlockForecast] = useState<boolean>(() =>
     localStorage.getItem("feedmate-show-flock-forecast") !== "off"
   );
+  const [notifEnabled, setNotifEnabled] = useState(() => localStorage.getItem("feedmate-notif-enabled") === "on");
+  const notifiedAlertsRef = useRef<Set<string>>(new Set());
   const [newBatchLocked, setNewBatchLocked] = useState(true);
   const [showFeedAlert, setShowFeedAlert] = useState(false);
   const [alertSnooze, setAlertSnooze] = useState<Record<string, number>>(() => {
@@ -7479,6 +7522,44 @@ export default function App() {
     setHasChanges(false);
   };
 
+  // ── Feed alert browser notifications ─────────────────────────────────────────
+  // Fires a browser notification when a new critical or warning alert appears
+  // (only once per unique alert key per session; repeated only for criticals
+  //  on a 60-minute repeat timer).
+  useEffect(() => {
+    if (!notifEnabled) return;
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "denied") return;
+
+    const active = feedAlerts.filter(a => !isSnoozed(a.shedGroupName));
+    if (active.length === 0) return;
+
+    const fire = (alerts: typeof feedAlerts) => {
+      alerts.forEach(a => {
+        const key = `${a.shedGroupName}-${a.urgency}-${Math.floor(a.daysRemaining * 2)}`;
+        if (notifiedAlertsRef.current.has(key)) return;
+        notifiedAlertsRef.current.add(key);
+        const title = a.urgency === "critical"
+          ? `🚨 Feed Critical — ${a.shedGroupName}`
+          : `⚠️ Feed Low — ${a.shedGroupName}`;
+        const body = a.urgency === "critical"
+          ? `Only ${a.daysRemaining.toFixed(1)} days of feed left. Order now!`
+          : a.orderDue
+          ? `${a.daysRemaining.toFixed(1)} days remaining — order is due today.`
+          : `${a.daysRemaining.toFixed(1)} days remaining. Watch this shed.`;
+        new Notification(title, { body, icon: "/feed-program/logo.png", tag: a.shedGroupName });
+      });
+    };
+
+    if (Notification.permission === "granted") {
+      fire(active);
+    } else {
+      Notification.requestPermission().then(perm => {
+        if (perm === "granted") fire(active);
+      });
+    }
+  }, [feedAlerts, notifEnabled]);
+
   // ── Auto-save edits to localStorage ─────────────────────────────────────────
   // Debounced: waits 2 s after the last change before writing.
   // Also takes one automatic daily snapshot the first time a save fires each day.
@@ -8441,6 +8522,54 @@ export default function App() {
                 </div>
                 <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: showFlockForecast ? "#6a2faa" : "#999", textTransform: "uppercase", letterSpacing: 0.3 }}>
                   {showFlockForecast ? "On — tab visible in Batch Results" : "Off — tab hidden"}
+                </div>
+              </div>
+
+              {/* Feed Alert Notifications toggle */}
+              <div style={{ background: "#f0f7ff", border: "2px solid #1976d2", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "#1565c0", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 3 }}>🔔 Feed Alert Notifications</div>
+                    <div style={{ fontSize: 12, color: "#555", lineHeight: 1.4 }}>Get a notification on this device when a shed is low on feed or an order is due. Works best when the app is added to your home screen.</div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!notifEnabled) {
+                        if (!("Notification" in window)) { alert("Notifications are not supported on this browser."); return; }
+                        if (Notification.permission === "denied") { alert("Notifications are blocked. Please allow them in your browser/phone settings, then try again."); return; }
+                        Notification.requestPermission().then(perm => {
+                          if (perm === "granted") {
+                            setNotifEnabled(true);
+                            localStorage.setItem("feedmate-notif-enabled", "on");
+                            new Notification("🔔 Feed Alerts ON", { body: "You'll be notified when sheds are low on feed.", icon: "/feed-program/logo.png" });
+                          } else {
+                            alert("Notification permission was not granted. Check your browser or phone settings.");
+                          }
+                        });
+                      } else {
+                        setNotifEnabled(false);
+                        localStorage.setItem("feedmate-notif-enabled", "off");
+                      }
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      width: 52, height: 28, borderRadius: 14, border: "none", cursor: "pointer",
+                      background: notifEnabled ? "#1976d2" : "#ccc",
+                      position: "relative", transition: "background 0.2s", padding: 0,
+                    }}
+                    aria-label="Toggle feed alert notifications"
+                  >
+                    <span style={{
+                      display: "block", width: 22, height: 22, borderRadius: "50%", background: "#fff",
+                      position: "absolute", top: 3,
+                      left: notifEnabled ? 27 : 3,
+                      transition: "left 0.2s",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                    }} />
+                  </button>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: notifEnabled ? "#1565c0" : "#999", textTransform: "uppercase", letterSpacing: 0.3 }}>
+                  {notifEnabled ? "On — alerts will notify this device" : "Off — no notifications sent"}
                 </div>
               </div>
 
