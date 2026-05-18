@@ -8,132 +8,179 @@ export function Scene4() {
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 400),
-      setTimeout(() => setPhase(2), 1500),
-      setTimeout(() => setPhase(3), 2500),
+      setTimeout(() => setPhase(1), 300),
+      setTimeout(() => setPhase(2), 1400),
+      setTimeout(() => setPhase(3), 3000),
+      setTimeout(() => setPhase(4), 4800),
+      setTimeout(() => setPhase(5), 6500),
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
+  const rows = [
+    { day: 21, target: '120 g', total: '4.80 t', isToday: false },
+    { day: 22, target: '126 g', total: '5.04 t', isToday: false },
+    { day: 23, target: '132 g', total: '5.28 t', isToday: true },
+    { day: 24, target: '138 g', total: '5.52 t', isToday: false },
+    { day: 25, target: '144 g', total: '5.76 t', isToday: false },
+  ];
+
   return (
-    <motion.div 
-      className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden bg-[var(--color-bg-dark)]"
+    <motion.div
+      className="absolute inset-0 flex items-center justify-center overflow-hidden"
+      style={{ background: 'var(--color-primary)' }}
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '-100%' }}
-      transition={{ duration: 0.8, ease: [0.76, 0, 0.24, 1] }}
+      transition={{ duration: 0.7, ease: [0.76, 0, 0.24, 1] }}
     >
-      <div className="absolute inset-0 opacity-10 mix-blend-screen pointer-events-none">
-        <img 
-          src={`${BASE}data-bg.png`} 
-          alt="Data Background" 
-          className="w-full h-full object-cover" 
-        />
-      </div>
+      <motion.div
+        className="absolute top-0 left-0 w-[50vw] h-[50vw] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(201,162,39,0.1) 0%, transparent 70%)' }}
+        animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
+        transition={{ duration: 8, repeat: Infinity }}
+      />
 
-      <div className="relative z-20 text-center mb-10 w-full px-8">
-        <motion.h2 
-          className="text-[6vw] md:text-[5vw] font-black text-white uppercase tracking-tight leading-none"
-          initial={{ opacity: 0, y: 30 }}
-          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      {/* Push notification banner */}
+      {phase >= 4 && (
+        <motion.div
+          className="absolute top-8 left-1/2 -translate-x-1/2 z-40 flex items-start gap-3 rounded-2xl px-5 py-3.5 shadow-2xl"
+          style={{
+            background: 'rgba(15,20,15,0.95)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(234,88,12,0.5)',
+            maxWidth: '85%',
+          }}
+          initial={{ opacity: 0, y: -60, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', damping: 18 }}
         >
-          SILO <span className="text-[var(--color-accent)]">TRACKER</span>
-        </motion.h2>
-        <motion.p
-          className="text-[2.5vw] md:text-[2vw] font-medium text-white/70 mt-4"
-          initial={{ opacity: 0 }}
-          animate={phase >= 1 ? { opacity: 1 } : { opacity: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          Live updates straight from the shed floor.
-        </motion.p>
-      </div>
-
-      <div className="relative w-full flex items-center justify-center z-20 h-[50vh]">
-        <motion.div 
-          className="relative w-[28vw] max-w-[320px] aspect-[9/19] bg-black rounded-[3vw] md:rounded-[2vw] border-[8px] border-gray-800 shadow-[0_20px_50px_rgba(201,162,39,0.2)] overflow-hidden"
-          initial={{ y: '20vh', opacity: 0, scale: 0.9 }}
-          animate={phase >= 1 ? { y: 0, opacity: 1, scale: 1 } : { y: '20vh', opacity: 0, scale: 0.9 }}
-          transition={{ type: 'spring', damping: 20 }}
-        >
-          {/* Silo UI */}
-          <div className="absolute inset-0 bg-[#0a1a10] p-6 flex flex-col pt-12">
-            <div className="flex justify-between items-center mb-8">
-              <div className="font-bold text-white text-xl">Shed 1</div>
-              <div className="text-[var(--color-accent)] text-sm font-bold bg-[var(--color-accent)]/20 px-3 py-1 rounded">LIVE</div>
-            </div>
-
-            <div className="flex gap-6 h-1/2 items-end justify-center">
-              {/* Silo 1 */}
-              <div className="w-1/3 h-full bg-gray-800 rounded-t-[20px] relative overflow-hidden flex flex-col justify-end">
-                <motion.div 
-                  className="w-full bg-[var(--color-primary)]"
-                  initial={{ height: '20%' }}
-                  animate={phase >= 2 ? { height: '80%' } : { height: '20%' }}
-                  transition={{ duration: 1.5, ease: "easeOut" }}
-                />
-                <div className="absolute inset-0 border-2 border-white/10 rounded-t-[20px]" />
-                <motion.div 
-                  className="absolute bottom-4 left-0 right-0 text-center font-bold text-white drop-shadow-md text-xl"
-                  initial={{ opacity: 0 }}
-                  animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }}
-                >
-                  12.4t
-                </motion.div>
-              </div>
-
-              {/* Silo 2 */}
-              <div className="w-1/3 h-full bg-gray-800 rounded-t-[20px] relative overflow-hidden flex flex-col justify-end">
-                <motion.div 
-                  className="w-full bg-[var(--color-accent)]"
-                  initial={{ height: '40%' }}
-                  animate={phase >= 2 ? { height: '30%' } : { height: '40%' }}
-                  transition={{ duration: 1.5, ease: "easeOut" }}
-                />
-                <div className="absolute inset-0 border-2 border-white/10 rounded-t-[20px]" />
-                <motion.div 
-                  className="absolute bottom-4 left-0 right-0 text-center font-bold text-white drop-shadow-md text-xl"
-                  initial={{ opacity: 0 }}
-                  animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }}
-                >
-                  4.2t
-                </motion.div>
-              </div>
-            </div>
-
-            <motion.div 
-              className="mt-8 bg-gray-800/50 rounded-xl p-4 border border-white/10"
-              initial={{ opacity: 0, y: 20 }}
-              animate={phase >= 3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-            >
-              <div className="text-sm text-gray-400 mb-1">Total Feed</div>
-              <div className="text-2xl font-bold text-white">16.6 Tonnes</div>
-            </motion.div>
+          <span style={{ fontSize: 'clamp(18px, 2.5vw, 24px)' }}>⚠️</span>
+          <div>
+            <div className="font-black text-white" style={{ fontSize: 'clamp(10px, 1.5vw, 14px)' }}>Farm Buddy Alert</div>
+            <div className="text-orange-400" style={{ fontSize: 'clamp(9px, 1.2vw, 12px)' }}>Shed 3 & 4 — 2.8 days feed remaining</div>
           </div>
         </motion.div>
+      )}
 
-        {/* Floating stats around phone */}
-        <motion.div 
-          className="absolute left-[15%] top-[20%] bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl shadow-2xl hidden md:block"
-          initial={{ opacity: 0, x: -50 }}
-          animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: -50 }}
-          transition={{ type: 'spring', delay: 0.5 }}
+      {/* Left */}
+      <div className="absolute left-[5%] top-1/2 -translate-y-1/2 z-20 flex flex-col w-[36%]">
+        <motion.div
+          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full font-black mb-4 self-start"
+          style={{ background: 'rgba(201,162,39,0.15)', color: 'var(--color-accent)', border: '1px solid rgba(201,162,39,0.3)', fontSize: 'clamp(10px, 1.4vw, 14px)' }}
+          initial={{ opacity: 0, y: -10 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
         >
-          <div className="text-[var(--color-accent)] font-bold text-lg">Shed 2</div>
-          <div className="text-white text-3xl font-black">Ready</div>
+          🐔 FEED PROGRAM
         </motion.div>
 
-        <motion.div 
-          className="absolute right-[15%] bottom-[20%] bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl shadow-2xl hidden md:block"
-          initial={{ opacity: 0, x: 50 }}
-          animate={phase >= 3 ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
-          transition={{ type: 'spring', delay: 0.2 }}
+        <motion.h2
+          className="font-black text-white leading-none mb-3"
+          style={{ fontSize: 'clamp(22px, 5vw, 60px)' }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
         >
-          <div className="text-green-400 font-bold text-lg">Delivery</div>
-          <div className="text-white text-3xl font-black">Logged</div>
+          ALWAYS<br /><span style={{ color: 'var(--color-accent)' }}>UP TO DATE</span>
+        </motion.h2>
+
+        <motion.p
+          className="text-white/70 leading-snug mb-5"
+          style={{ fontSize: 'clamp(11px, 1.8vw, 18px)' }}
+          initial={{ opacity: 0 }}
+          animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }}
+        >
+          Today's row highlights automatically. Feed alerts fire to your phone before you run out.
+        </motion.p>
+
+        <motion.div
+          className="rounded-2xl p-4"
+          style={{ background: 'rgba(201,162,39,0.1)', border: '1.5px solid rgba(201,162,39,0.25)' }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={phase >= 3 ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+        >
+          <div className="text-white/50 font-bold mb-1" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)' }}>TODAY'S TARGET — DAY 23</div>
+          <div className="font-black" style={{ fontSize: 'clamp(18px, 3.5vw, 38px)', color: 'var(--color-accent)' }}>5.28 t</div>
+          <div className="text-white/50 mt-0.5" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)' }}>132 g/bird × 40,000 birds</div>
         </motion.div>
       </div>
+
+      {/* Spreadsheet mockup */}
+      <motion.div
+        className="absolute right-[4%] top-1/2 -translate-y-1/2 z-20"
+        style={{ width: 'clamp(180px, 36vw, 420px)' }}
+        initial={{ opacity: 0, x: 50 }}
+        animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
+        transition={{ type: 'spring', damping: 22, delay: 0.1 }}
+      >
+        <div
+          className="rounded-2xl overflow-hidden shadow-2xl"
+          style={{ background: '#0d1f12', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {/* Tab bar */}
+          <div className="flex px-3 pt-3 gap-1.5">
+            {['1 & 2', '3 & 4', '5 & 6'].map((tab, i) => (
+              <div
+                key={tab}
+                className="px-3 py-1.5 rounded-t-lg font-bold relative"
+                style={{
+                  background: i === 0 ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: i === 0 ? '#fff' : 'rgba(255,255,255,0.4)',
+                  fontSize: 'clamp(8px, 1.1vw, 11px)',
+                }}
+              >
+                {tab}
+                {i === 1 && phase >= 4 && (
+                  <motion.div
+                    className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-orange-500"
+                    animate={{ scale: [1, 1.4, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Table */}
+          <div className="p-3">
+            <div className="flex gap-2 mb-2 px-2">
+              {['DAY', 'G/BIRD', 'TOTAL'].map(h => (
+                <div key={h} className="flex-1 font-black text-white/30" style={{ fontSize: 'clamp(7px, 1vw, 10px)' }}>{h}</div>
+              ))}
+            </div>
+            {rows.map((row, i) => (
+              <motion.div
+                key={row.day}
+                className="flex gap-2 px-2 py-2 rounded-lg mb-1"
+                style={{
+                  background: row.isToday
+                    ? 'rgba(201,162,39,0.18)'
+                    : 'rgba(255,255,255,0.03)',
+                  border: row.isToday ? '1px solid rgba(201,162,39,0.35)' : '1px solid transparent',
+                }}
+                initial={{ opacity: 0, x: 10 }}
+                animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: 10 }}
+                transition={{ delay: i * 0.08 }}
+              >
+                <div className="flex-1 font-black" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)', color: row.isToday ? 'var(--color-accent)' : 'rgba(255,255,255,0.7)' }}>
+                  {row.isToday ? '▶ ' : ''}{row.day}
+                </div>
+                <div className="flex-1" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)', color: 'rgba(255,255,255,0.6)' }}>{row.target}</div>
+                <div className="flex-1 font-bold" style={{ fontSize: 'clamp(8px, 1.1vw, 11px)', color: row.isToday ? '#4ade80' : 'rgba(255,255,255,0.5)' }}>{row.total}</div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Screenshot */}
+          <motion.div
+            className="mx-3 mb-3 rounded-xl overflow-hidden"
+            style={{ maxHeight: '8vw' }}
+            initial={{ opacity: 0 }}
+            animate={phase >= 5 ? { opacity: 1 } : { opacity: 0 }}
+          >
+            <img src={`${BASE}screenshot-feed-program.jpg`} alt="Feed Program" className="w-full object-cover object-top" />
+          </motion.div>
+        </div>
+      </motion.div>
     </motion.div>
   );
 }

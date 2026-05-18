@@ -8,102 +8,85 @@ export function Scene1() {
 
   useEffect(() => {
     const timers = [
-      setTimeout(() => setPhase(1), 300), // Text appears
-      setTimeout(() => setPhase(2), 1500), // Paper stack drops
-      setTimeout(() => setPhase(3), 2200), // Paper tossed away & X appears
-      setTimeout(() => setPhase(4), 3200), // Exit drift
+      setTimeout(() => setPhase(1), 300),
+      setTimeout(() => setPhase(2), 1400),
+      setTimeout(() => setPhase(3), 2600),
+      setTimeout(() => setPhase(4), 3800),
     ];
     return () => timers.forEach(t => clearTimeout(t));
   }, []);
 
+  const problems = ['Chasing paper records', 'No feed visibility', 'Missing delivery dockets', 'Scrambling at end of batch'];
+
   return (
-    <motion.div 
-      className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden bg-[var(--color-bg-dark)]"
-      initial={{ opacity: 0, scale: 1.1 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+    <motion.div
+      className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
+      style={{ background: '#080f0a' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.6 }}
     >
-      <div className="absolute inset-0 opacity-40 mix-blend-overlay pointer-events-none">
-        <img 
-          src={`${BASE}shed-bg.png`} 
-          alt="Shed Background" 
-          className="w-full h-full object-cover" 
-        />
+      {/* Shed background */}
+      <div className="absolute inset-0">
+        <img src={`${BASE}shed-bg.png`} alt="" className="w-full h-full object-cover opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80" />
       </div>
 
-      {/* Floating accent elements */}
-      <motion.div 
-        className="absolute top-[10%] left-[10%] w-[20vw] h-[20vw] bg-[var(--color-primary)] rounded-full mix-blend-screen filter blur-[80px] opacity-60"
-        animate={{ x: [0, 50, 0], y: [0, -30, 0] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div 
-        className="absolute bottom-[10%] right-[10%] w-[30vw] h-[30vw] bg-[var(--color-accent)] rounded-full mix-blend-screen filter blur-[100px] opacity-30"
-        animate={{ x: [0, -50, 0], y: [0, 50, 0] }}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      <div className="relative z-20 flex flex-col items-center text-center px-8 w-full max-w-4xl mt-[-10vh]">
-        <motion.h1 
-          className="text-[7vw] md:text-[6vw] font-black text-white uppercase tracking-tight leading-[1.1] drop-shadow-2xl"
-          initial={{ opacity: 0, y: 40, rotateX: -30 }}
-          animate={phase >= 1 ? { opacity: 1, y: 0, rotateX: 0 } : { opacity: 0, y: 40, rotateX: -30 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-        >
-          Still managing your shed on <span className="text-[var(--color-accent)]">paper?</span>
-        </motion.h1>
-      </div>
-
-      {/* Paper Stack */}
-      <motion.div 
-        className="absolute top-[60%] left-1/2 w-[25vw] max-w-[300px] aspect-[3/4] z-10 origin-bottom"
-        initial={{ opacity: 0, y: '-100vh', x: '-50%', rotate: 10 }}
-        animate={
-          phase >= 3 
-            ? { opacity: 0, y: '50vh', x: '-150%', rotate: -60, scale: 0.5 } // Tossed away
-            : phase >= 2 
-            ? { opacity: 1, y: '-50%', x: '-50%', rotate: -5, scale: 1 } // Dropped in
-            : { opacity: 0, y: '-100vh', x: '-50%', rotate: 10, scale: 1.2 }
-        }
-        transition={{ 
-          type: phase >= 3 ? 'tween' : 'spring', 
-          duration: phase >= 3 ? 0.6 : undefined,
-          damping: 15, 
-          stiffness: 150 
-        }}
-      >
-        <div className="absolute inset-0 bg-white shadow-2xl rounded p-6 flex flex-col gap-3 transform -rotate-2">
-          <div className="h-3 bg-gray-200 rounded w-1/2" />
-          <div className="h-3 bg-gray-200 rounded w-full" />
-          <div className="h-3 bg-gray-200 rounded w-3/4" />
-          <div className="mt-4 grid grid-cols-4 gap-2 flex-1">
-            {Array.from({length: 16}).map((_, i) => (
-              <div key={i} className="h-6 border-b border-gray-300" />
-            ))}
-          </div>
-        </div>
-        <div className="absolute inset-0 bg-white shadow-xl rounded p-6 flex flex-col gap-3 transform rotate-3 origin-bottom-right">
-          <div className="h-3 bg-gray-200 rounded w-2/3" />
-          <div className="h-3 bg-gray-200 rounded w-full" />
-          <div className="h-3 bg-gray-200 rounded w-4/5" />
-          <div className="mt-4 grid grid-cols-4 gap-2 flex-1">
-            {Array.from({length: 16}).map((_, i) => (
-              <div key={i} className="h-6 border-b border-gray-300" />
-            ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Red X over paper */}
+      {/* Floating glow */}
       <motion.div
-        className="absolute top-[60%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-red-500 font-black text-[30vw] md:text-[25vw] leading-none z-30 drop-shadow-[0_10px_20px_rgba(239,68,68,0.5)]"
-        initial={{ scale: 0, opacity: 0, rotate: -20 }}
-        animate={phase >= 3 ? { scale: 1, opacity: 1, rotate: 0 } : { scale: 0, opacity: 0, rotate: -20 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-      >
-        X
-      </motion.div>
+        className="absolute w-[50vw] h-[50vw] rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(201,162,39,0.15) 0%, transparent 70%)', top: '10%', left: '25%' }}
+        animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+        transition={{ duration: 4, repeat: Infinity }}
+      />
+
+      <div className="relative z-20 flex flex-col items-center text-center px-8 w-full max-w-4xl">
+
+        {/* Hook headline */}
+        <motion.h1
+          className="font-black text-white leading-tight mb-6"
+          style={{ fontSize: 'clamp(28px, 6vw, 72px)', textShadow: '0 4px 20px rgba(0,0,0,0.8)' }}
+          initial={{ opacity: 0, y: 40 }}
+          animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 180 }}
+        >
+          Still running your sheds<br />
+          <span style={{ color: 'var(--color-accent)' }}>on paper?</span>
+        </motion.h1>
+
+        {/* Problem list */}
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          {problems.map((p, i) => (
+            <motion.div
+              key={p}
+              className="flex items-center gap-3 px-5 py-3 rounded-xl"
+              style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}
+              initial={{ opacity: 0, x: -30 }}
+              animate={phase >= 2 ? { opacity: 1, x: 0 } : { opacity: 0, x: -30 }}
+              transition={{ delay: i * 0.12, type: 'spring', damping: 20 }}
+            >
+              <span className="text-red-400 font-black text-lg">✕</span>
+              <span className="text-white/80 font-medium" style={{ fontSize: 'clamp(12px, 2vw, 18px)' }}>{p}</span>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Solution tease */}
+        <motion.div
+          className="mt-8 px-8 py-4 rounded-2xl font-black text-[#0a2415]"
+          style={{
+            background: 'var(--color-accent)',
+            fontSize: 'clamp(14px, 2.5vw, 24px)',
+            boxShadow: '0 8px 40px rgba(201,162,39,0.4)',
+          }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={phase >= 3 ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
+          transition={{ type: 'spring', damping: 18, stiffness: 200 }}
+        >
+          Farm Buddy™ fixes all of this.
+        </motion.div>
+      </div>
     </motion.div>
   );
 }
