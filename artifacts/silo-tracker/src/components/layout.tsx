@@ -123,7 +123,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <div className="text-right">
               <div className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Today</div>
-              <div className="text-sm font-bold text-foreground">{format(new Date(), "d MMM yyyy")}</div>
+              <div className="text-sm font-bold text-foreground">{format(new Date(), "EEEE d MMM yyyy")}</div>
             </div>
             <div className={cn(
               "rounded-xl px-3 py-1.5 text-center min-w-[52px]",
