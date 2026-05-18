@@ -2,12 +2,13 @@ import { useEffect } from 'react';
 
 const NARRATION_SCRIPTS: Record<number, string> = {
   0: "Let me show you exactly how Farm Buddy works — start to finish. It's simpler than you think.",
-  1: "Open Broiler Base Mate and paste in your GeniusFOM spreadsheet. Every shed appears instantly — placement date, bird numbers, and your complete feed program, automatically calculated for the whole batch. No typing, no maths.",
-  2: "Every morning, open Silo Base Mate on your phone right at the shed. Type how many tonnes are in each silo and tap Save All Readings. That's your whole day's feed record — done in under a minute.",
-  3: "Your feed program is always live. Today's row is highlighted automatically. You can see exactly what feed each shed needs today, how much is on hand, and how many birds are left. Every column updates as you go.",
-  4: "Track your weigh-ins through the batch. Enter your bird weights and Farm Buddy calculates your FCR and average daily gain automatically. The Density view tells you when to start thinning — before it becomes a problem.",
-  5: "At the end of the batch, tap End of Batch. Farm Buddy compiles your full summary — placement date, birds placed, days on farm, total feed used, FCR, average weight, mortality, and your complete catch breakdown. Everything your processor needs, already done.",
-  6: "Farm Buddy. Every shed. Every batch. Every day. Get started at farmbuddy.com.au",
+  1: "The day your birds arrive, open Broiler Base Mate and tap Summary. Enter the placement date and total birds for each shed. Then paste your GeniusFOM spreadsheet — and that's it. Your full batch program builds automatically. Every shed. Every feed phase. Already done.",
+  2: "You can see every shed at a glance. The feed program shows you exactly what each shed needs each day — allocation, usage, and how much is on hand. Today's row is always highlighted so there's no searching.",
+  3: "Every morning, head out to the sheds and open Silo Base Mate on your phone. Type in how many tonnes are left in each silo — A, B, and C — and tap Save All Readings. That's your whole feed record for the day, done in under a minute.",
+  4: "As you enter silo readings each day, every column updates automatically. Feed ordered, feed used, feed on hand — all live, all accurate, right across every shed.",
+  5: "Enter your weigh-in results and Farm Buddy calculates your FCR and daily gain instantly. The Density view tells you when you need to start thinning before it becomes a problem. Flock Forecast projects your expected weight and feed usage all the way to catch day.",
+  6: "At the end of the batch, tap End of Batch. Farm Buddy compiles your full summary automatically — placement date, days on farm, total feed, FCR, average weight, mortality, and your complete catch breakdown. Everything your processor needs, already done.",
+  7: "Farm Buddy. Every shed. Every batch. Every day. Get started at farmbuddy.com.au",
 };
 
 let cachedVoice: SpeechSynthesisVoice | null = null;

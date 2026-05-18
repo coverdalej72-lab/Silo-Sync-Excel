@@ -43,7 +43,7 @@ export function Scene5() {
           initial={{ opacity: 0, y: -8 }}
           animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
         >
-          STEP 4 OF 5
+          STEP 5 OF 6
         </motion.div>
 
         <motion.h2

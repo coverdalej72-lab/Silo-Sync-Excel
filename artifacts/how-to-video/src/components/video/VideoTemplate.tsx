@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVideoPlayer } from '@/lib/video';
 import { Scene1 } from './video_scenes/Scene1';
+import { SceneBirdsArrive } from './video_scenes/SceneBirdsArrive';
 import { Scene2 } from './video_scenes/Scene2';
 import { Scene3 } from './video_scenes/Scene3';
 import { Scene4 } from './video_scenes/Scene4';
@@ -11,13 +12,14 @@ import { Scene7 } from './video_scenes/Scene7';
 import { useNarration } from '@/lib/narration';
 
 const SCENE_DURATIONS = {
-  hook:         8000,
-  feedProgram: 18000,
-  siloReading: 18000,
-  liveProgram: 17000,
-  weightFCR:   17000,
-  endOfBatch:  17000,
-  closer:       9000,
+  hook:          8000,
+  birdsArrive:  20000,
+  feedProgram:  18000,
+  siloReading:  18000,
+  liveProgram:  17000,
+  weightFCR:    17000,
+  endOfBatch:   17000,
+  closer:        9000,
 };
 
 export default function VideoTemplate() {
@@ -25,19 +27,20 @@ export default function VideoTemplate() {
   const { currentScene } = useVideoPlayer({ durations: SCENE_DURATIONS, paused: !started });
   useNarration(started ? currentScene : -1);
 
-  const sceneLabels = ['Intro', 'Feed Program', 'Silo Readings', 'Live Program', 'Weights & FCR', 'End of Batch', 'Farm Buddy™'];
+  const sceneLabels = ['Intro', 'Birds Arrive', 'Feed Program', 'Silo Readings', 'Live Program', 'Weights & FCR', 'End of Batch', 'Farm Buddy™'];
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-[#060d08] font-sans select-none">
 
       <AnimatePresence mode="popLayout">
         {currentScene === 0 && <Scene1 key="hook" />}
-        {currentScene === 1 && <Scene2 key="feedProgram" />}
-        {currentScene === 2 && <Scene3 key="siloReading" />}
-        {currentScene === 3 && <Scene4 key="liveProgram" />}
-        {currentScene === 4 && <Scene5 key="weightFCR" />}
-        {currentScene === 5 && <Scene6 key="endOfBatch" />}
-        {currentScene === 6 && <Scene7 key="closer" />}
+        {currentScene === 1 && <SceneBirdsArrive key="birdsArrive" />}
+        {currentScene === 2 && <Scene2 key="feedProgram" />}
+        {currentScene === 3 && <Scene3 key="siloReading" />}
+        {currentScene === 4 && <Scene4 key="liveProgram" />}
+        {currentScene === 5 && <Scene5 key="weightFCR" />}
+        {currentScene === 6 && <Scene6 key="endOfBatch" />}
+        {currentScene === 7 && <Scene7 key="closer" />}
       </AnimatePresence>
 
       {/* Bottom progress bar + scene label */}
