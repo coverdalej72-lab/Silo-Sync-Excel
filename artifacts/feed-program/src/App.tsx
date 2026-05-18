@@ -1439,6 +1439,18 @@ function SheetView({
     return shedDataStartRow + dayNum - 1;
   }, [isShedSheet, cells, edits, shedDataStartRow]);
 
+  // Auto-scroll to today's row whenever the active tab changes so the user
+  // always sees the current day without having to hunt for it.
+  useEffect(() => {
+    if (todayRow === null) return;
+    // Defer one frame so the new tab's DOM has fully rendered before we scroll.
+    const id = requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`tr[data-row="${todayRow}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [sheetIdx, todayRow]);
+
   // Which col has the day number? Scan shedDataStartRow to find "1"
   const dayNumCol = useMemo(() => {
     if (!isShedSheet) return 0;
