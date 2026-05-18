@@ -624,13 +624,13 @@ const PLANS = [
     yearlyPrice: 480,
     features: [
       "Farm Buddy mobile app",
+      "Feed Mate spreadsheet (Broiler Base Mate)",
       "Up to 6 sheds / silos",
       "Daily feed readings & alerts",
       "30-day reading history",
       "Works on any phone — no install needed",
     ],
     notIncluded: [
-      "Feed Mate spreadsheet",
       "Batch Results & Morts tracking",
       "QR docket scanning",
       "Multi-user access",
