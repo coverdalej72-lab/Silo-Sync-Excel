@@ -1287,27 +1287,114 @@ function SupporterCheckoutModal({ tier, onClose }: { tier: typeof SUPPORTER_TIER
 }
 
 function CheckoutSuccessModal({ onClose }: { onClose: () => void }) {
-  const appUrl = `${window.location.origin}/feed-program/`;
+  const origin = window.location.origin;
+  const siloUrl   = `${origin}/silo-tracker/`;
+  const broilerUrl = `${origin}/feed-program/`;
+  const manageUrl  = `${origin}/plans/`;
+
+  const APP_LINKS = [
+    {
+      name: "Silo Base Mate™",
+      desc: "Daily silo readings, feed on hand & delivery tracking",
+      url: siloUrl,
+      color: "#e65c00",
+      icon: "🌾",
+    },
+    {
+      name: "Broiler Base Mate™",
+      desc: "Feed program, batch results, FCR & catch planning",
+      url: broilerUrl,
+      color: GREEN,
+      icon: "🐔",
+    },
+  ];
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ background: "#fff", borderRadius: 16, padding: "40px 36px", maxWidth: 480, width: "100%", textAlign: "center", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
-        <div style={{ fontSize: 52, marginBottom: 12 }}>🎉</div>
-        <h2 style={{ fontSize: 24, fontWeight: 900, color: GREEN, marginBottom: 8 }}>You're all set!</h2>
-        <p style={{ color: "#444", lineHeight: 1.6, marginBottom: 24 }}>
-          Thanks for subscribing to Farm Buddy. Your account is active — click below to open the app and start tracking your farm.
-        </p>
-        <a
-          href={appUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ display: "block", background: GREEN, color: "#fff", fontWeight: 800, fontSize: 16, padding: "14px 24px", borderRadius: 10, textDecoration: "none", marginBottom: 12 }}
-        >
-          Open Broiler Base Mate →
-        </a>
-        <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>
-          Bookmark that link — it's your app. A Stripe receipt has been sent to your email.
-        </p>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", fontSize: 13, cursor: "pointer" }}>Close</button>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, overflowY: "auto" }}>
+      <div style={{ background: "#fff", borderRadius: 20, maxWidth: 520, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.3)", overflow: "hidden" }}>
+
+        {/* Header */}
+        <div style={{ background: `linear-gradient(135deg, ${GREEN} 0%, #2d9e5f 100%)`, padding: "32px 32px 24px", textAlign: "center", color: "#fff" }}>
+          <div style={{ fontSize: 56, marginBottom: 10 }}>🎉</div>
+          <h2 style={{ fontSize: 26, fontWeight: 900, margin: "0 0 8px" }}>You're all set!</h2>
+          <p style={{ fontSize: 15, opacity: 0.9, margin: 0, lineHeight: 1.5 }}>
+            Welcome to Farm Buddy™. Your subscription is active and your apps are ready to use right now.
+          </p>
+        </div>
+
+        <div style={{ padding: "24px 28px 28px" }}>
+
+          {/* Receipt notice */}
+          <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 20 }}>📧</span>
+            <span style={{ fontSize: 13, color: "#166534", fontWeight: 600 }}>
+              A payment receipt has been sent to your email address by Stripe.
+            </span>
+          </div>
+
+          {/* App links */}
+          <p style={{ fontSize: 13, fontWeight: 800, color: "#555", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Your Apps</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 22 }}>
+            {APP_LINKS.map(app => (
+              <a
+                key={app.url}
+                href={app.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "flex", alignItems: "center", gap: 14,
+                  background: app.color, color: "#fff", borderRadius: 12,
+                  padding: "14px 18px", textDecoration: "none",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  transition: "opacity 0.15s",
+                }}
+              >
+                <span style={{ fontSize: 28, flexShrink: 0 }}>{app.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 900, fontSize: 15, marginBottom: 2 }}>{app.name}</div>
+                  <div style={{ fontSize: 12, opacity: 0.88 }}>{app.desc}</div>
+                </div>
+                <span style={{ fontSize: 20, opacity: 0.8 }}>→</span>
+              </a>
+            ))}
+          </div>
+
+          {/* Getting started steps */}
+          <p style={{ fontSize: 13, fontWeight: 800, color: "#555", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Getting Started</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+            {[
+              { step: "1", text: "Open the app link above on your phone or tablet" },
+              { step: "2", text: 'Tap the Share button then "Add to Home Screen" — the app will open like a native app' },
+              { step: "3", text: "In Silo Base Mate, go to Settings → Farm Setup and enter your farm name and shed details" },
+              { step: "4", text: "In Broiler Base Mate, load your GeniusFOM spreadsheet and you're away" },
+            ].map(({ step, text }) => (
+              <div key={step} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <span style={{ background: GREEN, color: "#fff", borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 12, flexShrink: 0, marginTop: 1 }}>{step}</span>
+                <span style={{ fontSize: 13, color: "#444", lineHeight: 1.5 }}>{text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Manage subscription */}
+          <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+            <span style={{ fontSize: 12, color: "#888" }}>
+              Need to update or cancel your plan?
+            </span>
+            <a
+              href={manageUrl}
+              style={{ fontSize: 13, fontWeight: 700, color: GREEN, textDecoration: "none" }}
+            >
+              Manage subscription →
+            </a>
+          </div>
+
+          <button
+            onClick={onClose}
+            style={{ width: "100%", marginTop: 16, background: "#f5f5f5", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 700, color: "#555", cursor: "pointer" }}
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );
