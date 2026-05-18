@@ -71,10 +71,22 @@ function updateCellInXml(xml: string, addr: string, newVal: string): string {
     }
   });
   if (!matched) {
-    // Cell doesn't exist in XML yet — inject a new <c> before </row>
+    // Cell doesn't exist in XML yet — inject a new <c> into the CORRECT row.
+    // IMPORTANT: must target the specific row, not the first </row> in the sheet.
+    // Shed 9&10 uses shared/uncached formula cells that may be absent from the XML;
+    // injecting before the wrong </row> would place the value in the wrong row.
+    const rowNum = addr.match(/\d+$/)?.[0] ?? "";
     const numStr = isNum ? `<v>${numVal}</v>` : `<is><t>${escapeXml(newVal)}</t></is>`;
     const type = isNum ? "" : ` t="inlineStr"`;
-    return out.replace(/<\/row>/, `<c r="${addr}"${type}>${numStr}</c></row>`);
+    const newCell = `<c r="${addr}"${type}>${numStr}</c>`;
+    // Try to find the matching <row r="N" ...>...</row> and append the cell inside it
+    const rowRe = new RegExp(`(<row\\b[^>]*\\br="${rowNum}"[^>]*>)([\\s\\S]*?)(<\\/row>)`);
+    const withRow = out.replace(rowRe, (_, rOpen, rContent, rClose) =>
+      `${rOpen}${rContent}${newCell}${rClose}`
+    );
+    if (withRow !== out) return withRow;
+    // Row element doesn't exist at all — insert a new row before </sheetData>
+    return out.replace(/<\/sheetData>/, `<row r="${rowNum}">${newCell}</row></sheetData>`);
   }
   return out;
 }
@@ -555,6 +567,17 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
         const d = parseDateInput(cell.value);
         if (d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040) { placementParsed = d; break outer; }
       }
+    }
+  }
+  // Third fallback: read the placement date from the edits map (user-entered or
+  // previously autosaved). This is the critical path for Shed 9&10 whose C3 cell
+  // is a formula with no cached value — sheet.cells never has it, but the user
+  // will have entered it via the UI and it will be persisted in m ("2,2").
+  if (!placementParsed) {
+    const saved = m.get("2,2");
+    if (saved) {
+      const d = parseDateInput(saved);
+      if (d && d.getFullYear() >= 2010 && d.getFullYear() <= 2040) placementParsed = d;
     }
   }
   if (placementParsed) {
