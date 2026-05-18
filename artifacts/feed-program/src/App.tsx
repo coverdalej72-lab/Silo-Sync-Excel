@@ -4256,7 +4256,7 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#f8f8f8" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Toolbar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "#fff", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
+          <div id="pm-morts-toolbar" style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", background: "#fff", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
             <button onClick={() => setWeekOffset(w => w - 1)} style={{ padding: "5px 11px", borderRadius: 7, border: "1px solid #ddd", background: "#f5f5f5", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>‹</button>
             <div style={{ flex: 1, textAlign: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 12, color: "#8b1a1a" }}>{weekLabel}</div>
@@ -4268,15 +4268,15 @@ function MortsView({ sheets, edits, handleEdit, farmConfig, mortsLog, setMortsLo
           </div>
 
           {/* Legend */}
-          <div style={{ display: "flex", gap: 14, padding: "4px 12px", background: "#fff", borderBottom: "1px solid #f0e0e0", flexShrink: 0 }}>
+          <div id="pm-morts-legend" style={{ display: "flex", gap: 14, padding: "4px 12px", background: "#fff", borderBottom: "1px solid #f0e0e0", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#8b1a1a" }}><div style={{ width: 10, height: 10, background: "#fff8f8", border: "1px solid #e5c5c5", borderRadius: 2 }} /><b>M</b> Morts</div>
             <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#555" }}><div style={{ width: 10, height: 10, background: "#fffff0", border: "1px solid #d5d5a0", borderRadius: 2 }} /><b>C</b> Culls</div>
             <div style={{ marginLeft: "auto", fontSize: 10, color: "#aaa" }}>Tap M or C half of a cell to edit</div>
           </div>
 
           {/* Scrollable table — Sheds as rows, Days as columns, M+C combined per cell */}
-          <div style={{ flex: 1, overflowX: "auto", overflowY: "auto" }}>
-            <table style={{ borderCollapse: "collapse", fontSize: 11, minWidth: "max-content", width: "100%" }}>
+          <div id="pm-morts-scroll" style={{ flex: 1, overflowX: "auto", overflowY: "auto" }}>
+            <table id="pm-morts-table" style={{ borderCollapse: "collapse", fontSize: 11, minWidth: "max-content", width: "100%" }}>
               <thead>
                 <tr>
                   <th style={{ ...TH_STICKY, minWidth: 60, verticalAlign: "middle", borderRight: "2px solid rgba(255,255,255,0.4)" }}>Shed</th>
@@ -7594,7 +7594,7 @@ export default function App() {
         }
       `}</style>
       {/* Header — paddingTop accounts for iPhone notch */}
-      <div className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
+      <div id="pm-app-header" className="text-white px-4 py-2 flex items-center gap-3 shadow-md shrink-0" style={{ background: "var(--pm-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 8px)" }}>
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Silo Base Mate" style={{ height: 32, width: "auto", objectFit: "contain", flexShrink: 0 }} />
         <span className="text-lg font-bold tracking-wide">{farmConfig.farmName ?? "Double B Farm"} — {(farmConfig.farmType ?? "broiler") === "breeder" ? "Breeder Program" : "Broiler Base Mate"}</span>
         <div className="ml-auto flex items-center gap-2">
@@ -7687,12 +7687,12 @@ export default function App() {
       </div>
 
       {/* Hint bar */}
-      <div className="dark:bg-zinc-800 border-b border-green-200 dark:border-zinc-700 px-4 py-1 text-xs text-green-800 dark:text-green-300 shrink-0" style={{ background: "var(--pm-primary-pale)" }}>
+      <div id="pm-hint-bar" className="dark:bg-zinc-800 border-b border-green-200 dark:border-zinc-700 px-4 py-1 text-xs text-green-800 dark:text-green-300 shrink-0" style={{ background: "var(--pm-primary-pale)" }}>
         Double-click any cell to edit. <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Enter</kbd> / <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">↑↓</kbd> move between rows · <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Tab</kbd> moves columns · <kbd className="bg-white dark:bg-zinc-700 border border-green-300 dark:border-zinc-600 rounded px-1">Esc</kbd> cancels
       </div>
 
       {/* Sheet tabs */}
-      <div className="flex items-end gap-0.5 px-3 pt-2 overflow-x-auto shrink-0" style={{ background: "#154d2c" }}>
+      <div id="pm-tab-bar" className="flex items-end gap-0.5 px-3 pt-2 overflow-x-auto shrink-0" style={{ background: "#154d2c" }}>
         {/* Summary tab */}
         <button
           onClick={() => setActiveView("summary")}

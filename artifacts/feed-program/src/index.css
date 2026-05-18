@@ -94,43 +94,83 @@ a, button { -webkit-tap-highlight-color: transparent; }
     color-adjust: exact !important;
   }
 
-  /* Darken all sheet cell borders so grid lines are visible on paper.
-     Use individual properties to override inline borderTop/Left/etc styles. */
+  /* ── Hide all app chrome when printing ── */
+  #pm-app-header,
+  #pm-hint-bar,
+  #pm-tab-bar,
+  #pm-morts-toolbar,
+  #pm-morts-legend {
+    display: none !important;
+  }
+
+  /* Let the page flow normally instead of the fixed-height flex layout */
+  html, body, #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Unwrap the flex-column containers so the morts table flows to paper */
+  body > div,
+  #root > div,
+  #root > * > div {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* The scrollable overflow wrapper around the morts table — expand it */
+  #pm-morts-scroll {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* ── Morts table — print layout ── */
+  #pm-morts-table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    font-size: 8pt !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
+    page-break-inside: auto !important;
+  }
+
+  #pm-morts-table td,
+  #pm-morts-table th {
+    position: static !important;
+    border: 1px solid #000 !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+    min-width: 0 !important;
+  }
+
+  #pm-morts-table tr {
+    page-break-inside: avoid;
+  }
+
+  /* ── Sheet table (SHED / EOB tabs) ── */
   .sheet-table td,
   .sheet-table th {
     border-top:    1px solid #333 !important;
     border-right:  1px solid #333 !important;
     border-bottom: 1px solid #333 !important;
     border-left:   1px solid #333 !important;
-  }
-
-  /* Remove sticky positioning — it breaks multi-page print layout */
-  .sheet-table td,
-  .sheet-table th {
     position: static !important;
-  }
-
-  /* Show full cell content on print — no clipping */
-  .sheet-table td,
-  .sheet-table th {
     overflow: visible !important;
     white-space: normal !important;
     text-overflow: clip !important;
     max-width: none !important;
   }
 
-  /* Expand table to full page width */
   .sheet-table {
     width: 100% !important;
     font-size: 9pt !important;
   }
 
-  /* Try to keep rows together and avoid orphaned header rows */
   .sheet-table tr {
     page-break-inside: avoid;
   }
 
-  /* Header rows: keep with the following data rows */
   .sheet-table tr:nth-child(-n+3) {
     page-break-after: avoid;
   }
