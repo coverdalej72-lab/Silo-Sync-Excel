@@ -740,8 +740,15 @@ function recalculate(
     }
   }
 
-  // Cascade J (SILO TOTAL) and I (FEED ON HAND) from triggeredRow down
+  // Cascade J (SILO TOTAL) and I (FEED ON HAND) from triggeredRow down.
+  // IMPORTANT: only write to data rows (col A = valid age integer 1+).
+  // Summary rows at the bottom of the template (Total Morts, Total Birds Caught, etc.)
+  // have blank col A and must never receive propagated Feed On Hand values.
   for (let r = triggeredRow; r <= maxRow; r++) {
+    const rowAge = parseInt(String(newEdits.get(`${r},0`) ?? cells.get(`${r},0`)?.value ?? ""));
+    const isDataRow = !isNaN(rowAge) && rowAge >= 1;
+    if (!isDataRow) continue;
+
     // Silo columns: only use app-entered edits, not template values from the spreadsheet.
     // Template silo cells may contain leftover readings from a previous batch and would
     // incorrectly reset FOH on those dates.

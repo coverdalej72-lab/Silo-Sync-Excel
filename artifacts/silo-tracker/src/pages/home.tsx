@@ -170,10 +170,13 @@ export default function Home() {
     const remaining: QueuedSave[] = [];
     for (const item of queue) {
       try {
+        // Use the timestamp when the item was queued to derive the correct local date.
+        const queuedAt = new Date(item.timestamp);
+        const localNoon = new Date(queuedAt.getFullYear(), queuedAt.getMonth(), queuedAt.getDate(), 12, 0, 0);
         const res = await fetch(`${BASE}/api/readings/batch`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ readings: item.readings }),
+          body: JSON.stringify({ readings: item.readings, readingDate: localNoon.toISOString() }),
         });
         if (!res.ok) throw new Error("not ok");
       } catch {
@@ -232,7 +235,12 @@ export default function Home() {
         };
       });
 
-    batchCreate.mutate({ data: { readings } }, {
+    // Send local noon as the reading date so the server stores the correct local day
+    // regardless of UTC offset (e.g. 6am AEST = 8pm UTC the night before).
+    const now = new Date();
+    const localNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+
+    batchCreate.mutate({ data: { readings, readingDate: localNoon.toISOString() } }, {
       onSuccess: () => {
         toast({ title: `${getShedName(shedId, shed.shedGroupName)} saved` });
         queryClient.invalidateQueries({ queryKey: getGetTodayProgressQueryKey() });
