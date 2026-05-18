@@ -519,6 +519,24 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     const v = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
     if (v === "1") { dataStart = r; break; }
   }
+  // Shed 9&10 (and similarly structured sheets) store col A day numbers as
+  // Excel formulas (e.g. =ROW()-12) with NO cached <v> value. The xlsxParser
+  // skips uncached formula cells entirely, so cells.get(`${r},0`) returns
+  // undefined and the scan above never finds "1". Fix: if no col A value
+  // exists at the expected dataStart row, synthesise day numbers 1-65 in the
+  // edits map so the grid and all downstream loops can read them.
+  {
+    const hasColAAtStart = sheet.cells.has(`${dataStart},0`);
+    if (!hasColAAtStart) {
+      for (let d = 1; d <= 65; d++) {
+        m.set(`${dataStart + d - 1},0`, String(d));
+      }
+    }
+  }
+  // Helper: read col A from edits (which may now have synthesised values) OR cells
+  const getColA = (r: number): string =>
+    String(m.get(`${r},0`) ?? sheet.cells.get(`${r},0`)?.value ?? "").trim();
+
   let placementParsed: Date | null = null;
   // Primary: day-1 row COL_B date cell
   {
@@ -545,7 +563,7 @@ function buildInitialEditsForSheet(sheet: SheetParsed): Map<string, string> {
     const placementStr = placementParsed.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
     m.set("2,2", placementStr);
     for (let r = dataStart; r <= dataStart + 65; r++) {
-      const dayVal = String(sheet.cells.get(`${r},0`)?.value ?? "").trim();
+      const dayVal = getColA(r);  // reads synthesised edits OR original cells
       const age = parseInt(dayVal, 10);
       if (isNaN(age) || age < 1) continue;
       // Always derive the date column from the placement date.
@@ -616,12 +634,14 @@ function recalculate(
     // IMPORTANT: Only iterate actual data rows. Header/allocation rows 0-11 contain
     // numeric values in col A (e.g. 12, 16, 19) that must NOT be treated as ages —
     // doing so would overwrite the allocation totals (rows 1-4) set above.
+    // NOTE: col A may be synthesised in edits (Shed 9&10 formula cells with no cache)
     let dataStart = 12;
     for (let dr = 6; dr <= 20; dr++) {
-      if (cells.get(`${dr},0`)?.value?.trim() === "1") { dataStart = dr; break; }
+      const colAVal = String(newEdits.get(`${dr},0`) ?? cells.get(`${dr},0`)?.value ?? "").trim();
+      if (colAVal === "1") { dataStart = dr; break; }
     }
     for (let r = dataStart; r <= maxRow; r++) {
-      const age = parseInt(cells.get(`${r},0`)?.value ?? "");
+      const age = parseInt(String(newEdits.get(`${r},0`) ?? cells.get(`${r},0`)?.value ?? ""));
       if (!isNaN(age) && age >= 1 && age <= COBB500_GRAMS.length) {
         setNum(r, COL_H, Math.round(COBB500_GRAMS[age - 1] * birds / 1000));
       }
@@ -636,12 +656,14 @@ function recalculate(
     if (placement) {
       // Only iterate actual data rows — header/allocation rows 0-11 contain
       // numeric col A values that must NOT be treated as ages for date derivation.
+      // NOTE: col A may be synthesised in edits (Shed 9&10 formula cells with no cache)
       let dataStart = 12;
       for (let dr = 6; dr <= 20; dr++) {
-        if (cells.get(`${dr},0`)?.value?.trim() === "1") { dataStart = dr; break; }
+        const colAVal = String(newEdits.get(`${dr},0`) ?? cells.get(`${dr},0`)?.value ?? "").trim();
+        if (colAVal === "1") { dataStart = dr; break; }
       }
       for (let r = dataStart; r <= maxRow; r++) {
-        const age = parseInt(cells.get(`${r},0`)?.value ?? "");
+        const age = parseInt(String(newEdits.get(`${r},0`) ?? cells.get(`${r},0`)?.value ?? ""));
         if (!isNaN(age) && age >= 1) {
           const d = new Date(placement.getFullYear(), placement.getMonth(), placement.getDate() + (age - 1));
           const formatted = d.toLocaleDateString("en-AU", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
@@ -662,14 +684,15 @@ function recalculate(
   if (triggeredCol === COL_CATCH) {
     let dataStart = 12;
     for (let dr = 6; dr <= 20; dr++) {
-      if (cells.get(`${dr},0`)?.value?.trim() === "1") { dataStart = dr; break; }
+      const colAVal = String(newEdits.get(`${dr},0`) ?? cells.get(`${dr},0`)?.value ?? "").trim();
+      if (colAVal === "1") { dataStart = dr; break; }
     }
     const totalBirds = getNum(1, COL_C);
     if (totalBirds > 0) {
       let cumulativeCatch = 0;
       let firstChangedRow = maxRow + 1;
       for (let r = dataStart; r <= maxRow; r++) {
-        const age = parseInt(cells.get(`${r},0`)?.value ?? "");
+        const age = parseInt(String(newEdits.get(`${r},0`) ?? cells.get(`${r},0`)?.value ?? ""));
         if (isNaN(age) || age < 1 || age > COBB500_GRAMS.length) continue;
         cumulativeCatch += getNum(r, COL_CATCH);
         const remainingBirds = Math.max(0, totalBirds - cumulativeCatch);
