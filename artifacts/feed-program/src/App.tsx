@@ -2403,6 +2403,16 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
   }
   const overallKgPerBird = grandBirds > 0 && grandFeed > 0 ? (grandFeed / grandBirds).toFixed(3) : null;
 
+  // Collect unique placement dates across all active sheds for the header
+  const summaryPlacementDates: string[] = [];
+  for (const { sheetIdx } of shedItems) {
+    const pd = findPlacementDate(sheets[sheetIdx], edits[sheetIdx] ?? new Map());
+    if (pd) {
+      const str = pd.date.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
+      if (!summaryPlacementDates.includes(str)) summaryPlacementDates.push(str);
+    }
+  }
+
   return (
     <div style={{ padding: "20px 20px 32px", fontFamily: "Inter,'Segoe UI',sans-serif", overflowY: "auto", height: "100%" }}>
       <PredictionBanner sheets={sheets} edits={edits} farmConfig={farmConfig} />
@@ -2411,6 +2421,11 @@ function SummaryView({ sheets, edits, handleEdit, farmConfig }: {
         {batchNum && (
           <div style={{ background: "rgba(255,255,255,0.18)", borderRadius: 7, padding: "3px 14px", fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>
             Batch #{batchNum}
+          </div>
+        )}
+        {summaryPlacementDates.length > 0 && (
+          <div style={{ fontSize: 12, opacity: 0.88, whiteSpace: "nowrap" }}>
+            📅 <strong>{summaryPlacementDates.join(" · ")}</strong>
           </div>
         )}
         {/* Grower name — editable, black text */}
