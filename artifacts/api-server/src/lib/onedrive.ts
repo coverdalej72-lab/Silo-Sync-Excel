@@ -30,6 +30,18 @@ export function getOnedriveFileId(): string | null {
   return process.env.ONEDRIVE_EXCEL_FILE_ID ?? null;
 }
 
+// ─── Date helper ──────────────────────────────────────────────────────────────
+
+// Format a UTC Date as DD/MM/YYYY in Australian Eastern Time (UTC+10).
+function toAESTDateStr(d: Date): string {
+  const AEST_MS = 10 * 3600_000;
+  const local = new Date(d.getTime() + AEST_MS);
+  const dd = String(local.getUTCDate()).padStart(2, "0");
+  const mm = String(local.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = local.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 // ─── Shared CSV builder ───────────────────────────────────────────────────────
 
 async function buildCsv(): Promise<string> {
@@ -57,7 +69,7 @@ async function buildCsv(): Promise<string> {
       Number(r.amountRemaining),
       `"${r.unit}"`,
       r.notes ? `"${r.notes.replace(/"/g, '""')}"` : "",
-      r.readingDate.toISOString(),
+      toAESTDateStr(r.readingDate),
     ].join(",")
   );
   return [header, ...csvRows].join("\n");

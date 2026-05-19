@@ -50,8 +50,15 @@ export default function History() {
     }
   };
 
+  // Group by AEST date (UTC+10) so readings always land on the correct
+  // Australian calendar day regardless of the server's UTC storage format.
+  const toAESTDateKey = (iso: string) => {
+    const local = new Date(new Date(iso).getTime() + 10 * 3600_000);
+    return local.toISOString().slice(0, 10); // YYYY-MM-DD in AEST
+  };
+
   const grouped = readings?.reduce((acc, r) => {
-    const d = format(new Date(r.readingDate), "yyyy-MM-dd");
+    const d = toAESTDateKey(r.readingDate);
     if (!acc[d]) acc[d] = [];
     acc[d].push(r);
     return acc;
