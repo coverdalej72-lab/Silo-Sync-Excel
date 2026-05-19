@@ -4,6 +4,19 @@ import { db, readingsTable, silosTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
+// Format a UTC Date as DD/MM/YYYY in Australian Eastern Time (UTC+10).
+// Using a fixed +10 offset (AEST) is safe: readings are saved at local noon,
+// so the stored UTC time is 02:00 (AEST) or 01:00 (AEDT) — either way the
+// date part in +10 always matches the intended Australian calendar date.
+function toAESTDateStr(d: Date): string {
+  const AEST_MS = 10 * 3600_000;
+  const local = new Date(d.getTime() + AEST_MS);
+  const dd = String(local.getUTCDate()).padStart(2, "0");
+  const mm = String(local.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = local.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 router.get("/readings/export.csv", async (req, res): Promise<void> => {
   const rows = await db
     .select({
@@ -28,7 +41,7 @@ router.get("/readings/export.csv", async (req, res): Promise<void> => {
       Number(r.amountRemaining),
       `"${r.unit}"`,
       r.notes ? `"${r.notes.replace(/"/g, '""')}"` : "",
-      r.readingDate.toISOString(),
+      toAESTDateStr(r.readingDate),
     ].join(",")
   );
 

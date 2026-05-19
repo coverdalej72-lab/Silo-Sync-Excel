@@ -37,6 +37,18 @@ function applyDataRow(row: ExcelJS.Row, isAlt: boolean) {
   row.height = 22;
 }
 
+// Format a UTC ISO date string as DD/MM/YYYY in AEST (UTC+10).
+// Readings are saved at local noon, so stored UTC is 02:00 AEST — the date
+// in +10 always matches the grower's intended calendar date.
+function toAESTDateStr(isoStr: string): string {
+  const AEST_MS = 10 * 3600_000;
+  const local = new Date(new Date(isoStr).getTime() + AEST_MS);
+  const dd = String(local.getUTCDate()).padStart(2, "0");
+  const mm = String(local.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = local.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 export async function exportToExcel(
   readings: {
     readingDate: string;
@@ -90,7 +102,7 @@ export async function exportToExcel(
   readings.forEach((r, i) => {
     const row = ws.addRow([
       "",
-      new Date(r.readingDate).toLocaleDateString("en-AU"),
+      toAESTDateStr(r.readingDate),
       r.shedGroupName,
       `Silo ${r.siloLetter}`,
       r.feedType,
@@ -132,7 +144,7 @@ export async function exportToExcel(
   deliveries.forEach((d, i) => {
     const row = ws2.addRow([
       "",
-      new Date(d.deliveryDate).toLocaleDateString("en-AU"),
+      toAESTDateStr(d.deliveryDate),
       d.amount,
       d.shedGroupName ?? "",
       d.notes ?? "",
