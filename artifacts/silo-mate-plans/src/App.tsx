@@ -667,22 +667,21 @@ const PLANS = [
     name: "Gold",
     icon: "🥇",
     color: GOLD,
-    tagline: "For large operations and integrators.",
+    tagline: "For operators running up to 2 farm locations.",
     monthlyPrice: 150,
     yearlyPrice: 1440,
     features: [
       "Everything in Silver",
-      "Multiple farms / locations",
+      "Up to 2 farm locations",
       "Multi-user access (farm hand + manager)",
       "Custom shed & silo configuration",
       "Data export (CSV / Excel)",
       "Priority support",
-      "Per-grower integrator pricing available",
     ],
     notIncluded: [
+      "3+ farm locations",
       "Breeder / parent stock farm mode",
       "Egg production & HDP% tracking",
-      "Body weight & uniformity tracking",
     ],
     cta: "Get Started",
     highlight: false,
@@ -692,11 +691,12 @@ const PLANS = [
     name: "Platinum",
     icon: "💎",
     color: "#7c3aed",
-    tagline: "Complete lifecycle management for breeder & parent stock farms.",
+    tagline: "Breeder & parent stock management — up to 2 farm locations.",
     monthlyPrice: 200,
     yearlyPrice: 1920,
     features: [
       "Everything in Gold",
+      "Up to 2 farm locations",
       "Breeder / parent stock farm mode",
       "Egg production tracking per shed",
       "HDP% (Hen Day Production) analytics",
@@ -710,6 +710,33 @@ const PLANS = [
     cta: "Get Started",
     highlight: false,
     premium: true,
+  },
+  {
+    id: "integrator",
+    name: "Integrator",
+    icon: "🏢",
+    color: GREEN,
+    tagline: "For feed companies, processors & multi-site operators. 5+ farms, one invoice, your branding.",
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    contactOnly: true,
+    perFarmPrice: 60,
+    minFarms: 5,
+    features: [
+      "5 or more farm locations",
+      "From $60/farm/month — volume discounts available",
+      "Single invoice — no chasing individual growers",
+      "White-label & co-branded option",
+      "All-farms dashboard & reporting",
+      "Dedicated account manager",
+      "Priority onboarding & support",
+      "Custom shed, silo & breed configuration per farm",
+      "Bulk CSV / Excel data export",
+    ],
+    notIncluded: [],
+    cta: "Get a Quote",
+    highlight: false,
+    integrator: true,
   },
 ];
 
@@ -735,16 +762,20 @@ const FAQS = [
     a: "Your data is kept for 60 days after cancellation. You can export everything to CSV / Excel before you leave.",
   },
   {
-    q: "Is Gold suitable for integrators?",
-    a: "Yes. Integrators can manage multiple grower sites under one Gold account, or ask us about per-grower volume pricing.",
+    q: "How many farms does the Gold plan cover?",
+    a: "Gold covers up to 2 farm locations — ideal for operators running a pair of sites. If you need 3 or more farms, the Integrator plan is built for you.",
   },
   {
     q: "What is the Platinum plan for?",
-    a: "Platinum is designed for breeder and parent stock farms. It unlocks breeder farm mode, daily egg production tracking with HDP% analytics, floor egg and settable egg breakdowns, weekly body weight monitoring, and breed target curves for Ross 308 and Cobb 500 flocks.",
+    a: "Platinum is designed for breeder and parent stock farms. It covers up to 2 locations and unlocks breeder farm mode, daily egg production tracking with HDP% analytics, floor egg and settable egg breakdowns, weekly body weight monitoring, and breed target curves for Ross 308 and Cobb 500 flocks.",
   },
   {
     q: "Can broiler and breeder farms use the same account?",
-    a: "Yes. Each farm can be configured independently as either a broiler or breeder operation. A Platinum account lets you manage multiple farm types under one subscription.",
+    a: "Yes. Each farm can be configured independently as either a broiler or breeder operation. A Platinum account lets you manage both farm types across up to 2 locations under one subscription.",
+  },
+  {
+    q: "What is the Integrator plan?",
+    a: "The Integrator plan is designed for feed companies, processors, and multi-site operators who need to manage 5 or more grower farms. Pricing starts from $60/farm/month with volume discounts, a single invoice across all farms, white-label branding options, and a dedicated account manager. Get in touch for a custom quote.",
   },
 ];
 
@@ -812,67 +843,131 @@ function Faq({ q, a }: { q: string; a: string }) {
   );
 }
 
+function IntegratorModal({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState({ name: "", business: "", email: "", farms: "5", message: "" });
+  const [sent, setSent] = useState(false);
+
+  const valid = form.name.trim() && form.business.trim() && form.email.includes("@");
+
+  const handleSend = () => {
+    if (!valid) return;
+    const subject = encodeURIComponent("Farm Buddy Integrator — Quote Request");
+    const body = encodeURIComponent(
+      `Name: ${form.name}\nBusiness / Company: ${form.business}\nEmail: ${form.email}\nNumber of Farms: ${form.farms}\n\nMessage:\n${form.message || "(none)"}`
+    );
+    window.open(`mailto:hello@appcovi.com.au?subject=${subject}&body=${body}`);
+    setSent(true);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: "28px 28px", width: "100%", maxWidth: 460, boxShadow: "0 24px 64px rgba(0,0,0,0.22)", maxHeight: "96vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 28 }}>🏢</div>
+            <h2 style={{ margin: "4px 0 2px", fontWeight: 900, fontSize: 20, color: "#111" }}>Integrator — Get a Quote</h2>
+            <div style={{ color: GREEN, fontWeight: 700, fontSize: 14 }}>From $60/farm/month · 5+ farms</div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#9ca3af" }}>×</button>
+        </div>
+
+        {sent ? (
+          <div style={{ textAlign: "center", padding: "24px 0" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+            <h3 style={{ fontWeight: 800, fontSize: 18, color: "#111", margin: "0 0 8px" }}>Request sent!</h3>
+            <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6 }}>Your email app should have opened. We'll be in touch within 1 business day to put together a custom quote.</p>
+            <button onClick={onClose} style={{ marginTop: 20, background: GREEN, color: "#fff", border: "none", borderRadius: 10, padding: "11px 28px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div style={{ background: "#f0fdf4", border: `1.5px solid ${GREEN}33`, borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "#166534", lineHeight: 1.6 }}>
+              💡 <strong>Volume pricing starts at $60/farm/month</strong> with discounts for larger networks. We'll send you a tailored quote within 1 business day.
+            </div>
+
+            {[
+              { label: "Your name *", key: "name", type: "text", placeholder: "Jane Smith" },
+              { label: "Business / company *", key: "business", type: "text", placeholder: "Acme Feed Co." },
+              { label: "Email address *", key: "email", type: "email", placeholder: "jane@acmefeed.com.au" },
+              { label: "How many farms do you manage?", key: "farms", type: "number", placeholder: "5" },
+            ].map(({ label, key, type, placeholder }) => (
+              <div key={key} style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 5 }}>{label}</label>
+                <input
+                  type={type}
+                  placeholder={placeholder}
+                  value={form[key as keyof typeof form]}
+                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                  style={{ width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+            ))}
+
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: "block", fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 5 }}>Anything else you'd like us to know?</label>
+              <textarea
+                placeholder="e.g. broiler only, mix of broiler and breeder, need white-label branding…"
+                value={form.message}
+                onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+                rows={3}
+                style={{ width: "100%", border: "1.5px solid #e5e7eb", borderRadius: 10, padding: "10px 14px", fontSize: 14, outline: "none", resize: "vertical", boxSizing: "border-box" }}
+              />
+            </div>
+
+            <button
+              onClick={handleSend}
+              disabled={!valid}
+              style={{ width: "100%", background: valid ? GREEN : "#9ca3af", color: "#fff", fontWeight: 800, fontSize: 15, padding: "14px 0", borderRadius: 12, border: "none", cursor: valid ? "pointer" : "not-allowed", transition: "background 0.2s" }}
+            >
+              Send Quote Request →
+            </button>
+            <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 10 }}>
+              This will open your email app · We respond within 1 business day
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: boolean; onSelect: (plan: typeof PLANS[0]) => void }) {
+  const isIntegrator  = (plan as any).integrator === true;
+  const isPremium     = (plan as any).premium === true;
+  const isContactOnly = (plan as any).contactOnly === true;
   const displayPrice  = yearly ? plan.yearlyPrice : plan.monthlyPrice;
   const savedPerYear  = Math.round(plan.monthlyPrice * 12 - plan.yearlyPrice);
-  const isPremium     = (plan as any).premium === true;
-  const accentColor   = isPremium ? plan.color : GREEN;
+  const accentColor   = isPremium ? plan.color : isIntegrator ? GREEN : GREEN;
 
   return (
     <div
       style={{
-        background: isPremium ? "#faf5ff" : "#fff",
-        border: `2px solid ${(plan.highlight || isPremium) ? accentColor : "#e5e7eb"}`,
+        background: isIntegrator ? "#f0fdf4" : isPremium ? "#faf5ff" : "#fff",
+        border: `2px solid ${(plan.highlight || isPremium) ? accentColor : isIntegrator ? `${GREEN}55` : "#e5e7eb"}`,
         borderRadius: 16,
         padding: "28px 24px",
         display: "flex",
         flexDirection: "column",
         gap: 0,
         position: "relative",
-        boxShadow: (plan.highlight || isPremium) ? `0 8px 32px ${accentColor}33` : "0 2px 8px #0001",
+        boxShadow: (plan.highlight || isPremium || isIntegrator) ? `0 8px 32px ${accentColor}33` : "0 2px 8px #0001",
         flex: 1,
         minWidth: 260,
         maxWidth: 360,
       }}
     >
       {plan.highlight && (
-        <div
-          style={{
-            position: "absolute",
-            top: -14,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: GREEN,
-            color: "#fff",
-            fontSize: 12,
-            fontWeight: 700,
-            padding: "4px 16px",
-            borderRadius: 999,
-            letterSpacing: "0.05em",
-            whiteSpace: "nowrap",
-          }}
-        >
+        <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: GREEN, color: "#fff", fontSize: 12, fontWeight: 700, padding: "4px 16px", borderRadius: 999, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
           MOST POPULAR
         </div>
       )}
       {isPremium && (
-        <div
-          style={{
-            position: "absolute",
-            top: -14,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "linear-gradient(90deg, #7c3aed, #a855f7)",
-            color: "#fff",
-            fontSize: 12,
-            fontWeight: 700,
-            padding: "4px 16px",
-            borderRadius: 999,
-            letterSpacing: "0.05em",
-            whiteSpace: "nowrap",
-          }}
-        >
+        <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(90deg, #7c3aed, #a855f7)", color: "#fff", fontSize: 12, fontWeight: 700, padding: "4px 16px", borderRadius: 999, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
           💎 BREEDER EDITION
+        </div>
+      )}
+      {isIntegrator && (
+        <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: `linear-gradient(90deg, ${GREEN}, #217346)`, color: "#fff", fontSize: 12, fontWeight: 700, padding: "4px 16px", borderRadius: 999, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
+          🏢 MULTI-FARM
         </div>
       )}
 
@@ -883,38 +978,37 @@ function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: b
 
       <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 20, lineHeight: 1.5 }}>{plan.tagline}</p>
 
-      <div style={{ marginBottom: 8 }}>
-        <span style={{ fontSize: 40, fontWeight: 900, color: "#111827" }}>
-          ${displayPrice.toFixed(2)}
-        </span>
-        <span style={{ fontSize: 14, color: "#9ca3af" }}>/{yearly ? "yr" : "mo"}</span>
-      </div>
-
-      {yearly ? (
+      {isContactOnly ? (
         <div style={{ marginBottom: 20 }}>
-          <span style={{ fontSize: 13, color: "#6b7280" }}>
-            Billed annually — ${plan.yearlyPrice.toFixed(2)}/yr
-          </span>
-          {savedPerYear > 0 && (
-            <span
-              style={{
-                marginLeft: 8,
-                background: isPremium ? "#ede9fe" : "#d1fae5",
-                color: accentColor,
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "2px 8px",
-                borderRadius: 999,
-              }}
-            >
-              Save ${savedPerYear}/yr
-            </span>
-          )}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+            <span style={{ fontSize: 36, fontWeight: 900, color: "#111827" }}>From $60</span>
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginTop: 2 }}>per farm / month · min. 5 farms</div>
+          <div style={{ marginTop: 8 }}>
+            <span style={{ background: "#d1fae5", color: GREEN, fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 999 }}>Volume discounts available</span>
+          </div>
         </div>
       ) : (
-        <div style={{ marginBottom: 20 }}>
-          <span style={{ fontSize: 13, color: "#9ca3af" }}>Billed monthly</span>
-        </div>
+        <>
+          <div style={{ marginBottom: 8 }}>
+            <span style={{ fontSize: 40, fontWeight: 900, color: "#111827" }}>${displayPrice.toFixed(2)}</span>
+            <span style={{ fontSize: 14, color: "#9ca3af" }}>/{yearly ? "yr" : "mo"}</span>
+          </div>
+          {yearly ? (
+            <div style={{ marginBottom: 20 }}>
+              <span style={{ fontSize: 13, color: "#6b7280" }}>Billed annually — ${plan.yearlyPrice.toFixed(2)}/yr</span>
+              {savedPerYear > 0 && (
+                <span style={{ marginLeft: 8, background: isPremium ? "#ede9fe" : "#d1fae5", color: accentColor, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999 }}>
+                  Save ${savedPerYear}/yr
+                </span>
+              )}
+            </div>
+          ) : (
+            <div style={{ marginBottom: 20 }}>
+              <span style={{ fontSize: 13, color: "#9ca3af" }}>Billed monthly</span>
+            </div>
+          )}
+        </>
       )}
 
       <button
@@ -923,8 +1017,8 @@ function PlanCard({ plan, yearly, onSelect }: { plan: typeof PLANS[0]; yearly: b
           display: "block",
           width: "100%",
           textAlign: "center",
-          background: (plan.highlight || isPremium) ? accentColor : "transparent",
-          color: (plan.highlight || isPremium) ? "#fff" : accentColor,
+          background: (plan.highlight || isPremium || isIntegrator) ? accentColor : "transparent",
+          color: (plan.highlight || isPremium || isIntegrator) ? "#fff" : accentColor,
           border: `2px solid ${accentColor}`,
           borderRadius: 10,
           padding: "12px 0",
@@ -1423,6 +1517,15 @@ export default function App() {
   const [checkoutPlan, setCheckoutPlan] = useState<typeof PLANS[0] | null>(null);
   const [showManagePortal, setShowManagePortal] = useState(false);
   const [supporterTier, setSupporterTier] = useState<typeof SUPPORTER_TIERS[0] | null>(null);
+  const [showIntegratorModal, setShowIntegratorModal] = useState(false);
+
+  const handlePlanSelect = (plan: typeof PLANS[0]) => {
+    if ((plan as any).integrator) {
+      setShowIntegratorModal(true);
+    } else {
+      setCheckoutPlan(plan);
+    }
+  };
 
   const refreshSponsors = () => {
     fetchSponsorsFromApi().then(setSponsors);
@@ -1468,6 +1571,7 @@ export default function App() {
       {checkoutPlan && <CheckoutModal plan={checkoutPlan} yearly={yearly} onClose={() => setCheckoutPlan(null)} />}
       {showManagePortal && <ManageSubscriptionModal onClose={() => setShowManagePortal(false)} />}
       {supporterTier && <SupporterCheckoutModal tier={supporterTier} onClose={() => setSupporterTier(null)} />}
+      {showIntegratorModal && <IntegratorModal onClose={() => setShowIntegratorModal(false)} />}
 
       {/* NAVBAR */}
       <nav style={{
@@ -2062,7 +2166,7 @@ export default function App() {
             alignItems: "flex-start",
           }}>
             {PLANS.map((plan) => (
-              <PlanCard key={plan.id} plan={plan} yearly={yearly} onSelect={setCheckoutPlan} />
+              <PlanCard key={plan.id} plan={plan} yearly={yearly} onSelect={handlePlanSelect} />
             ))}
           </div>
 
