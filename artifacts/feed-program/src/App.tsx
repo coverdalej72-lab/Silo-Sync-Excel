@@ -6745,12 +6745,15 @@ export default function App() {
     const { sheetIdx, startRow } = findShedStartRow(currentSheets);
     if (sheetIdx === -1) return null;
     const cells = currentSheets[sheetIdx].cells;
-    // Build candidate strings for today
-    const targetIso = targetDate.toISOString().slice(0, 10); // "2026-04-10"
+    // Build candidate strings for today — use AEST (UTC+10) date, not UTC,
+    // so the row lookup is correct for Australian users after 10am UTC (midnight AEST).
+    const aestDate = new Date(targetDate.getTime() + 10 * 3600_000);
+    const targetIso = aestDate.toISOString().slice(0, 10); // "2026-04-10" in AEST
     const targetEnAU = targetDate.toLocaleDateString("en-AU", {
       weekday: "long", year: "numeric", month: "long", day: "numeric",
+      timeZone: "Australia/Sydney",
     }); // "Thursday, 10 April 2026"
-    const targetShort = targetDate.toLocaleDateString("en-AU"); // "10/04/2026"
+    const targetShort = targetDate.toLocaleDateString("en-AU", { timeZone: "Australia/Sydney" }); // "10/04/2026"
 
     const isSameDay = (cellVal: string): boolean => {
       const v = cellVal.trim();
@@ -6759,9 +6762,9 @@ export default function App() {
       // Try parsing the cell value as a date and compare
       const parsed = parseDateInput(v);
       if (parsed) {
-        return parsed.getFullYear() === targetDate.getFullYear() &&
-               parsed.getMonth() === targetDate.getMonth() &&
-               parsed.getDate() === targetDate.getDate();
+        return parsed.getFullYear() === aestDate.getUTCFullYear() &&
+               parsed.getMonth() === aestDate.getUTCMonth() &&
+               parsed.getDate() === aestDate.getUTCDate();
       }
       return false;
     };
@@ -6893,7 +6896,8 @@ export default function App() {
   // ── Auto-sync effect (polls every 2 minutes) ─────────────────────────────
   useEffect(() => {
     if (!autoSync) return;
-    const todayStr = () => new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    // Always use AEST (UTC+10) for "today" — not raw UTC which rolls over at 10am AEST.
+    const todayStr = () => new Date(Date.now() + 10 * 3600_000).toISOString().slice(0, 10);
     const run = async () => {
       try {
         const res = await fetch(`${window.location.origin}/api/readings/today`);
