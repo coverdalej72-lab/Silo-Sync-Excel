@@ -7853,21 +7853,21 @@ export default function App() {
       </div>
 
       {/* Sheet tabs */}
-      <div id="pm-tab-bar" className="flex items-end gap-0.5 px-3 pt-2 overflow-x-auto shrink-0" style={{ background: "#154d2c" }}>
+      <div id="pm-tab-bar" className="flex items-center gap-1.5 px-3 py-2 overflow-x-auto shrink-0" style={{ background: "linear-gradient(180deg, #0b3018 0%, #174d2a 100%)", borderBottom: "2px solid rgba(201,162,39,0.35)", scrollbarWidth: "none" }}>
         {/* Summary tab */}
         <button
           onClick={() => setActiveView("summary")}
-          className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
+          className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
           style={{
-            backgroundColor: activeView === "summary" ? "#fff" : "#2d9e5f",
-            color: activeView === "summary" ? "var(--pm-primary)" : "#fff",
-            borderColor: activeView === "summary" ? "#ccc" : "#27885200",
-            transform: activeView === "summary" ? "translateY(1px)" : "translateY(3px)",
-            marginRight: 4,
+            background: activeView === "summary" ? "#fff" : "rgba(255,255,255,0.15)",
+            color: activeView === "summary" ? "#1a5c36" : "#fff",
+            boxShadow: activeView === "summary" ? "0 2px 8px rgba(0,0,0,0.25)" : "none",
+            border: activeView === "summary" ? "none" : "1px solid rgba(255,255,255,0.22)",
           }}
         >
           ☰ Summary
         </button>
+        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.18)", flexShrink: 0, marginInline: 2 }} />
         {(() => {
           // Build a sorted tab list: SHED tabs first (sorted by first shed number),
           // then all other tabs in their original order. This ensures virtual SHED
@@ -7921,16 +7921,15 @@ export default function App() {
               <button
                 key={i}
                 onClick={() => { setActive(i); setActiveView(null); }}
-                className="rounded-t border border-b-0 transition-all shrink-0"
+                className="rounded-full transition-all shrink-0"
                 style={{
-                  padding: shedNumLabel ? "4px 8px 3px" : "7px 12px",
-                  backgroundColor: isActive ? "#fff" : "#C9A227",
-                  color: isActive ? "#7a5b00" : "#2a1f00",
-                  borderColor: isActive ? "#ccc" : alertDotColor ?? "#a88020",
-                  borderWidth: alertDotColor ? 2 : 1,
-                  transform: isActive ? "translateY(1px)" : "translateY(3px)",
+                  padding: shedNumLabel ? "5px 11px 4px" : "6px 13px",
+                  background: isActive ? "#fff" : "linear-gradient(135deg, #d9af25 0%, #C9A227 100%)",
+                  color: isActive ? "#7a5000" : "#1a1000",
+                  boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.22)" : "inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 3px rgba(0,0,0,0.3)",
+                  border: alertDotColor ? `2px solid ${alertDotColor}` : "none",
                   display: "flex", flexDirection: "column", alignItems: "center",
-                  minWidth: shedNumLabel ? 44 : undefined,
+                  minWidth: shedNumLabel ? 40 : undefined,
                   position: "relative",
                 }}
               >
@@ -7946,18 +7945,13 @@ export default function App() {
                 })()}
                 {shedNumLabel ? (
                   <>
-                    <span style={{ fontSize: 11, fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap" }}>
-                      {shedNumLabel}{hasEdits ? " •" : ""}
+                    <span style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.15, whiteSpace: "nowrap", letterSpacing: 0.2 }}>
+                      {shedNumLabel}{hasEdits ? <span style={{ color: isActive ? "#C9A227" : "#1a1000", opacity: 0.7, marginLeft: 2 }}>●</span> : ""}
                     </span>
-                    {dateLabel && (
-                      <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.7, lineHeight: 1.1, whiteSpace: "nowrap", marginTop: 1 }}>
-                        {dateLabel}
-                      </span>
-                    )}
                   </>
                 ) : (
-                  <span style={{ fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
-                    {s.name}{hasEdits ? " •" : ""}
+                  <span style={{ fontSize: 11, fontWeight: 800, whiteSpace: "nowrap" }}>
+                    {s.name}{hasEdits ? <span style={{ marginLeft: 2, opacity: 0.6 }}>●</span> : ""}
                   </span>
                 )}
               </button>
@@ -7975,22 +7969,23 @@ export default function App() {
         })()}
         {/* ── Broiler-only tabs ── */}
         {(farmConfig.farmType ?? "broiler") === "broiler" && (<>
+          <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.18)", flexShrink: 0, marginInline: 2 }} />
           <button onClick={() => setActiveView("batchResults")}
-            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "batchResults" ? "#fff" : "#2d9e5f", color: activeView === "batchResults" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "batchResults" ? "#ccc" : "#27885200", transform: activeView === "batchResults" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
+            style={{ background: activeView === "batchResults" ? "#fff" : "rgba(45,158,95,0.75)", color: activeView === "batchResults" ? "#1a5c36" : "#fff", boxShadow: activeView === "batchResults" ? "0 2px 8px rgba(0,0,0,0.22)" : "none", border: activeView === "batchResults" ? "none" : "1px solid rgba(255,255,255,0.2)" }}>
             📊 Batch Results
           </button>
           {showFlockForecast && (
           <button onClick={() => setActiveView("flockForecast")}
-            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "flockForecast" ? "#fff" : "#8b3fc8", color: activeView === "flockForecast" ? "#4e1a6e" : "#fff", borderColor: activeView === "flockForecast" ? "#ccc" : "#6a2faa00", transform: activeView === "flockForecast" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
+            style={{ background: activeView === "flockForecast" ? "#fff" : "rgba(139,63,200,0.75)", color: activeView === "flockForecast" ? "#4e1a6e" : "#fff", boxShadow: activeView === "flockForecast" ? "0 2px 8px rgba(0,0,0,0.22)" : "none", border: activeView === "flockForecast" ? "none" : "1px solid rgba(255,255,255,0.2)" }}>
             🔮 Flock Forecast
           </button>
           )}
           {isTouchDevice && (
             <button onClick={() => setActiveView("weighBirds")}
-              className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-              style={{ backgroundColor: activeView === "weighBirds" ? "#fff" : "#C9A227", color: activeView === "weighBirds" ? "#7a5500" : "#000", borderColor: activeView === "weighBirds" ? "#ccc" : "#a8780000", transform: activeView === "weighBirds" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+              className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
+              style={{ background: activeView === "weighBirds" ? "#fff" : "rgba(201,162,39,0.85)", color: activeView === "weighBirds" ? "#7a5000" : "#1a1000", boxShadow: activeView === "weighBirds" ? "0 2px 8px rgba(0,0,0,0.22)" : "inset 0 1px 0 rgba(255,255,255,0.3)", border: "none" }}>
               ⚖️ Weigh Birds
             </button>
           )}
@@ -7998,32 +7993,34 @@ export default function App() {
 
         {/* ── Breeder-only tabs ── */}
         {(farmConfig.farmType ?? "broiler") === "breeder" && (<>
+          <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.18)", flexShrink: 0, marginInline: 2 }} />
           <button onClick={() => setActiveView("eggProduction")}
-            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "eggProduction" ? "#fff" : "#c9950e", color: activeView === "eggProduction" ? "#7a5500" : "#fff", borderColor: activeView === "eggProduction" ? "#ccc" : "#a8780000", transform: activeView === "eggProduction" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
+            style={{ background: activeView === "eggProduction" ? "#fff" : "rgba(201,149,14,0.85)", color: activeView === "eggProduction" ? "#7a4f00" : "#fff", boxShadow: activeView === "eggProduction" ? "0 2px 8px rgba(0,0,0,0.22)" : "none", border: activeView === "eggProduction" ? "none" : "1px solid rgba(255,255,255,0.2)" }}>
             🥚 Egg Production
           </button>
           <button onClick={() => setActiveView("bodyWeight")}
-            className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-            style={{ backgroundColor: activeView === "bodyWeight" ? "#fff" : "#7a52aa", color: activeView === "bodyWeight" ? "#4a2880" : "#fff", borderColor: activeView === "bodyWeight" ? "#ccc" : "#5a3e7a00", transform: activeView === "bodyWeight" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+            className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
+            style={{ background: activeView === "bodyWeight" ? "#fff" : "rgba(122,82,170,0.8)", color: activeView === "bodyWeight" ? "#4a2880" : "#fff", boxShadow: activeView === "bodyWeight" ? "0 2px 8px rgba(0,0,0,0.22)" : "none", border: activeView === "bodyWeight" ? "none" : "1px solid rgba(255,255,255,0.2)" }}>
             ⚖️ Body Weight
           </button>
         </>)}
 
         {/* ── Shared tabs ── */}
+        <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.18)", flexShrink: 0, marginInline: 2 }} />
         <button onClick={() => setActiveView("morts")}
-          className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{ backgroundColor: activeView === "morts" ? "#fff" : "#d93025", color: activeView === "morts" ? "#8b1a1a" : "#fff", borderColor: activeView === "morts" ? "#ccc" : "#b0201800", transform: activeView === "morts" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+          className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
+          style={{ background: activeView === "morts" ? "#fff" : "rgba(205,50,40,0.85)", color: activeView === "morts" ? "#8b1a1a" : "#fff", boxShadow: activeView === "morts" ? "0 2px 8px rgba(0,0,0,0.22)" : "none", border: activeView === "morts" ? "none" : "1px solid rgba(255,255,255,0.2)" }}>
           💀 Morts
         </button>
         <button onClick={() => setActiveView("history")}
-          className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{ backgroundColor: activeView === "history" ? "#fff" : "#2d9e5f", color: activeView === "history" ? "var(--pm-primary)" : "#fff", borderColor: activeView === "history" ? "#ccc" : "#27885200", transform: activeView === "history" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+          className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
+          style={{ background: activeView === "history" ? "#fff" : "rgba(45,158,95,0.75)", color: activeView === "history" ? "#1a5c36" : "#fff", boxShadow: activeView === "history" ? "0 2px 8px rgba(0,0,0,0.22)" : "none", border: activeView === "history" ? "none" : "1px solid rgba(255,255,255,0.2)" }}>
           📈 History
         </button>
         <button onClick={() => setActiveView("density")}
-          className="px-3 py-2.5 text-xs font-semibold rounded-t border border-b-0 whitespace-nowrap transition-all"
-          style={{ backgroundColor: activeView === "density" ? "#fff" : "#7b3fc4", color: activeView === "density" ? "#5a2da0" : "#fff", borderColor: activeView === "density" ? "#ccc" : "#5a2da000", transform: activeView === "density" ? "translateY(1px)" : "translateY(3px)", marginLeft: 4 }}>
+          className="px-3.5 py-1.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shrink-0"
+          style={{ background: activeView === "density" ? "#fff" : "rgba(123,63,196,0.8)", color: activeView === "density" ? "#5a2da0" : "#fff", boxShadow: activeView === "density" ? "0 2px 8px rgba(0,0,0,0.22)" : "none", border: activeView === "density" ? "none" : "1px solid rgba(255,255,255,0.2)" }}>
           🏠 Density
         </button>
 
