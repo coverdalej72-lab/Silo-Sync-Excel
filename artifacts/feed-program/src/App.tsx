@@ -5185,14 +5185,15 @@ function rationColour(ration: string) {
 }
 
 function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
-  const [orders, setOrders]       = useState<FeedOrder[]>(loadFeedOrders);
-  const [cycleOff, setCycleOff]   = useState(0);     // 0 = this week, 1 = next, -1 = last
-  const [modal, setModal]         = useState<{ date: string; order?: FeedOrder } | null>(null);
-  const [showAll, setShowAll]     = useState(false);
-  const [showPaste, setShowPaste] = useState(false);
-  const [pasteText, setPasteText] = useState("");
-  const [parsedRows, setParsedRows] = useState<FeedOrder[] | null>(null);
-  const [parseError, setParseError] = useState<string | null>(null);
+  const [orders, setOrders]           = useState<FeedOrder[]>(loadFeedOrders);
+  const [cycleOff, setCycleOff]       = useState(0);     // 0 = this week, 1 = next, -1 = last
+  const [modal, setModal]             = useState<{ date: string; order?: FeedOrder } | null>(null);
+  const [showAll, setShowAll]         = useState(false);
+  const [showPaste, setShowPaste]     = useState(false);
+  const [pasteText, setPasteText]     = useState("");
+  const [parsedRows, setParsedRows]   = useState<FeedOrder[] | null>(null);
+  const [parseError, setParseError]   = useState<string | null>(null);
+  const [stripCollapsed, setStripCollapsed] = useState(false);
 
   // Current cycle: 7 days from Thursday
   const today    = new Date(); today.setHours(0, 0, 0, 0);
@@ -5353,133 +5354,202 @@ function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
 
   const cycleLabel = `${DAY_NAMES[cycleStart.getDay()]} ${cycleStart.getDate()} ${MONTH_SHORT[cycleStart.getMonth()]} → ${DAY_NAMES[addDays(cycleStart,6).getDay()]} ${addDays(cycleStart,6).getDate()} ${MONTH_SHORT[addDays(cycleStart,6).getMonth()]}`;
 
+  const totalUpcoming = upcomingOrders.length;
+
+  // Max pills visible per day cell before showing "+N more"
+  const MAX_PILLS = 2;
+
   return (
-    <>
+    <div style={{ position: "relative", flexShrink: 0 }}>
       {/* ── Strip ── */}
-      <div style={{ background: "#0f3d23", borderBottom: "2px solid #C9A227", padding: "4px 0 0", userSelect: "none", flexShrink: 0 }}>
+      <div style={{ background: "#0f3d23", borderBottom: stripCollapsed ? "2px solid #C9A227" : "none", padding: "4px 0 0", userSelect: "none" }}>
         {/* Cycle header row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px 3px" }}>
-          <button onClick={() => setCycleOff(v => v - 1)} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 7px", cursor: "pointer", fontSize: 13 }}>‹</button>
-          <span style={{ fontSize: 10, color: "#a8d5b5", fontWeight: 700, letterSpacing: 0.4, flex: 1, textAlign: "center" }}>{cycleLabel}</span>
-          <button onClick={() => setCycleOff(v => v + 1)} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 7px", cursor: "pointer", fontSize: 13 }}>›</button>
-          <button onClick={() => { setCycleOff(0); }} style={{ background: cycleOff === 0 ? "#C9A227" : "rgba(255,255,255,0.12)", border: "none", color: cycleOff === 0 ? "#000" : "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>Today</button>
-          <button onClick={() => setShowAll(v => !v)} style={{ background: showAll ? "#C9A227" : "rgba(255,255,255,0.12)", border: "none", color: showAll ? "#000" : "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>📋 Orders</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 10px 4px" }}>
+          {/* Collapse toggle */}
+          <button
+            onClick={() => { setStripCollapsed(v => !v); setShowAll(false); }}
+            title={stripCollapsed ? "Show delivery calendar" : "Hide delivery calendar"}
+            style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 7px", cursor: "pointer", fontSize: 12, lineHeight: 1 }}
+          >
+            {stripCollapsed ? "▸" : "▾"}
+          </button>
+
+          {stripCollapsed ? (
+            /* Compact summary row when collapsed */
+            <span style={{ fontSize: 10, color: "#a8d5b5", fontWeight: 700, flex: 1 }}>
+              Feed Deliveries
+              {totalUpcoming > 0 && (
+                <span style={{ marginLeft: 6, background: "#C9A227", color: "#000", borderRadius: 10, padding: "0 6px", fontSize: 9, fontWeight: 800 }}>
+                  {totalUpcoming} upcoming
+                </span>
+              )}
+            </span>
+          ) : (
+            <>
+              <button onClick={() => setCycleOff(v => v - 1)} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 7px", cursor: "pointer", fontSize: 13 }}>‹</button>
+              <span style={{ fontSize: 10, color: "#a8d5b5", fontWeight: 700, letterSpacing: 0.4, flex: 1, textAlign: "center" }}>{cycleLabel}</span>
+              <button onClick={() => setCycleOff(v => v + 1)} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 7px", cursor: "pointer", fontSize: 13 }}>›</button>
+              <button onClick={() => { setCycleOff(0); }} style={{ background: cycleOff === 0 ? "#C9A227" : "rgba(255,255,255,0.12)", border: "none", color: cycleOff === 0 ? "#000" : "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>Today</button>
+            </>
+          )}
+
+          <button onClick={() => setShowAll(v => !v)} style={{ background: showAll ? "#C9A227" : "rgba(255,255,255,0.12)", border: "none", color: showAll ? "#000" : "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
+            📋 Orders{totalUpcoming > 0 && !showAll ? ` (${totalUpcoming})` : ""}
+          </button>
           <button onClick={() => { setShowPaste(true); setPasteText(""); setParsedRows(null); setParseError(null); }} style={{ background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", borderRadius: 4, padding: "1px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>📋 Paste GeniusFOM</button>
         </div>
 
-        {/* Day columns */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, padding: "0 6px 6px" }}>
-          {days.map(day => {
-            const ymd = toYMD(day);
-            const isToday = ymd === toYMD(today);
-            const isThur = day.getDay() === 4;
-            const dayOrders = ordersOnDay(day);
-            return (
-              <div
-                key={ymd}
-                style={{
-                  background: isToday ? "rgba(201,162,39,0.18)" : "rgba(255,255,255,0.05)",
-                  border: isToday ? "1.5px solid #C9A227" : isThur ? "1px solid rgba(255,255,255,0.25)" : "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 6,
-                  padding: "3px 4px",
-                  minHeight: 56,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                  cursor: "pointer",
-                }}
-                onClick={() => openModal(ymd)}
-              >
-                {/* Day label */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: isToday ? "#C9A227" : isThur ? "#a8d5b5" : "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: 0.3 }}>
-                    {DAY_NAMES[day.getDay()]}
-                  </span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: isToday ? "#C9A227" : "#fff" }}>{day.getDate()}</span>
-                </div>
-                {/* Delivery pills */}
-                {dayOrders.map(o => (
-                  <div
-                    key={o.id}
-                    onClick={e => { e.stopPropagation(); openModal(ymd, o); }}
-                    style={{
-                      background: rationColour(o.ration),
-                      borderRadius: 3,
-                      padding: "1px 4px",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      color: "#fff",
-                      lineHeight: 1.3,
-                      cursor: "pointer",
-                    }}
-                    title={`${o.ration} — ${o.totalTons}T${o.emergency ? " ⚡ EMERGENCY" : ""}`}
-                  >
-                    {o.totalTons}T
-                    <span style={{ fontWeight: 400, opacity: 0.85, marginLeft: 2 }}>
-                      {o.ration.replace(/\d+\s*/,"").split(" ").map(w => w[0]).join("").slice(0,3)}
+        {/* Day columns — hidden when collapsed */}
+        {!stripCollapsed && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, padding: "0 6px 6px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+            {days.map(day => {
+              const ymd = toYMD(day);
+              const isToday = ymd === toYMD(today);
+              const isThur = day.getDay() === 4;
+              const dayOrders = ordersOnDay(day);
+              const visible = dayOrders.slice(0, MAX_PILLS);
+              const overflow = dayOrders.length - MAX_PILLS;
+              return (
+                <div
+                  key={ymd}
+                  style={{
+                    background: isToday ? "rgba(201,162,39,0.18)" : "rgba(255,255,255,0.05)",
+                    border: isToday ? "1.5px solid #C9A227" : isThur ? "1px solid rgba(255,255,255,0.25)" : "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 6,
+                    padding: "3px 4px",
+                    height: 62,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 2,
+                    cursor: "pointer",
+                    boxSizing: "border-box",
+                  }}
+                  onClick={() => openModal(ymd)}
+                >
+                  {/* Day label */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: isToday ? "#C9A227" : isThur ? "#a8d5b5" : "rgba(255,255,255,0.55)", textTransform: "uppercase", letterSpacing: 0.3 }}>
+                      {DAY_NAMES[day.getDay()]}
                     </span>
-                    {o.emergency && <span style={{ marginLeft: 2 }}>⚡</span>}
+                    <span style={{ fontSize: 11, fontWeight: 800, color: isToday ? "#C9A227" : "#fff" }}>{day.getDate()}</span>
                   </div>
-                ))}
-                {/* Add hint */}
-                {dayOrders.length === 0 && (
-                  <div style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", textAlign: "center", marginTop: "auto" }}>＋</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  {/* Delivery pills (max 2 visible) */}
+                  {visible.map(o => (
+                    <div
+                      key={o.id}
+                      onClick={e => { e.stopPropagation(); openModal(ymd, o); }}
+                      style={{
+                        background: rationColour(o.ration),
+                        borderRadius: 3,
+                        padding: "1px 4px",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: "#fff",
+                        lineHeight: 1.3,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={`${o.ration} — ${o.totalTons}T${o.emergency ? " ⚡ EMERGENCY" : ""}`}
+                    >
+                      {o.totalTons}T
+                      <span style={{ fontWeight: 400, opacity: 0.85, marginLeft: 2 }}>
+                        {o.ration.replace(/\d+\s*/,"").split(" ").map(w => w[0]).join("").slice(0,3)}
+                      </span>
+                      {o.emergency && <span style={{ marginLeft: 2 }}>⚡</span>}
+                    </div>
+                  ))}
+                  {/* "+N more" overflow badge */}
+                  {overflow > 0 && (
+                    <div style={{ fontSize: 8, fontWeight: 700, color: "#C9A227", lineHeight: 1.2, flexShrink: 0 }}>
+                      +{overflow} more
+                    </div>
+                  )}
+                  {/* Add hint */}
+                  {dayOrders.length === 0 && (
+                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", textAlign: "center", marginTop: "auto" }}>＋</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Bottom border when expanded */}
+        {!stripCollapsed && <div style={{ borderBottom: "2px solid #C9A227" }} />}
       </div>
 
-      {/* ── All Orders panel ── */}
+      {/* ── All Orders panel — overlay (does NOT push content down) ── */}
       {showAll && (
-        <div style={{ background: "#fff", borderBottom: "2px solid var(--pm-primary-border)", padding: "10px 12px", flexShrink: 0, maxHeight: 220, overflowY: "auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4 }}>
-              Upcoming Deliveries ({upcomingOrders.length})
-            </span>
-            <button
-              onClick={() => openModal(toYMD(today))}
-              style={{ background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-            >
-              + Add Order
-            </button>
+        <>
+          {/* Backdrop */}
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 39 }}
+            onClick={() => setShowAll(false)}
+          />
+          {/* Dropdown panel */}
+          <div style={{
+            position: "absolute", top: "100%", left: 0, right: 0, zIndex: 40,
+            background: "#fff",
+            borderBottom: "2px solid var(--pm-primary-border)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            maxHeight: 260,
+            overflowY: "auto",
+            padding: "10px 12px",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: "var(--pm-primary)", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                Upcoming Deliveries ({upcomingOrders.length})
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => openModal(toYMD(today))}
+                  style={{ background: "var(--pm-primary)", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  + Add Order
+                </button>
+                <button onClick={() => setShowAll(false)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#888", lineHeight: 1 }}>✕</button>
+              </div>
+            </div>
+            {upcomingOrders.length === 0 ? (
+              <p style={{ fontSize: 12, color: "#aaa", margin: 0 }}>No upcoming deliveries logged. Click any day in the strip above to add one.</p>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: "#f5f5f5" }}>
+                    {["Delivery Date","Ration","Tons","Sheds","Emergency","Notes"].map(h => (
+                      <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, borderBottom: "1px solid #e5e5e5" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {upcomingOrders.map(o => {
+                    const d = new Date(o.deliveryDate + "T00:00:00");
+                    return (
+                      <tr key={o.id} onClick={() => openModal(o.deliveryDate, o)} style={{ cursor: "pointer", borderBottom: "1px solid #eee" }} className="hover:bg-green-50">
+                        <td style={{ padding: "5px 8px", fontWeight: 700, color: "var(--pm-primary)", whiteSpace: "nowrap" }}>
+                          {DAY_NAMES[d.getDay()]} {d.getDate()} {MONTH_SHORT[d.getMonth()]}
+                        </td>
+                        <td style={{ padding: "5px 8px" }}>
+                          <span style={{ background: rationColour(o.ration), color: "#fff", borderRadius: 4, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{o.ration}</span>
+                        </td>
+                        <td style={{ padding: "5px 8px", fontWeight: 800 }}>{o.totalTons}T</td>
+                        <td style={{ padding: "5px 8px", color: "#555", fontSize: 11 }}>
+                          {o.allocations.length > 0 ? o.allocations.map(a => `Shed ${a.sgId*2-1}&${a.sgId*2}: ${a.tons}T`).join(", ") : "—"}
+                        </td>
+                        <td style={{ padding: "5px 8px", textAlign: "center" }}>{o.emergency ? "⚡ Yes" : "—"}</td>
+                        <td style={{ padding: "5px 8px", color: "#777", fontStyle: "italic" }}>{o.notes || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
-          {upcomingOrders.length === 0 ? (
-            <p style={{ fontSize: 12, color: "#aaa", margin: 0 }}>No upcoming deliveries logged. Click any day in the strip above to add one.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: "#f5f5f5" }}>
-                  {["Delivery Date","Ration","Tons","Sheds","Emergency","Notes"].map(h => (
-                    <th key={h} style={{ padding: "4px 8px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#666", textTransform: "uppercase", letterSpacing: 0.4, borderBottom: "1px solid #e5e5e5" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {upcomingOrders.map(o => {
-                  const d = new Date(o.deliveryDate + "T00:00:00");
-                  return (
-                    <tr key={o.id} onClick={() => openModal(o.deliveryDate, o)} style={{ cursor: "pointer", borderBottom: "1px solid #eee" }} className="hover:bg-green-50">
-                      <td style={{ padding: "5px 8px", fontWeight: 700, color: "var(--pm-primary)", whiteSpace: "nowrap" }}>
-                        {DAY_NAMES[d.getDay()]} {d.getDate()} {MONTH_SHORT[d.getMonth()]}
-                      </td>
-                      <td style={{ padding: "5px 8px" }}>
-                        <span style={{ background: rationColour(o.ration), color: "#fff", borderRadius: 4, padding: "1px 7px", fontSize: 11, fontWeight: 700 }}>{o.ration}</span>
-                      </td>
-                      <td style={{ padding: "5px 8px", fontWeight: 800 }}>{o.totalTons}T</td>
-                      <td style={{ padding: "5px 8px", color: "#555", fontSize: 11 }}>
-                        {o.allocations.length > 0 ? o.allocations.map(a => `Shed ${a.sgId*2-1}&${a.sgId*2}: ${a.tons}T`).join(", ") : "—"}
-                      </td>
-                      <td style={{ padding: "5px 8px", textAlign: "center" }}>{o.emergency ? "⚡ Yes" : "—"}</td>
-                      <td style={{ padding: "5px 8px", color: "#777", fontStyle: "italic" }}>{o.notes || "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+        </>
       )}
 
       {/* ── Add / Edit Order Modal ── */}
@@ -5685,7 +5755,7 @@ function FeedOrderStrip({ farmConfig }: { farmConfig: FarmConfigData }) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
