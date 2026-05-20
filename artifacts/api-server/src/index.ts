@@ -62,7 +62,7 @@ async function seedFarmData() {
 }
 
 // Start listening immediately so the port is open before any async init work
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -71,4 +71,17 @@ app.listen(port, (err) => {
 
   // Seed farm data in the background — does not block port open
   seedFarmData().catch(err => logger.error({ err }, "Background seedFarmData failed"));
+});
+
+// Graceful shutdown — close the server on SIGTERM so the port is freed
+// before the process exits. This prevents orphan-process port conflicts
+// when the workflow runner restarts the service.
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM received — closing server");
+  server.close(() => {
+    logger.info("Server closed");
+    process.exit(0);
+  });
+  // Force exit after 5 s if connections are still open
+  setTimeout(() => process.exit(0), 5000).unref();
 });

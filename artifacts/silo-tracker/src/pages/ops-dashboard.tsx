@@ -1,27 +1,29 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Settings, Plus, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
+import { Settings, Plus, LayoutGrid, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import OpsFarmCard from "@/components/OpsFarmCard";
-import { useFarms } from "@/hooks/useFarms";
+import { useFarms, type Farm } from "@/hooks/useFarms";
 import { useFarmData } from "@/hooks/useFarmData";
 import { cn } from "@/lib/utils";
-import type { Farm } from "@/hooks/useFarms";
 
-// ── Per-farm fetcher ────────────────────────────────────────────────────────
+// ── Per-farm fetcher ─────────────────────────────────────────────────────────
 
 function FarmDataWrapper({ farm }: { farm: Farm }) {
-  const data = useFarmData(farm.apiUrl);
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const apiUrl = `${BASE}/api`;
+  const data = useFarmData(apiUrl, farm.id);
   return (
     <OpsFarmCard
       name={farm.name}
-      apiUrl={farm.apiUrl}
+      planTier={farm.planTier}
+      apiUrl={apiUrl}
       data={data}
       onRefresh={data.refresh}
     />
   );
 }
 
-// ── Carousel ────────────────────────────────────────────────────────────────
+// ── Carousel ─────────────────────────────────────────────────────────────────
 
 function FarmCarousel({ farms }: { farms: Farm[] }) {
   const [current, setCurrent] = useState(0);
@@ -31,39 +33,23 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
   const prev = () => setCurrent(i => Math.max(0, i - 1));
   const next = () => setCurrent(i => Math.min(count - 1, i + 1));
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
+  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
     const delta = touchStartX.current - e.changedTouches[0].clientX;
-    if (Math.abs(delta) > 40) {
-      if (delta > 0) next();
-      else prev();
-    }
+    if (Math.abs(delta) > 40) { if (delta > 0) next(); else prev(); }
     touchStartX.current = null;
   };
 
   return (
     <div className="relative w-full">
-      {/* Track */}
-      <div
-        className="overflow-hidden"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-      >
+      <div className="overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <div
           className="flex transition-transform duration-300 ease-in-out"
           style={{ transform: `translateX(-${current * 100}%)` }}
         >
           {farms.map(farm => (
-            <div
-              key={farm.id}
-              className="min-w-full px-0 sm:px-4"
-              style={{ maxWidth: "100%" }}
-            >
-              {/* Cap individual card width on large screens */}
+            <div key={farm.id} className="min-w-full px-0 sm:px-4" style={{ maxWidth: "100%" }}>
               <div className="max-w-2xl mx-auto">
                 <FarmDataWrapper farm={farm} />
               </div>
@@ -72,7 +58,6 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
         </div>
       </div>
 
-      {/* Arrow buttons — visible on desktop when there are multiple cards */}
       {count > 1 && (
         <>
           <button
@@ -82,8 +67,7 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
             className={cn(
               "absolute left-0 sm:-left-5 top-1/2 -translate-y-1/2 z-10",
               "w-9 h-9 rounded-full flex items-center justify-center shadow-md",
-              "bg-card border border-border text-foreground",
-              "transition-all hover:bg-secondary",
+              "bg-card border border-border text-foreground transition-all hover:bg-secondary",
               current === 0 && "opacity-30 cursor-not-allowed"
             )}
           >
@@ -96,8 +80,7 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
             className={cn(
               "absolute right-0 sm:-right-5 top-1/2 -translate-y-1/2 z-10",
               "w-9 h-9 rounded-full flex items-center justify-center shadow-md",
-              "bg-card border border-border text-foreground",
-              "transition-all hover:bg-secondary",
+              "bg-card border border-border text-foreground transition-all hover:bg-secondary",
               current === count - 1 && "opacity-30 cursor-not-allowed"
             )}
           >
@@ -106,7 +89,6 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
         </>
       )}
 
-      {/* Pagination dots */}
       {count > 1 && (
         <div className="flex items-center justify-center gap-2 mt-5">
           {farms.map((_, i) => (
@@ -116,30 +98,24 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
               aria-label={`Go to farm ${i + 1}`}
               className={cn(
                 "rounded-full transition-all duration-200",
-                i === current
-                  ? "w-5 h-2.5 bg-primary"
-                  : "w-2.5 h-2.5 bg-border hover:bg-muted-foreground/40"
+                i === current ? "w-5 h-2.5 bg-primary" : "w-2.5 h-2.5 bg-border hover:bg-muted-foreground/40"
               )}
             />
           ))}
         </div>
       )}
-
-      {/* Current indicator text */}
       {count > 1 && (
-        <p className="text-center text-muted-foreground text-xs mt-2">
-          {current + 1} of {count}
-        </p>
+        <p className="text-center text-muted-foreground text-xs mt-2">{current + 1} of {count}</p>
       )}
     </div>
   );
 }
 
-// ── Dashboard page ──────────────────────────────────────────────────────────
+// ── Dashboard page ───────────────────────────────────────────────────────────
 
 export default function OpsDashboard() {
   useEffect(() => { document.title = "Farm Buddy™ — Operations"; }, []);
-  const { farms } = useFarms();
+  const { farms, loading, error, refresh } = useFarms();
   const [, navigate] = useLocation();
   const count = farms.length;
 
@@ -157,8 +133,14 @@ export default function OpsDashboard() {
               <span className="ml-2 text-primary-foreground/50 text-xs font-medium">Operations</span>
             </div>
           </div>
-
           <div className="flex items-center gap-2">
+            <button
+              onClick={refresh}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground text-xs font-semibold transition-colors"
+              title="Refresh farms"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
             <span className="hidden sm:inline-flex items-center gap-1.5 text-primary-foreground/60 text-xs font-medium px-3 py-1.5 rounded-full bg-primary-foreground/10">
               <LayoutGrid className="w-3.5 h-3.5" />
               {count} {count === 1 ? "Farm" : "Farms"}
@@ -176,14 +158,24 @@ export default function OpsDashboard() {
 
       {/* Main */}
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6">
-        {count === 0 ? (
-          /* Empty state */
+        {loading ? (
+          <div className="flex items-center justify-center h-[60vh]">
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] gap-4 text-center">
+            <p className="text-destructive font-semibold">{error}</p>
+            <button onClick={refresh} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+              Retry
+            </button>
+          </div>
+        ) : count === 0 ? (
           <div className="flex flex-col items-center justify-center h-[60vh] gap-6 text-center">
             <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
               <LayoutGrid className="w-10 h-10 text-primary/40" />
             </div>
             <div>
-              <p className="text-xl font-bold text-foreground mb-2">No farms configured</p>
+              <p className="text-xl font-bold text-foreground mb-2">No farms provisioned</p>
               <p className="text-muted-foreground text-sm max-w-sm">
                 Add your first farm to start monitoring feed levels, readings, and deliveries across all your operations.
               </p>
@@ -198,7 +190,6 @@ export default function OpsDashboard() {
           </div>
         ) : (
           <>
-            {/* Status bar */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-lg font-extrabold text-foreground">Operations Overview</h1>
@@ -212,8 +203,6 @@ export default function OpsDashboard() {
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />&lt;5t critical</span>
               </div>
             </div>
-
-            {/* Carousel */}
             <div className="relative px-5 sm:px-8">
               <FarmCarousel farms={farms} />
             </div>
@@ -221,7 +210,6 @@ export default function OpsDashboard() {
         )}
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border px-6 py-3 flex items-center justify-between">
         <span className="text-muted-foreground text-xs">Farm Buddy™ Operations · Appcovi</span>
         <button

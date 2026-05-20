@@ -2,9 +2,11 @@ import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { silosTable } from "./silos";
+import { farmsTable } from "./farms";
 
 export const readingsTable = pgTable("readings", {
   id: serial("id").primaryKey(),
+  farmId: integer("farm_id").references(() => farmsTable.id, { onDelete: "cascade" }),
   siloId: integer("silo_id").notNull().references(() => silosTable.id, { onDelete: "cascade" }),
   feedType: text("feed_type").notNull(),
   amountRemaining: numeric("amount_remaining", { precision: 12, scale: 2 }).notNull(),

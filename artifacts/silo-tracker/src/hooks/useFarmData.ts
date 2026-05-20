@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "@clerk/react";
 
 export interface SiloStatus {
   siloId: number;
@@ -43,7 +44,7 @@ export interface FarmData {
   lastFetched: number | null;
 }
 
-export function useFarmData(apiUrl: string) {
+export function useFarmData(apiUrl: string, farmId?: number) {
   const [data, setData] = useState<FarmData>({
     progress: null,
     deliveries: [],
@@ -51,6 +52,7 @@ export function useFarmData(apiUrl: string) {
     error: false,
     lastFetched: null,
   });
+  const { getToken } = useAuth();
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -62,16 +64,20 @@ export function useFarmData(apiUrl: string) {
     setData(prev => ({ ...prev, loading: true, error: false }));
 
     const base = (apiUrl || window.location.origin).replace(/\/$/, "");
+    const farmParam = farmId !== undefined ? `&farmId=${farmId}` : "";
 
     try {
+      const token = await getToken();
+      const authH: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
       const [todayRes, deliveriesRes] = await Promise.all([
-        fetch(`${base}/api/readings/today`, {
+        fetch(`${base}/readings/today?${farmParam.slice(1)}`, {
           signal: ctrl.signal,
-          headers: { Accept: "application/json" },
+          headers: { Accept: "application/json", ...authH },
         }),
-        fetch(`${base}/api/deliveries`, {
+        fetch(`${base}/deliveries${farmId !== undefined ? `?farmId=${farmId}` : ""}`, {
           signal: ctrl.signal,
-          headers: { Accept: "application/json" },
+          headers: { Accept: "application/json", ...authH },
         }),
       ]);
 
@@ -87,7 +93,7 @@ export function useFarmData(apiUrl: string) {
       if (err instanceof Error && err.name === "AbortError") return;
       setData(prev => ({ ...prev, loading: false, error: true, lastFetched: Date.now() }));
     }
-  }, [apiUrl]);
+  }, [apiUrl, farmId, getToken]);
 
   useEffect(() => {
     fetchData();

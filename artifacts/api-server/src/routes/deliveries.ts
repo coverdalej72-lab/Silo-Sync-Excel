@@ -1,16 +1,20 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db, deliveriesTable, shedGroupsTable, silosTable } from "@workspace/db";
 import {
   CreateDeliveryBody,
   DeleteDeliveryParams,
   ListDeliveriesResponse,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
+import { attachFarmScope } from "../middlewares/farmScope";
 
 const router: IRouter = Router();
 
-router.get("/deliveries", async (_req, res): Promise<void> => {
-  const rows = await db
+router.get("/deliveries", requireAuth, attachFarmScope, async (req, res): Promise<void> => {
+  const farmId = req.effectiveFarmId;
+
+  let query = db
     .select({
       id: deliveriesTable.id,
       shedGroupId: deliveriesTable.shedGroupId,
@@ -27,8 +31,14 @@ router.get("/deliveries", async (_req, res): Promise<void> => {
     .from(deliveriesTable)
     .leftJoin(shedGroupsTable, eq(deliveriesTable.shedGroupId, shedGroupsTable.id))
     .leftJoin(silosTable, eq(deliveriesTable.siloId, silosTable.id))
-    .orderBy(desc(deliveriesTable.deliveryDate));
+    .orderBy(desc(deliveriesTable.deliveryDate))
+    .$dynamic();
 
+  if (farmId !== null) {
+    query = query.where(eq(deliveriesTable.farmId, farmId));
+  }
+
+  const rows = await query;
   const mapped = rows.map((r) => ({
     ...r,
     shedGroupId: r.shedGroupId ?? null,
@@ -43,16 +53,19 @@ router.get("/deliveries", async (_req, res): Promise<void> => {
   res.json(ListDeliveriesResponse.parse(mapped));
 });
 
-router.post("/deliveries", async (req, res): Promise<void> => {
+router.post("/deliveries", requireAuth, attachFarmScope, async (req, res): Promise<void> => {
   const parsed = CreateDeliveryBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
+  const farmId = req.effectiveFarmId;
+
   const [delivery] = await db
     .insert(deliveriesTable)
     .values({
+      farmId: farmId ?? null,
       shedGroupId: parsed.data.shedGroupId ?? null,
       siloId: parsed.data.siloId ?? null,
       feedType: parsed.data.feedType,
@@ -80,16 +93,23 @@ router.post("/deliveries", async (req, res): Promise<void> => {
   });
 });
 
-router.delete("/deliveries/:id", async (req, res): Promise<void> => {
+router.delete("/deliveries/:id", requireAuth, attachFarmScope, async (req, res): Promise<void> => {
   const params = DeleteDeliveryParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
+
+  const farmId = req.effectiveFarmId;
+  const whereClause = farmId !== null
+    ? and(eq(deliveriesTable.id, params.data.id), eq(deliveriesTable.farmId, farmId))
+    : eq(deliveriesTable.id, params.data.id);
+
   const [delivery] = await db
     .delete(deliveriesTable)
-    .where(eq(deliveriesTable.id, params.data.id))
+    .where(whereClause)
     .returning();
+
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
     return;

@@ -264,7 +264,7 @@ export default function Home() {
         setPendingQueue(next);
         // Track queued values for UI
         const vals: Record<number, { val: string; unit: string }> = {};
-        readings.forEach(r => {
+        readings.forEach((r: { siloId: number; amountRemaining: number; unit: string }) => {
           vals[r.siloId] = { val: r.amountRemaining.toString(), unit: r.unit };
         });
         setQueuedVals(prev => ({ ...prev, [shedId]: vals }));

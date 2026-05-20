@@ -3,9 +3,11 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { shedGroupsTable } from "./shed_groups";
 import { silosTable } from "./silos";
+import { farmsTable } from "./farms";
 
 export const deliveriesTable = pgTable("deliveries", {
   id: serial("id").primaryKey(),
+  farmId: integer("farm_id").references(() => farmsTable.id, { onDelete: "cascade" }),
   shedGroupId: integer("shed_group_id").references(() => shedGroupsTable.id, { onDelete: "set null" }),
   siloId: integer("silo_id").references(() => silosTable.id, { onDelete: "set null" }),
   feedType: text("feed_type").notNull(),

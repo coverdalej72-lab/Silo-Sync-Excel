@@ -1494,6 +1494,214 @@ function CheckoutSuccessModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+const OPS_TIERS = [
+  { id: "bronze", label: "🥉 Bronze", price: 75, desc: "Silo readings & history", color: "#CD7F32" },
+  { id: "silver", label: "🥈 Silver", price: 150, desc: "Bronze + feed program", color: "#94a3b8" },
+  { id: "gold",   label: "🥇 Gold",   price: 250, desc: "Silver + deliveries & export", color: "#C9A227" },
+  { id: "platinum", label: "💎 Platinum", price: 400, desc: "Gold + priority support & custom reports", color: "#7c3aed" },
+];
+
+function OperationsBundle() {
+  const [counts, setCounts] = useState<Record<string, number>>({ bronze: 0, silver: 0, gold: 0, platinum: 0 });
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", company: "", notes: "" });
+
+  const totalMonthly = OPS_TIERS.reduce((sum, t) => sum + (counts[t.id] ?? 0) * t.price, 0);
+  const totalFarms = OPS_TIERS.reduce((sum, t) => sum + (counts[t.id] ?? 0), 0);
+
+  const adj = (id: string, delta: number) => setCounts(c => ({ ...c, [id]: Math.max(0, Math.min(20, (c[id] ?? 0) + delta)) }));
+
+  const mailto = `mailto:coverdalej72@gmail.com?subject=${encodeURIComponent("Operations Bundle Enquiry — Farm Buddy™")}&body=${encodeURIComponent(
+    `Hi,\n\nI'm interested in the Operations Bundle for ${totalFarms} farm${totalFarms !== 1 ? "s" : ""}.\n\nTier breakdown:\n` +
+    OPS_TIERS.filter(t => (counts[t.id] ?? 0) > 0).map(t => `  ${TIER_LABELS_LOCAL[t.id]}: ${counts[t.id]} farm${counts[t.id] !== 1 ? "s" : ""} × $${t.price}/mo`).join("\n") +
+    `\n\nTotal: $${totalMonthly}/month (AUD, ex. GST)\n\nName: ${form.name}\nEmail: ${form.email}\nCompany/Farm Group: ${form.company}\nNotes: ${form.notes}\n`
+  )}`;
+
+  return (
+    <section id="operations-bundle" style={{ background: "#f0fdf4", padding: "80px 24px", borderTop: "4px solid #1a5c36" }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <span style={{
+            display: "inline-block", background: "#1a5c36", color: "#C9A227",
+            fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
+            padding: "5px 14px", borderRadius: 20, marginBottom: 14,
+          }}>
+            For Operations Groups
+          </span>
+          <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, color: "#111827", letterSpacing: "-0.03em", margin: "0 0 14px" }}>
+            Operations Bundle
+          </h2>
+          <p style={{ color: "#4b5563", fontSize: 17, maxWidth: 560, margin: "0 auto", lineHeight: 1.6 }}>
+            Run multiple farms under one operations group. Mix and match plan tiers per farm — only pay for what each site needs.
+          </p>
+        </div>
+
+        {/* Tier grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 32 }}>
+          {OPS_TIERS.map(tier => (
+            <div key={tier.id} style={{
+              background: "#fff", borderRadius: 14,
+              border: `2px solid ${(counts[tier.id] ?? 0) > 0 ? tier.color : "#e5e7eb"}`,
+              padding: "20px 18px",
+              transition: "border-color 0.15s, box-shadow 0.15s",
+              boxShadow: (counts[tier.id] ?? 0) > 0 ? `0 0 0 3px ${tier.color}22` : "none",
+            }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: tier.color, marginBottom: 4 }}>{tier.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#111827", marginBottom: 2 }}>
+                ${tier.price}<span style={{ fontSize: 12, fontWeight: 600, color: "#6b7280" }}>/mo</span>
+              </div>
+              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16, lineHeight: 1.4 }}>{tier.desc}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <button
+                  onClick={() => adj(tier.id, -1)}
+                  disabled={(counts[tier.id] ?? 0) === 0}
+                  style={{
+                    width: 32, height: 32, borderRadius: 8, border: "1.5px solid #d1d5db",
+                    background: "#f9fafb", fontSize: 18, fontWeight: 700, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    opacity: (counts[tier.id] ?? 0) === 0 ? 0.35 : 1,
+                  }}
+                >−</button>
+                <span style={{ fontWeight: 800, fontSize: 20, color: "#111827", minWidth: 28, textAlign: "center" }}>
+                  {counts[tier.id] ?? 0}
+                </span>
+                <button
+                  onClick={() => adj(tier.id, 1)}
+                  style={{
+                    width: 32, height: 32, borderRadius: 8, border: "1.5px solid #d1d5db",
+                    background: "#f9fafb", fontSize: 18, fontWeight: 700, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >+</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pricing summary */}
+        <div style={{
+          background: "#fff", borderRadius: 16, border: "2px solid #1a5c36",
+          padding: "24px 28px", marginBottom: 28,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: 16,
+        }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
+              {totalFarms === 0 ? "Select farms above to calculate" : `${totalFarms} farm${totalFarms !== 1 ? "s" : ""} · monthly total`}
+            </div>
+            <div style={{ fontSize: 36, fontWeight: 900, color: "#1a5c36", letterSpacing: "-0.04em" }}>
+              {totalMonthly === 0 ? "—" : `$${totalMonthly.toLocaleString()}`}
+              {totalMonthly > 0 && <span style={{ fontSize: 14, fontWeight: 600, color: "#6b7280" }}> /mo AUD ex. GST</span>}
+            </div>
+            {totalFarms > 0 && (
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "6px 16px" }}>
+                {OPS_TIERS.filter(t => (counts[t.id] ?? 0) > 0).map(t => (
+                  <span key={t.id} style={{ fontSize: 12, color: "#374151" }}>
+                    <span style={{ fontWeight: 700, color: t.color }}>{t.label}</span> × {counts[t.id]}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            disabled={totalFarms === 0}
+            onClick={() => totalFarms > 0 && setShowForm(true)}
+            style={{
+              background: totalFarms > 0 ? "#1a5c36" : "#e5e7eb",
+              color: totalFarms > 0 ? "#fff" : "#9ca3af",
+              fontWeight: 800, fontSize: 16, padding: "14px 32px",
+              borderRadius: 12, border: "none", cursor: totalFarms > 0 ? "pointer" : "not-allowed",
+              transition: "background 0.15s",
+            }}
+          >
+            Request Operations Bundle →
+          </button>
+        </div>
+
+        {/* Contact form */}
+        {showForm && (
+          <div style={{
+            background: "#fff", borderRadius: 16, border: "2px solid #1a5c36",
+            padding: "28px", marginBottom: 28,
+          }}>
+            <h3 style={{ margin: "0 0 18px", fontWeight: 800, fontSize: 18, color: "#111827" }}>
+              Request your Operations Bundle
+            </h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 12 }}>
+              {[
+                { key: "name", label: "Your Name", placeholder: "Jane Smith" },
+                { key: "email", label: "Email", placeholder: "jane@farmgroup.com.au" },
+                { key: "company", label: "Farm Group / Company", placeholder: "Double B Farms" },
+              ].map(f => (
+                <div key={f.key}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 5 }}>{f.label}</label>
+                  <input
+                    type="text"
+                    value={form[f.key as keyof typeof form]}
+                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                    placeholder={f.placeholder}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 14, boxSizing: "border-box" }}
+                  />
+                </div>
+              ))}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 5 }}>Notes (optional)</label>
+              <textarea
+                value={form.notes}
+                onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Special requirements, go-live date, questions..."
+                rows={3}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <a
+                href={mailto}
+                style={{
+                  display: "inline-block", background: "#1a5c36", color: "#fff",
+                  fontWeight: 800, fontSize: 15, padding: "12px 28px", borderRadius: 10,
+                  textDecoration: "none",
+                }}
+              >
+                Send Enquiry →
+              </a>
+              <button
+                onClick={() => setShowForm(false)}
+                style={{ background: "transparent", border: "1.5px solid #d1d5db", padding: "12px 20px", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#374151" }}
+              >
+                Cancel
+              </button>
+            </div>
+            <p style={{ marginTop: 12, fontSize: 12, color: "#9ca3af" }}>
+              We'll respond within 1 business day with a tailored setup plan and invoice.
+            </p>
+          </div>
+        )}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+          {[
+            { icon: "🔒", title: "Full data isolation", desc: "Each farm's readings, silos, and deliveries are completely separate." },
+            { icon: "👤", title: "One login per farm", desc: "Each farm manager gets their own email/password account." },
+            { icon: "📊", title: "Ops dashboard", desc: "Boss account sees all farms at a glance — feed levels, sheds done, next delivery." },
+            { icon: "📧", title: "Invite-based onboarding", desc: "We email each farm manager a secure sign-up link to activate their account." },
+          ].map(f => (
+            <div key={f.title} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 24 }}>{f.icon}</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#111827", marginBottom: 3 }}>{f.title}</div>
+                <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{f.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const TIER_LABELS_LOCAL: Record<string, string> = { bronze: "🥉 Bronze", silver: "🥈 Silver", gold: "🥇 Gold", platinum: "💎 Platinum" };
+
 export default function App() {
   const [yearly, setYearly] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
@@ -2675,6 +2883,9 @@ export default function App() {
           </p>
         </div>
       </section>
+
+      {/* OPERATIONS BUNDLE */}
+      <OperationsBundle />
 
       {/* CTA FOOTER */}
       <section style={{

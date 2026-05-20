@@ -8,49 +8,51 @@ import {
   DeleteReadingParams,
 } from "@workspace/api-zod";
 import { pushReadingsToCloud } from "../lib/onedrive";
+import { requireAuth } from "../middlewares/requireAuth";
+import { attachFarmScope } from "../middlewares/farmScope";
 
 const router: IRouter = Router();
 
 // ─── Today's progress ────────────────────────────────────────────────────────
 
-router.get("/readings/today", async (req, res): Promise<void> => {
-  // Determine "today" in Australian Eastern Time (UTC+10 base).
-  // This covers AEST (UTC+10) and is within 1 hour of AEDT (UTC+11),
-  // ensuring the correct local day is used even when the server clock is UTC.
+router.get("/readings/today", requireAuth, attachFarmScope, async (req, res): Promise<void> => {
   const localDateParam = typeof req.query.localDate === "string" ? req.query.localDate : null;
+  const farmId = req.effectiveFarmId;
 
   let todayStart: Date;
   let todayEnd: Date;
 
   if (localDateParam && /^\d{4}-\d{2}-\d{2}$/.test(localDateParam)) {
-    // Client sent its local YYYY-MM-DD — use it directly with a ±14h UTC window
-    // so we capture readings no matter what timezone offset the server used at save time.
     todayStart = new Date(localDateParam + "T00:00:00.000Z");
     todayStart.setTime(todayStart.getTime() - 14 * 3600_000);
     todayEnd = new Date(localDateParam + "T23:59:59.999Z");
     todayEnd.setTime(todayEnd.getTime() + 14 * 3600_000);
   } else {
-    // Fallback: derive "today" from AEST (UTC+10)
     const AEST_MS = 10 * 3600_000;
     const nowAEST = new Date(Date.now() + AEST_MS);
-    const aestDate = nowAEST.toISOString().slice(0, 10); // YYYY-MM-DD in AEST
+    const aestDate = nowAEST.toISOString().slice(0, 10);
     todayStart = new Date(aestDate + "T00:00:00.000Z");
     todayStart.setTime(todayStart.getTime() - AEST_MS);
     todayEnd = new Date(aestDate + "T23:59:59.999Z");
     todayEnd.setTime(todayEnd.getTime() - AEST_MS);
   }
 
-  const groups = await db
+  const groupsQ = db
     .select()
     .from(shedGroupsTable)
-    .orderBy(asc(shedGroupsTable.displayOrder));
+    .orderBy(asc(shedGroupsTable.displayOrder))
+    .$dynamic();
+
+  const groups = farmId !== null
+    ? await groupsQ.where(eq(shedGroupsTable.farmId, farmId))
+    : await groupsQ;
 
   const silos = await db
     .select()
     .from(silosTable)
     .orderBy(asc(silosTable.letter));
 
-  const todayReadings = await db
+  const readingsQ = db
     .select()
     .from(readingsTable)
     .where(
@@ -58,7 +60,26 @@ router.get("/readings/today", async (req, res): Promise<void> => {
         gte(readingsTable.readingDate, todayStart),
         lte(readingsTable.readingDate, todayEnd)
       )
-    );
+    )
+    .$dynamic();
+
+  const todayReadings = farmId !== null
+    ? await readingsQ.where(
+        and(
+          eq(readingsTable.farmId, farmId),
+          gte(readingsTable.readingDate, todayStart),
+          lte(readingsTable.readingDate, todayEnd)
+        )
+      )
+    : await db
+        .select()
+        .from(readingsTable)
+        .where(
+          and(
+            gte(readingsTable.readingDate, todayStart),
+            lte(readingsTable.readingDate, todayEnd)
+          )
+        );
 
   const sheds = groups.map((g) => {
     const groupSilos = silos.filter((s) => s.shedGroupId === g.id);
@@ -85,7 +106,6 @@ router.get("/readings/today", async (req, res): Promise<void> => {
   });
 
   const savedCount = sheds.filter((s) => s.allSaved).length;
-  // Return the date as it appears in Australian Eastern Time
   const AEST_MS = 10 * 3600_000;
   const date = localDateParam ?? new Date(Date.now() + AEST_MS).toISOString().slice(0, 10);
 
@@ -99,7 +119,7 @@ router.get("/readings/today", async (req, res): Promise<void> => {
 
 // ─── Batch create readings ────────────────────────────────────────────────────
 
-router.post("/readings/batch", async (req, res): Promise<void> => {
+router.post("/readings/batch", requireAuth, attachFarmScope, async (req, res): Promise<void> => {
   const parsed = BatchCreateReadingsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -112,12 +132,14 @@ router.post("/readings/batch", async (req, res): Promise<void> => {
     return;
   }
 
+  const farmId = req.effectiveFarmId;
   const date = readingDate ? new Date(readingDate) : new Date();
 
   const inserted = await db
     .insert(readingsTable)
     .values(
       readings.map((r) => ({
+        farmId: farmId ?? null,
         siloId: r.siloId,
         feedType: r.feedType,
         amountRemaining: String(r.amountRemaining),
@@ -128,19 +150,6 @@ router.post("/readings/batch", async (req, res): Promise<void> => {
     )
     .returning();
 
-  // Enrich with silo/shed info
-  const siloIds = inserted.map((r) => r.siloId);
-  const silosData = await db
-    .select({
-      id: silosTable.id,
-      name: silosTable.name,
-      letter: silosTable.letter,
-      shedGroupId: silosTable.shedGroupId,
-    })
-    .from(silosTable)
-    .where(eq(silosTable.id, siloIds[0]));
-
-  // Get all silos for the batch
   const allSilos = await db.select({
     id: silosTable.id,
     name: silosTable.name,
@@ -177,7 +186,7 @@ router.post("/readings/batch", async (req, res): Promise<void> => {
 
 // ─── List readings ────────────────────────────────────────────────────────────
 
-router.get("/readings", async (req, res): Promise<void> => {
+router.get("/readings", requireAuth, attachFarmScope, async (req, res): Promise<void> => {
   const parsed = ListReadingsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -185,6 +194,7 @@ router.get("/readings", async (req, res): Promise<void> => {
   }
 
   const { limit } = parsed.data;
+  const farmId = req.effectiveFarmId;
 
   let query = db
     .select({
@@ -206,6 +216,10 @@ router.get("/readings", async (req, res): Promise<void> => {
     .orderBy(desc(readingsTable.readingDate))
     .$dynamic();
 
+  if (farmId !== null) {
+    query = query.where(eq(readingsTable.farmId, farmId));
+  }
+
   if (limit != null) {
     query = query.limit(limit);
   }
@@ -225,16 +239,23 @@ router.get("/readings", async (req, res): Promise<void> => {
 
 // ─── Delete reading ───────────────────────────────────────────────────────────
 
-router.delete("/readings/:id", async (req, res): Promise<void> => {
+router.delete("/readings/:id", requireAuth, attachFarmScope, async (req, res): Promise<void> => {
   const params = DeleteReadingParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
+
+  const farmId = req.effectiveFarmId;
+  const whereClause = farmId !== null
+    ? and(eq(readingsTable.id, params.data.id), eq(readingsTable.farmId, farmId))
+    : eq(readingsTable.id, params.data.id);
+
   const [reading] = await db
     .delete(readingsTable)
-    .where(eq(readingsTable.id, params.data.id))
+    .where(whereClause)
     .returning();
+
   if (!reading) {
     res.status(404).json({ error: "Reading not found" });
     return;

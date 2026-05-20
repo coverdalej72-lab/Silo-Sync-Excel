@@ -1,48 +1,93 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/react";
 
 export interface Farm {
-  id: string;
+  id: number;
   name: string;
-  apiUrl: string;
-}
-
-const FARMS_KEY = "ops-farms";
-
-const DEFAULT_FARMS: Farm[] = [
-  { id: "farm-default", name: "My Farm", apiUrl: "" },
-];
-
-function load(): Farm[] {
-  try {
-    const raw = localStorage.getItem(FARMS_KEY);
-    if (raw) return JSON.parse(raw) as Farm[];
-  } catch {}
-  return DEFAULT_FARMS;
-}
-
-function persist(farms: Farm[]) {
-  try { localStorage.setItem(FARMS_KEY, JSON.stringify(farms)); } catch {}
+  planTier: string;
+  clerkUserId: string | null;
+  createdAt: string;
 }
 
 export function useFarms() {
-  const [farms, setFarms] = useState<Farm[]>(load);
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { getToken } = useAuth();
 
-  const saveFarms = (next: Farm[]) => {
-    setFarms(next);
-    persist(next);
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+  const authHeaders = async (): Promise<Record<string, string>> => {
+    const token = await getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  const addFarm = (data: Omit<Farm, "id">) => {
-    saveFarms([...farms, { ...data, id: `farm-${Date.now()}` }]);
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const resp = await fetch(`${BASE}/api/farms`, { headers: await authHeaders() });
+      if (!resp.ok) {
+        setError(`Failed to load farms (${resp.status})`);
+        setFarms([]);
+        return;
+      }
+      const data = (await resp.json()) as Array<{
+        id: number;
+        name: string;
+        plan_tier?: string;
+        planTier?: string;
+        clerk_user_id?: string | null;
+        clerkUserId?: string | null;
+        created_at?: string;
+        createdAt?: string;
+      }>;
+      setFarms(data.map(f => ({
+        id: f.id,
+        name: f.name,
+        planTier: f.planTier ?? f.plan_tier ?? "bronze",
+        clerkUserId: f.clerkUserId ?? f.clerk_user_id ?? null,
+        createdAt: f.createdAt ?? f.created_at ?? "",
+      })));
+    } catch {
+      setError("Network error loading farms");
+      setFarms([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateFarm = (id: string, updates: Partial<Omit<Farm, "id">>) => {
-    saveFarms(farms.map(f => f.id === id ? { ...f, ...updates } : f));
+  useEffect(() => { load(); }, []);
+
+  const createFarm = async (name: string, planTier: string, managerEmail?: string) => {
+    const resp = await fetch(`${BASE}/api/farms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...await authHeaders() },
+      body: JSON.stringify({ name, planTier, managerEmail }),
+    });
+    if (!resp.ok) throw new Error(`Failed to create farm (${resp.status})`);
+    await load();
+    return (await resp.json()) as Farm;
   };
 
-  const removeFarm = (id: string) => {
-    saveFarms(farms.filter(f => f.id !== id));
+  const updateFarm = async (id: number, updates: { name?: string; planTier?: string }) => {
+    const resp = await fetch(`${BASE}/api/farms/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...await authHeaders() },
+      body: JSON.stringify(updates),
+    });
+    if (!resp.ok) throw new Error(`Failed to update farm (${resp.status})`);
+    await load();
   };
 
-  return { farms, addFarm, updateFarm, removeFarm };
+  const removeFarm = async (id: number) => {
+    const resp = await fetch(`${BASE}/api/farms/${id}`, {
+      method: "DELETE",
+      headers: await authHeaders(),
+    });
+    if (!resp.ok) throw new Error(`Failed to delete farm (${resp.status})`);
+    await load();
+  };
+
+  return { farms, loading, error, refresh: load, createFarm, updateFarm, removeFarm };
 }

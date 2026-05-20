@@ -2,14 +2,23 @@ import { Router, type IRouter } from "express";
 import { eq, asc } from "drizzle-orm";
 import { db, shedGroupsTable, silosTable } from "@workspace/db";
 import { ListShedGroupsResponse } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
+import { attachFarmScope } from "../middlewares/farmScope";
 
 const router: IRouter = Router();
 
-router.get("/shed-groups", async (_req, res): Promise<void> => {
-  const groups = await db
+router.get("/shed-groups", requireAuth, attachFarmScope, async (req, res): Promise<void> => {
+  const farmId = req.effectiveFarmId;
+
+  const groupsQ = db
     .select()
     .from(shedGroupsTable)
-    .orderBy(asc(shedGroupsTable.displayOrder));
+    .orderBy(asc(shedGroupsTable.displayOrder))
+    .$dynamic();
+
+  const groups = farmId !== null
+    ? await groupsQ.where(eq(shedGroupsTable.farmId, farmId))
+    : await groupsQ;
 
   const silos = await db
     .select()

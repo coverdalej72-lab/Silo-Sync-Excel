@@ -1,11 +1,13 @@
-import { useEffect } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { useTheme } from "@/hooks/use-theme";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { ClerkProvider, Show, useClerk } from "@clerk/react";
+import { publishableKeyFromHost } from "@clerk/react/internal";
 
 import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
@@ -15,12 +17,14 @@ import SettingsPage from "@/pages/settings";
 import Photos from "@/pages/photos";
 import OpsDashboard from "@/pages/ops-dashboard";
 import OpsSettings from "@/pages/ops-settings";
+import SignInPage from "@/pages/sign-in";
+import SignUpPage from "@/pages/sign-up";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 3 * 60 * 1000,       // 3 minutes before refetch
-      gcTime: 24 * 60 * 60 * 1000,    // Keep cache 24 hours
+      staleTime: 3 * 60 * 1000,
+      gcTime: 24 * 60 * 60 * 1000,
       retry: 1,
       retryDelay: 2000,
       refetchOnWindowFocus: true,
@@ -84,37 +88,132 @@ function RedirectHome() {
   return null;
 }
 
+function ClerkQueryClientCacheInvalidator() {
+  const { addListener } = useClerk();
+  const qc = useQueryClient();
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const unsubscribe = addListener(({ user }) => {
+      const userId = user?.id ?? null;
+      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
+        qc.clear();
+      }
+      prevUserIdRef.current = userId;
+    });
+    return unsubscribe;
+  }, [addListener, qc]);
+
+  return null;
+}
+
+function SignInGate({ children }: { children: React.ReactNode }) {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  return (
+    <>
+      <Show when="signed-in">
+        {children}
+      </Show>
+      <Show when="signed-out">
+        <Redirect to={`${basePath}/sign-in`} />
+      </Show>
+    </>
+  );
+}
+
+function OpsGate({ children }: { children: React.ReactNode }) {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  return (
+    <>
+      <Show when="signed-in">
+        {children}
+      </Show>
+      <Show when="signed-out">
+        <Redirect to={`${basePath}/sign-in`} />
+      </Show>
+    </>
+  );
+}
+
 function Router() {
   return (
     <Switch>
-      {/* Ops dashboard — full-screen, no farm-manager chrome */}
+      {/* Auth pages */}
+      <Route path="/sign-in/*?" component={SignInPage} />
+      <Route path="/sign-up/*?" component={SignUpPage} />
+
+      {/* Ops dashboard — operator only, no farm-manager chrome */}
       <Route path="/ops/settings">
-        <WouterRouter base="/ops">
-          <OpsSettings />
-        </WouterRouter>
+        <OpsGate>
+          <WouterRouter base="/ops">
+            <OpsSettings />
+          </WouterRouter>
+        </OpsGate>
       </Route>
       <Route path="/ops">
-        <WouterRouter base="/ops">
-          <OpsDashboard />
-        </WouterRouter>
+        <OpsGate>
+          <WouterRouter base="/ops">
+            <OpsDashboard />
+          </WouterRouter>
+        </OpsGate>
       </Route>
 
-      {/* Farm manager app */}
+      {/* Farm manager app — requires sign-in */}
       <Route>
-        <Layout>
-          <Switch>
-            <Route path="/" component={Home} />
-            <Route path="/history" component={History} />
-            <Route path="/deliveries" component={Deliveries} />
-            <Route path="/photos" component={Photos} />
-            <Route path="/settings" component={SettingsPage} />
-            <Route path="/record" component={RedirectHome} />
-            <Route path="/silos" component={RedirectHome} />
-            <Route component={NotFound} />
-          </Switch>
-        </Layout>
+        <SignInGate>
+          <Layout>
+            <Switch>
+              <Route path="/" component={Home} />
+              <Route path="/history" component={History} />
+              <Route path="/deliveries" component={Deliveries} />
+              <Route path="/photos" component={Photos} />
+              <Route path="/settings" component={SettingsPage} />
+              <Route path="/record" component={RedirectHome} />
+              <Route path="/silos" component={RedirectHome} />
+              <Route component={NotFound} />
+            </Switch>
+          </Layout>
+        </SignInGate>
       </Route>
     </Switch>
+  );
+}
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const clerkPubKey = publishableKeyFromHost(
+  window.location.hostname,
+  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
+);
+
+const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || "/"
+    : path;
+}
+
+function ClerkProviderWithRoutes() {
+  const [, setLocation] = useLocation();
+  return (
+    <ClerkProvider
+      publishableKey={clerkPubKey}
+      proxyUrl={clerkProxyUrl}
+      signInUrl={`${basePath}/sign-in`}
+      signUpUrl={`${basePath}/sign-up`}
+      routerPush={(to) => setLocation(stripBase(to))}
+      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+    >
+      <QueryClientProvider client={queryClient}>
+        <ClerkQueryClientCacheInvalidator />
+        <TooltipProvider>
+          <Router />
+          <Toaster />
+          <PwaUpdateBanner />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }
 
@@ -122,15 +221,9 @@ function App() {
   useTheme();
   useBatchVersionSync();
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-        <PwaUpdateBanner />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <WouterRouter base={basePath}>
+      <ClerkProviderWithRoutes />
+    </WouterRouter>
   );
 }
 

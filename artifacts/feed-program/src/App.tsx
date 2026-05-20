@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { authFetch } from "./lib/auth-fetch";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ComposedChart, Line, Area, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -5840,7 +5841,7 @@ function BirdWeighView({ farmConfig }: { farmConfig: FarmConfigData }) {
     if (!capturedImg) return;
     setAnalyzing(true); setAiError(null);
     try {
-      const res = await fetch("/api/weigh-bird", {
+      const res = await authFetch("/api/weigh-bird", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageBase64: capturedImg, ageDays: parseInt(manualAge) || undefined, shedNum: selectedShedNum }),
@@ -6988,7 +6989,7 @@ export default function App() {
     const todayStr = () => new Date(Date.now() + 10 * 3600_000).toISOString().slice(0, 10);
     const run = async () => {
       try {
-        const res = await fetch(`${window.location.origin}/api/readings/today`);
+        const res = await authFetch(`${window.location.origin}/api/readings/today`);
         if (!res.ok) return;
         const data = await res.json();
         const sheds: typeof siloSyncReadings = data.sheds ?? [];
@@ -7031,7 +7032,7 @@ export default function App() {
     setSiloSyncMode(todayInSheet ? "correct" : "next");
     setSiloSyncUnitOverride("t");
     try {
-      const res = await fetch(`${window.location.origin}/api/readings/today`);
+      const res = await authFetch(`${window.location.origin}/api/readings/today`);
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json();
       setSiloSyncReadings(data.sheds ?? []);
@@ -7319,7 +7320,7 @@ export default function App() {
     if (sheets.length === 0 || seedDoneRef.current) return;
     seedDoneRef.current = true;
 
-    fetch("/api/readings/today")
+    authFetch("/api/readings/today")
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (!data?.sheds) return;
@@ -7484,7 +7485,7 @@ export default function App() {
       // (deliveries + silo readings) so the new file starts with a clean slate —
       // equivalent to pressing "Start New Batch" + loading a file in one step.
       captureAndSaveBatchHistory();
-      try { await fetch("/api/batch/reset", { method: "DELETE" }); } catch { /* best effort */ }
+      try { await authFetch("/api/batch/reset", { method: "DELETE" }); } catch { /* best effort */ }
 
       // Load file + app style theme in parallel
       const [buf, styleData] = await Promise.all([
@@ -7562,7 +7563,7 @@ export default function App() {
     )) return;
     captureAndSaveBatchHistory();
     try {
-      await fetch("/api/batch/reset", { method: "DELETE" });
+      await authFetch("/api/batch/reset", { method: "DELETE" });
     } catch {
       // best effort — still clear locally even if API fails
     }

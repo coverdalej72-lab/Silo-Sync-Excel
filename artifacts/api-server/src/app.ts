@@ -3,9 +3,14 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
 import { fileURLToPath } from "url";
+import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { ensurePlansTable } from "./paypalClient";
+import {
+  CLERK_PROXY_PATH,
+  clerkProxyMiddleware,
+} from "./middlewares/clerkProxyMiddleware";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,9 +30,15 @@ app.use(
   }),
 );
 
-app.use(cors());
+// Clerk proxy must be mounted BEFORE body parsers (streams raw bytes)
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
+app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Clerk authentication — reads CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY from env
+app.use(clerkMiddleware());
 
 app.use("/api", router);
 

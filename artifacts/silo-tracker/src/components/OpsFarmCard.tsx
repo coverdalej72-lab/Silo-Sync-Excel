@@ -2,8 +2,16 @@ import { RefreshCw, ExternalLink, Wifi, WifiOff, Clock, Package, Truck, AlertTri
 import { cn } from "@/lib/utils";
 import type { FarmData, ShedStatus, SiloStatus, Delivery } from "@/hooks/useFarmData";
 
+const TIER_BADGE: Record<string, string> = {
+  bronze: "🥉 Bronze",
+  silver: "🥈 Silver",
+  gold: "🥇 Gold",
+  platinum: "💎 Platinum",
+};
+
 interface FarmCardProps {
   name: string;
+  planTier?: string;
   apiUrl: string;
   data: FarmData;
   onRefresh: () => void;
@@ -74,7 +82,7 @@ function SkeletonCard({ name }: { name: string }) {
   );
 }
 
-export default function OpsFarmCard({ name, apiUrl, data, onRefresh }: FarmCardProps) {
+export default function OpsFarmCard({ name, planTier, apiUrl, data, onRefresh }: FarmCardProps) {
   const { progress, deliveries, loading, error, lastFetched } = data;
 
   const farmUrl = apiUrl || window.location.origin;
@@ -101,6 +109,9 @@ export default function OpsFarmCard({ name, apiUrl, data, onRefresh }: FarmCardP
           <div className="min-w-0">
             <p className="text-primary-foreground/60 text-[10px] font-bold uppercase tracking-widest">Farm</p>
             <p className="text-primary-foreground text-xl font-extrabold leading-tight truncate">{name}</p>
+            {planTier && (
+              <p className="text-primary-foreground/50 text-[10px] font-semibold mt-0.5">{TIER_BADGE[planTier] ?? planTier}</p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-0.5">
             <span className={cn(

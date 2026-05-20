@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { authFetch } from "../lib/auth-fetch";
 import { EobQrScanner, type DocketData } from "./EobQrScanner";
 
 const SYNCED_IDS_KEY   = "eob-synced-delivery-ids";
@@ -158,7 +159,7 @@ export function EndOfBatchContent({ sheet, edits, onEdit }: Props) {
   const syncDeliveries = useCallback(async (silent = false) => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/deliveries");
+      const res = await authFetch("/api/deliveries");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const deliveries: Array<{
         id: number; feedType: string; amount: number; unit: string;

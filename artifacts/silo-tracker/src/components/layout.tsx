@@ -26,17 +26,18 @@ function InstallBanner() {
 
     setIsIos(ios);
 
-    if (!ios) {
-      const handler = (e: Event) => {
-        e.preventDefault();
-        setDeferredPrompt(e);
-        setShow(true);
-      };
-      window.addEventListener("beforeinstallprompt", handler as any);
-      return () => window.removeEventListener("beforeinstallprompt", handler as any);
-    } else {
+    if (ios) {
       setShow(true);
+      return;
     }
+
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShow(true);
+    };
+    window.addEventListener("beforeinstallprompt", handler as any);
+    return () => window.removeEventListener("beforeinstallprompt", handler as any);
   }, []);
 
   const handleInstall = async () => {

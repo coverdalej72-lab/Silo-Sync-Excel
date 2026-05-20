@@ -1,9 +1,11 @@
 import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { farmsTable } from "./farms";
 
 export const shedGroupsTable = pgTable("shed_groups", {
   id: serial("id").primaryKey(),
+  farmId: integer("farm_id").references(() => farmsTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   displayOrder: integer("display_order").notNull().default(0),
 });
