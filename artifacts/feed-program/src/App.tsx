@@ -1178,10 +1178,11 @@ function ShedInfoPanel({ sheet, edits }: { sheet: SheetParsed; edits?: Map<strin
 }
 
 // ── EobInfoPanel ──────────────────────────────────────────────────────────
-function EobInfoPanel({ sheet, edits, farmName, shedPlacement, catchMap }: {
+function EobInfoPanel({ sheet, edits, farmName, shedPlacement, catchMap, batchPlacementDate }: {
   sheet: SheetParsed; edits: Map<string, string>; farmName: string;
   shedPlacement?: Map<number, number>;
-  catchMap?: Record<number, { birds: string }[]>;
+  catchMap?: Record<number, { birds: string; date?: string }[]>;
+  batchPlacementDate?: Date;
 }) {
   const { cells } = sheet;
   const g = (r: number, c: number) => {
@@ -1217,7 +1218,16 @@ function EobInfoPanel({ sheet, edits, farmName, shedPlacement, catchMap }: {
   let livePlaced = 0, liveCaught = 0;
   if (shedPlacement) shedPlacement.forEach(birds => { livePlaced += (birds || 0); });
   if (catchMap) Object.values(catchMap).forEach(rows =>
-    rows.forEach(r => { liveCaught += (parseFloat(r.birds) || 0); })
+    rows.forEach(r => {
+      // Skip catches that predate the current batch's placement date.
+      // This prevents stale data seeded from the previous batch's xlsx results file
+      // from showing up as "birds caught" in a fresh batch.
+      if (batchPlacementDate && r.date) {
+        const catchDate = parseDateString(r.date);
+        if (catchDate && catchDate < batchPlacementDate) return;
+      }
+      liveCaught += (parseFloat(r.birds) || 0);
+    })
   );
   const hasliveData = livePlaced > 0;
   const totalBirdsPlaced  = hasliveData ? String(livePlaced)  : g(16, 22);
@@ -8149,7 +8159,16 @@ export default function App() {
           return (
             <>
               {isShed && <ShedInfoPanel sheet={current} edits={activeEdits} />}
-              {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} shedPlacement={shedPlacement} catchMap={catchMap} />}
+              {isEob  && <EobInfoPanel sheet={current} edits={activeEdits} farmName={farmConfig.farmName ?? "Farm"} shedPlacement={shedPlacement} catchMap={catchMap} batchPlacementDate={(() => {
+                // Find the earliest placement date across all shed sheets so the panel
+                // can filter out catch entries from before this batch started.
+                for (let _i = 0; _i < sheets.length; _i++) {
+                  if (!sheets[_i].name.trim().toUpperCase().includes("SHED")) continue;
+                  const pd = findPlacementDate(sheets[_i], edits[_i] ?? new Map());
+                  if (pd) return pd.date;
+                }
+                return undefined;
+              })()} />}
               <div className="flex-1 overflow-auto safe-bottom">
                 {isEob ? (
                   <EndOfBatchContent
