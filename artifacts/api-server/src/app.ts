@@ -42,11 +42,19 @@ app.use(clerkMiddleware());
 
 app.use("/api", router);
 
-// Serve the how-to-video production build at /how-to-video/
+// Serve static builds for artifacts whose Vite dev server is not reliable
+// Both fall back to their production build served directly from the API server
+
 const videoDistPath = path.resolve(__dirname, "..", "..", "..", "artifacts", "how-to-video", "dist", "public");
 app.use("/how-to-video", express.static(videoDistPath));
 app.use("/how-to-video", (_req, res) => {
   res.sendFile(path.join(videoDistPath, "index.html"));
+});
+
+const homeDistPath = path.resolve(__dirname, "..", "..", "..", "artifacts", "farm-buddy-home", "dist", "public");
+app.use("/home", express.static(homeDistPath));
+app.use("/home", (_req, res) => {
+  res.sendFile(path.join(homeDistPath, "index.html"));
 });
 
 // Initialize PayPal plans table (non-blocking)

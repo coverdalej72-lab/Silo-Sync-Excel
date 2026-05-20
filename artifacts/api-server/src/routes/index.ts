@@ -7,7 +7,7 @@ import onedriveRouter from "./onedrive";
 import exportRouter from "./export";
 import batchRouter from "./batch";
 import paypalRouter from "./paypal";
-import sponsorsRouter from "./sponsors";
+import sponsorsRouter, { publicSponsorsRouter } from "./sponsors";
 import weighBirdRouter from "./weigh-bird";
 import stripeRouter from "./stripe";
 import farmsRouter from "./farms";
@@ -22,6 +22,7 @@ router.get("/", (_req, res) => { res.status(200).json({ ok: true }); });
 // Public routes — no auth required
 router.use(healthRouter);
 router.use(stripeRouter);
+router.use(publicSponsorsRouter);
 
 // All other routes require authentication + farm scope
 router.use(requireAuth);

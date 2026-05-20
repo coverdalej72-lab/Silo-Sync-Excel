@@ -4,6 +4,9 @@ import { db, sponsorsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
+// Public sub-router — GET /sponsors (used by Plans page, no auth)
+export const publicSponsorsRouter: IRouter = Router();
+
 function checkAdminPassword(req: import("express").Request, res: import("express").Response): boolean {
   const adminPw = process.env.ADMIN_PASSWORD;
   if (!adminPw) {
@@ -32,7 +35,7 @@ router.post("/admin/verify", (req, res): void => {
   }
 });
 
-router.get("/sponsors", async (_req, res): Promise<void> => {
+async function getSponsors(_req: import("express").Request, res: import("express").Response): Promise<void> {
   const rows = await db
     .select()
     .from(sponsorsTable)
@@ -47,7 +50,13 @@ router.get("/sponsors", async (_req, res): Promise<void> => {
       logoUrl: r.logoUrl ?? undefined,
     })),
   );
-});
+}
+
+// Public (no auth needed — called by Plans page)
+publicSponsorsRouter.get("/sponsors", getSponsors);
+
+// Also available on the protected router for completeness
+router.get("/sponsors", getSponsors);
 
 router.post("/sponsors", async (req, res): Promise<void> => {
   if (!checkAdminPassword(req, res)) return;

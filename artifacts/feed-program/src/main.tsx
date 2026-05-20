@@ -58,6 +58,10 @@ createRoot(document.getElementById("root")!).render(
     signUpUrl={`${BASE}/sign-up`}
     routerPush={(to) => window.history.pushState(null, "", to)}
     routerReplace={(to) => window.history.replaceState(null, "", to)}
+    localization={{
+      signIn: { start: { title: "Sign in to Farm Buddy" } },
+      signUp: { start: { title: "Create your Farm Buddy account" } },
+    }}
   >
     <AuthGate />
   </ClerkProvider>

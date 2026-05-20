@@ -204,6 +204,10 @@ function ClerkProviderWithRoutes() {
       signUpUrl={`${basePath}/sign-up`}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+      localization={{
+        signIn: { start: { title: "Sign in to Farm Buddy" } },
+        signUp: { start: { title: "Create your Farm Buddy account" } },
+      }}
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
