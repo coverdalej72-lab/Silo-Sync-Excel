@@ -5,6 +5,8 @@ const LIGHT_GREEN = "FFE2EFDA";
 const WHITE = "FFFFFFFF";
 const DARK_TEXT = "FF212121";
 const MID_GREY = "FFD9D9D9";
+const GOLD = "FFC9A227";
+const TOTAL_BG = "FF1a5c36";
 
 function applyHeaderRow(row: ExcelJS.Row, columns: string[]) {
   row.values = ["", ...columns];
@@ -38,8 +40,6 @@ function applyDataRow(row: ExcelJS.Row, isAlt: boolean) {
 }
 
 // Format a UTC ISO date string as DD/MM/YYYY in AEST (UTC+10).
-// Readings are saved at local noon, so stored UTC is 02:00 AEST — the date
-// in +10 always matches the grower's intended calendar date.
 function toAESTDateStr(isoStr: string): string {
   const AEST_MS = 10 * 3600_000;
   const local = new Date(new Date(isoStr).getTime() + AEST_MS);
@@ -47,6 +47,10 @@ function toAESTDateStr(isoStr: string): string {
   const mm = String(local.getUTCMonth() + 1).padStart(2, "0");
   const yyyy = local.getUTCFullYear();
   return `${dd}/${mm}/${yyyy}`;
+}
+
+function toTonnes(amount: number, unit: string): number {
+  return unit === "t" ? amount : amount / 1000;
 }
 
 export async function exportToExcel(
@@ -63,7 +67,8 @@ export async function exportToExcel(
     amount: number;
     notes?: string | null;
     shedGroupName?: string | null;
-  }[]
+  }[],
+  farmName?: string
 ) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Farm Buddy";
@@ -78,7 +83,7 @@ export async function exportToExcel(
   // Title row
   ws.mergeCells("B1:G1");
   const titleCell = ws.getCell("B1");
-  titleCell.value = "Farm Buddy — Daily Readings";
+  titleCell.value = `Farm Buddy — Daily Readings${farmName ? `  ·  ${farmName}` : ""}`;
   titleCell.font = { bold: true, size: 14, color: { argb: WHITE } };
   titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_GREEN } };
   titleCell.alignment = { vertical: "middle", horizontal: "left" };
@@ -110,12 +115,83 @@ export async function exportToExcel(
       r.unit,
     ]);
     applyDataRow(row, i % 2 === 1);
-    // right-align the amount
     row.getCell(6).alignment = { horizontal: "right", vertical: "middle" };
   });
 
   // Auto-filter on header row
   ws.autoFilter = { from: "B2", to: "G2" };
+
+  // ── TOTAL FEED ON HAND summary section ──────────────────────────────────────
+  // Compute the latest reading per shed+silo, then sum in tonnes
+  if (readings.length > 0) {
+    // Latest reading per (shed, silo)
+    const latestMap = new Map<string, typeof readings[0]>();
+    readings.forEach(r => {
+      const key = `${r.shedGroupName}|${r.siloLetter}`;
+      const ex = latestMap.get(key);
+      if (!ex || r.readingDate > ex.readingDate) latestMap.set(key, r);
+    });
+
+    // Group by shed
+    const shedMap = new Map<string, { silos: { letter: string; tonne: number }[]; total: number }>();
+    for (const [key, r] of latestMap) {
+      const [shed, letter] = key.split("|");
+      if (!shedMap.has(shed)) shedMap.set(shed, { silos: [], total: 0 });
+      const entry = shedMap.get(shed)!;
+      const t = toTonnes(r.amountRemaining, r.unit);
+      entry.silos.push({ letter, tonne: t });
+      entry.total += t;
+    }
+    for (const e of shedMap.values()) e.silos.sort((a, b) => a.letter.localeCompare(b.letter));
+
+    const grandTotal = [...shedMap.values()].reduce((s, e) => s + e.total, 0);
+    const aestNow = new Date(Date.now() + 10 * 3600_000);
+    const dateLabel = aestNow.toLocaleDateString("en-AU", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+
+    // Spacer
+    ws.addRow([]);
+
+    // Section heading
+    const headRow = ws.addRow(["", "FEED ON HAND SUMMARY", "", "", `As at ${dateLabel}`, "", ""]);
+    ws.mergeCells(`B${headRow.number}:D${headRow.number}`);
+    ws.mergeCells(`E${headRow.number}:G${headRow.number}`);
+    headRow.eachCell((cell, col) => {
+      if (col === 1) return;
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_GREEN } };
+      cell.font = { bold: true, color: { argb: WHITE }, size: 11 };
+      cell.alignment = { vertical: "middle", horizontal: col === 2 ? "left" : "right" };
+    });
+    headRow.height = 24;
+
+    // Per-shed rows
+    let altIdx = 0;
+    for (const [shedName, entry] of shedMap) {
+      const siloStr = entry.silos.map(s => `Silo ${s.letter}: ${s.tonne.toFixed(1)} t`).join("   ");
+      const row = ws.addRow(["", shedName, siloStr, "", entry.total.toFixed(1), "t", ""]);
+      ws.mergeCells(`C${row.number}:D${row.number}`);
+      applyDataRow(row, altIdx % 2 === 1);
+      row.getCell(2).font = { bold: true, color: { argb: DARK_TEXT }, size: 10 };
+      row.getCell(5).alignment = { horizontal: "right", vertical: "middle" };
+      row.getCell(5).font = { bold: true, color: { argb: DARK_TEXT }, size: 10 };
+      altIdx++;
+    }
+
+    // Grand total row
+    const totalRow = ws.addRow(["", "TOTAL FEED ON HAND", "", "", grandTotal.toFixed(1), "t", ""]);
+    ws.mergeCells(`B${totalRow.number}:D${totalRow.number}`);
+    totalRow.eachCell((cell, col) => {
+      if (col === 1) return;
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: TOTAL_BG } };
+      cell.font = { bold: true, color: { argb: WHITE }, size: 12 };
+      cell.alignment = { vertical: "middle", horizontal: col === 5 ? "right" : "left" };
+    });
+    // Gold accent on the total value cell
+    totalRow.getCell(5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: GOLD } };
+    totalRow.getCell(5).font = { bold: true, color: { argb: "FF000000" }, size: 13 };
+    totalRow.getCell(6).fill = { type: "pattern", pattern: "solid", fgColor: { argb: GOLD } };
+    totalRow.getCell(6).font = { bold: true, color: { argb: "FF000000" }, size: 12 };
+    totalRow.height = 28;
+  }
 
   // ── Deliveries sheet ────────────────────────────────────────────────────────
   const ws2 = wb.addWorksheet("Deliveries", {
@@ -124,7 +200,7 @@ export async function exportToExcel(
 
   ws2.mergeCells("B1:F1");
   const t2 = ws2.getCell("B1");
-  t2.value = "Farm Buddy — Deliveries";
+  t2.value = `Farm Buddy — Deliveries${farmName ? `  ·  ${farmName}` : ""}`;
   t2.font = { bold: true, size: 14, color: { argb: WHITE } };
   t2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_GREEN } };
   t2.alignment = { vertical: "middle", horizontal: "left" };
