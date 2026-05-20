@@ -1,13 +1,10 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db, readingsTable, silosTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
 // Format a UTC Date as DD/MM/YYYY in Australian Eastern Time (UTC+10).
-// Using a fixed +10 offset (AEST) is safe: readings are saved at local noon,
-// so the stored UTC time is 02:00 (AEST) or 01:00 (AEDT) — either way the
-// date part in +10 always matches the intended Australian calendar date.
 function toAESTDateStr(d: Date): string {
   const AEST_MS = 10 * 3600_000;
   const local = new Date(d.getTime() + AEST_MS);
@@ -18,6 +15,12 @@ function toAESTDateStr(d: Date): string {
 }
 
 router.get("/readings/export.csv", async (req, res): Promise<void> => {
+  const farmId = req.effectiveFarmId;
+  if (farmId === null) {
+    res.status(400).json({ error: "farmId is required — pass ?farmId= to export a specific farm" });
+    return;
+  }
+
   const rows = await db
     .select({
       id: readingsTable.id,
@@ -30,6 +33,7 @@ router.get("/readings/export.csv", async (req, res): Promise<void> => {
     })
     .from(readingsTable)
     .innerJoin(silosTable, eq(readingsTable.siloId, silosTable.id))
+    .where(eq(readingsTable.farmId, farmId))
     .orderBy(desc(readingsTable.readingDate));
 
   const header = "ID,Silo,Feed Type,Amount Remaining,Unit,Notes,Reading Date";

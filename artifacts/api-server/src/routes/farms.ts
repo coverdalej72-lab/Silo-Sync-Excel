@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, asc } from "drizzle-orm";
-import { db, farmsTable } from "@workspace/db";
+import { db, farmsTable, shedGroupsTable, silosTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { clerkClient } from "@clerk/express";
 const VALID_TIERS = new Set(["bronze", "silver", "gold", "platinum"]);
@@ -29,7 +29,7 @@ const router: IRouter = Router();
 // ── GET /api/farms ─────────────────────────────────────────────────────────
 router.get("/farms", requireAuth, async (req, res): Promise<void> => {
   if (req.userRole !== "operator") {
-    // Farm managers get their own farm
+    // Farm managers get their own farm only
     if (!req.userFarmId) {
       res.json([]);
       return;
@@ -66,6 +66,8 @@ router.get("/farms/mine", requireAuth, async (req, res): Promise<void> => {
 });
 
 // ── POST /api/farms ────────────────────────────────────────────────────────
+// Creates the farm row, provisions default shed group + silos, and
+// optionally sends a Clerk invite to the farm manager.
 router.post("/farms", requireAuth, async (req, res): Promise<void> => {
   if (req.userRole !== "operator") {
     res.status(403).json({ error: "Operator access required" });
@@ -80,12 +82,25 @@ router.post("/farms", requireAuth, async (req, res): Promise<void> => {
 
   const { name, planTier, managerEmail } = parsed;
 
+  // 1. Create the farm
   const [farm] = await db
     .insert(farmsTable)
     .values({ name, planTier })
     .returning();
 
-  // Send invitation if email provided
+  // 2. Provision a default shed group for the new farm
+  const [defaultGroup] = await db
+    .insert(shedGroupsTable)
+    .values({ farmId: farm.id, name: "Shed 1", displayOrder: 0 })
+    .returning();
+
+  // 3. Provision default silos (A and B) for the default shed group
+  await db.insert(silosTable).values([
+    { farmId: farm.id, shedGroupId: defaultGroup.id, letter: "A", name: "Silo A" },
+    { farmId: farm.id, shedGroupId: defaultGroup.id, letter: "B", name: "Silo B" },
+  ]);
+
+  // 4. Send Clerk invitation to the farm manager if email provided
   if (managerEmail) {
     try {
       await clerkClient.invitations.createInvitation({
@@ -93,8 +108,8 @@ router.post("/farms", requireAuth, async (req, res): Promise<void> => {
         publicMetadata: { role: "farm_manager", farmId: farm.id, farmName: name },
         notify: true,
       });
-    } catch (err: any) {
-      req.log.warn({ err: err?.message }, "Failed to send Clerk invite");
+    } catch (err: unknown) {
+      req.log.warn({ err: (err as Error)?.message }, "Failed to send Clerk invite");
     }
   }
 
@@ -170,8 +185,8 @@ router.delete("/farms/:id", requireAuth, async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-// ── POST /api/farms/:id/set-operator ──────────────────────────────────────
-// Promote the calling user to operator role
+// ── POST /api/farms/set-operator ───────────────────────────────────────────
+// Promote another Clerk user to operator role. Requires operator auth.
 router.post("/farms/set-operator", requireAuth, async (req, res): Promise<void> => {
   if (req.userRole !== "operator") {
     res.status(403).json({ error: "Operator access required" });
@@ -189,29 +204,8 @@ router.post("/farms/set-operator", requireAuth, async (req, res): Promise<void> 
       publicMetadata: { role: "operator" },
     });
     res.json({ ok: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message ?? "Failed to update metadata" });
-  }
-});
-
-// ── POST /api/farms/init-operator ─────────────────────────────────────────
-// Self-promote to operator — only works if caller is the FIRST user or already operator.
-// Protected by a one-time setup secret.
-router.post("/farms/init-operator", requireAuth, async (req, res): Promise<void> => {
-  const { setupSecret } = req.body as { setupSecret?: string };
-  const expected = process.env.OPERATOR_SETUP_SECRET;
-  if (!expected || setupSecret !== expected) {
-    res.status(403).json({ error: "Invalid setup secret" });
-    return;
-  }
-
-  try {
-    await clerkClient.users.updateUserMetadata(req.clerkUserId, {
-      publicMetadata: { role: "operator" },
-    });
-    res.json({ ok: true, message: "You are now an operator" });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message ?? "Failed to update metadata" });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error)?.message ?? "Failed to update metadata" });
   }
 });
 

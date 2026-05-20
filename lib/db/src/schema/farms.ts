@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const farmsTable = pgTable("farms", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  clerkOrgId: text("clerk_org_id"),
   planTier: text("plan_tier").notNull().default("bronze"),
   clerkUserId: text("clerk_user_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
