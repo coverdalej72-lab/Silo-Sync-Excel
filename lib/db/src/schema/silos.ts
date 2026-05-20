@@ -6,7 +6,7 @@ import { farmsTable } from "./farms";
 
 export const silosTable = pgTable("silos", {
   id: serial("id").primaryKey(),
-  farmId: integer("farm_id").references(() => farmsTable.id, { onDelete: "cascade" }),
+  farmId: integer("farm_id").notNull().references(() => farmsTable.id, { onDelete: "cascade" }),
   shedGroupId: integer("shed_group_id").references(() => shedGroupsTable.id, { onDelete: "cascade" }),
   letter: text("letter"),
   name: text("name").notNull(),

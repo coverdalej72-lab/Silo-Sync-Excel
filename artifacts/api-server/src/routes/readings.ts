@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and, gte, lte, asc } from "drizzle-orm";
+import { eq, desc, and, gte, lte, asc, inArray } from "drizzle-orm";
 import { db, readingsTable, silosTable, shedGroupsTable } from "@workspace/db";
 import {
   BatchCreateReadingsBody,
@@ -135,6 +135,17 @@ router.post("/readings/batch", requireAuth, attachFarmScope, async (req, res): P
   const farmId = req.effectiveFarmId;
   if (farmId === null) {
     res.status(400).json({ error: "farmId is required — operators must pass ?farmId= to scope the readings" });
+    return;
+  }
+
+  // ── Ownership check: all referenced silos must belong to effectiveFarmId ──
+  const siloIds = [...new Set(readings.map((r) => r.siloId))];
+  const ownedSilos = await db
+    .select({ id: silosTable.id })
+    .from(silosTable)
+    .where(and(inArray(silosTable.id, siloIds), eq(silosTable.farmId, farmId)));
+  if (ownedSilos.length !== siloIds.length) {
+    res.status(403).json({ error: "One or more silos do not belong to this farm" });
     return;
   }
 

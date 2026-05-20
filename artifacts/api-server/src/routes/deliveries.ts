@@ -66,6 +66,30 @@ router.post("/deliveries", requireAuth, attachFarmScope, async (req, res): Promi
     return;
   }
 
+  // ── Ownership checks: referenced silo and shed group must belong to effectiveFarmId ──
+  if (parsed.data.siloId != null) {
+    const [silo] = await db
+      .select({ farmId: silosTable.farmId })
+      .from(silosTable)
+      .where(eq(silosTable.id, parsed.data.siloId))
+      .limit(1);
+    if (!silo || silo.farmId !== farmId) {
+      res.status(403).json({ error: "Silo does not belong to this farm" });
+      return;
+    }
+  }
+  if (parsed.data.shedGroupId != null) {
+    const [shed] = await db
+      .select({ farmId: shedGroupsTable.farmId })
+      .from(shedGroupsTable)
+      .where(eq(shedGroupsTable.id, parsed.data.shedGroupId))
+      .limit(1);
+    if (!shed || shed.farmId !== farmId) {
+      res.status(403).json({ error: "Shed group does not belong to this farm" });
+      return;
+    }
+  }
+
   const [delivery] = await db
     .insert(deliveriesTable)
     .values({
