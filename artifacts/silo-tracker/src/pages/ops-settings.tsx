@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft, Plus, Trash2, Edit2, Check, X, Globe } from "lucide-react";
 import { useFarms, type Farm } from "@/hooks/useFarms";
@@ -213,6 +213,7 @@ function AddFarmForm({ onAdd }: { onAdd: (data: Omit<Farm, "id">) => void }) {
 }
 
 export default function OpsSettings() {
+  useEffect(() => { document.title = "Farm Buddy™ — Manage Farms"; }, []);
   const { farms, addFarm, updateFarm, removeFarm } = useFarms();
   const [, navigate] = useLocation();
 

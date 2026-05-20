@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Settings, Plus, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
 import OpsFarmCard from "@/components/OpsFarmCard";
@@ -138,6 +138,7 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
 // ── Dashboard page ──────────────────────────────────────────────────────────
 
 export default function OpsDashboard() {
+  useEffect(() => { document.title = "Farm Buddy™ — Operations"; }, []);
   const { farms } = useFarms();
   const [, navigate] = useLocation();
   const count = farms.length;
