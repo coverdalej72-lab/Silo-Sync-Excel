@@ -1,5 +1,5 @@
 kind = "video"
-previewPath = "/how-to-video/"
+previewPath = "/ops/"
 title = "Farm Buddy — Operations"
 version = "1.0.0"
 id = "artifacts/how-to-video"
@@ -11,7 +11,7 @@ version = "1.0.0"
 
 [[services]]
 name = "web"
-paths = ["/how-to-video/"]
+paths = ["/ops/"]
 localPort = 20961
 
 [services.development]
@@ -28,4 +28,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "20961"
-BASE_PATH = "/how-to-video/"
+BASE_PATH = "/ops/"

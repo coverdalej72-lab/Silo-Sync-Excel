@@ -13,6 +13,8 @@ import History from "@/pages/history";
 import Deliveries from "@/pages/deliveries";
 import SettingsPage from "@/pages/settings";
 import Photos from "@/pages/photos";
+import OpsDashboard from "@/pages/ops-dashboard";
+import OpsSettings from "@/pages/ops-settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,18 +86,35 @@ function RedirectHome() {
 
 function Router() {
   return (
-    <Layout>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/history" component={History} />
-        <Route path="/deliveries" component={Deliveries} />
-        <Route path="/photos" component={Photos} />
-        <Route path="/settings" component={SettingsPage} />
-        <Route path="/record" component={RedirectHome} />
-        <Route path="/silos" component={RedirectHome} />
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <Switch>
+      {/* Ops dashboard — full-screen, no farm-manager chrome */}
+      <Route path="/ops/settings">
+        <WouterRouter base="/ops">
+          <OpsSettings />
+        </WouterRouter>
+      </Route>
+      <Route path="/ops">
+        <WouterRouter base="/ops">
+          <OpsDashboard />
+        </WouterRouter>
+      </Route>
+
+      {/* Farm manager app */}
+      <Route>
+        <Layout>
+          <Switch>
+            <Route path="/" component={Home} />
+            <Route path="/history" component={History} />
+            <Route path="/deliveries" component={Deliveries} />
+            <Route path="/photos" component={Photos} />
+            <Route path="/settings" component={SettingsPage} />
+            <Route path="/record" component={RedirectHome} />
+            <Route path="/silos" component={RedirectHome} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Route>
+    </Switch>
   );
 }
 

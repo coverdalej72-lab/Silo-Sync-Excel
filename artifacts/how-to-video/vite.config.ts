@@ -5,7 +5,7 @@ import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 const port = Number(process.env.PORT ?? 20961);
-const basePath = process.env.BASE_PATH ?? "/how-to-video/";
+const basePath = process.env.BASE_PATH ?? "/ops/";
 
 export default defineConfig({
   base: basePath,
