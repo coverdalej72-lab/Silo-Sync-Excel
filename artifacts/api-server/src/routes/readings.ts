@@ -133,13 +133,18 @@ router.post("/readings/batch", requireAuth, attachFarmScope, async (req, res): P
   }
 
   const farmId = req.effectiveFarmId;
+  if (farmId === null) {
+    res.status(400).json({ error: "farmId is required — operators must pass ?farmId= to scope the readings" });
+    return;
+  }
+
   const date = readingDate ? new Date(readingDate) : new Date();
 
   const inserted = await db
     .insert(readingsTable)
     .values(
       readings.map((r) => ({
-        farmId: farmId ?? null,
+        farmId,
         siloId: r.siloId,
         feedType: r.feedType,
         amountRemaining: String(r.amountRemaining),

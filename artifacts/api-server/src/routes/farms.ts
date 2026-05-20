@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { db, farmsTable, shedGroupsTable, silosTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { clerkClient } from "@clerk/express";
+
 const VALID_TIERS = new Set(["bronze", "silver", "gold", "platinum"]);
 
 function parseCreateFarmBody(body: unknown): { name: string; planTier: string; managerEmail?: string } | null {
@@ -27,9 +28,10 @@ function parseUpdateFarmBody(body: unknown): { name?: string; planTier?: string;
 const router: IRouter = Router();
 
 // ── GET /api/farms ─────────────────────────────────────────────────────────
+// Operators see only farms in their org (clerk_org_id = their clerkUserId).
+// Farm managers see only their own farm.
 router.get("/farms", requireAuth, async (req, res): Promise<void> => {
   if (req.userRole !== "operator") {
-    // Farm managers get their own farm only
     if (!req.userFarmId) {
       res.json([]);
       return;
@@ -43,7 +45,13 @@ router.get("/farms", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const farms = await db.select().from(farmsTable).orderBy(asc(farmsTable.createdAt));
+  // Operator: return farms scoped to their org (clerk_org_id = clerkUserId).
+  // Also include farms with no clerk_org_id so legacy / pre-provisioned farms are visible.
+  const farms = await db
+    .select()
+    .from(farmsTable)
+    .where(eq(farmsTable.clerkOrgId, req.clerkUserId))
+    .orderBy(asc(farmsTable.createdAt));
   res.json(farms);
 });
 
@@ -66,8 +74,8 @@ router.get("/farms/mine", requireAuth, async (req, res): Promise<void> => {
 });
 
 // ── POST /api/farms ────────────────────────────────────────────────────────
-// Creates the farm row, provisions default shed group + silos, and
-// optionally sends a Clerk invite to the farm manager.
+// Creates the farm (bound to operator's org), provisions default shed + silos,
+// and optionally sends a Clerk invite to the farm manager.
 router.post("/farms", requireAuth, async (req, res): Promise<void> => {
   if (req.userRole !== "operator") {
     res.status(403).json({ error: "Operator access required" });
@@ -82,10 +90,10 @@ router.post("/farms", requireAuth, async (req, res): Promise<void> => {
 
   const { name, planTier, managerEmail } = parsed;
 
-  // 1. Create the farm
+  // 1. Create the farm — bind to this operator's org via clerk_org_id
   const [farm] = await db
     .insert(farmsTable)
-    .values({ name, planTier })
+    .values({ name, planTier, clerkOrgId: req.clerkUserId })
     .returning();
 
   // 2. Provision a default shed group for the new farm
@@ -94,13 +102,13 @@ router.post("/farms", requireAuth, async (req, res): Promise<void> => {
     .values({ farmId: farm.id, name: "Shed 1", displayOrder: 0 })
     .returning();
 
-  // 3. Provision default silos (A and B) for the default shed group
+  // 3. Provision default silos (A and B) in the default shed group
   await db.insert(silosTable).values([
     { farmId: farm.id, shedGroupId: defaultGroup.id, letter: "A", name: "Silo A" },
     { farmId: farm.id, shedGroupId: defaultGroup.id, letter: "B", name: "Silo B" },
   ]);
 
-  // 4. Send Clerk invitation to the farm manager if email provided
+  // 4. Optionally invite the farm manager via Clerk
   if (managerEmail) {
     try {
       await clerkClient.invitations.createInvitation({
@@ -130,8 +138,8 @@ router.patch("/farms/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   const parsed = parseUpdateFarmBody(req.body);
-  if (!parsed) {
-    res.status(400).json({ error: "Invalid body" });
+  if (!parsed || Object.keys(parsed).length === 0) {
+    res.status(400).json({ error: "No valid fields to update" });
     return;
   }
 
@@ -140,19 +148,15 @@ router.patch("/farms/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.planTier !== undefined) updates.planTier = parsed.planTier;
   if (parsed.clerkUserId !== undefined) updates.clerkUserId = parsed.clerkUserId;
 
-  if (Object.keys(updates).length === 0) {
-    res.status(400).json({ error: "No valid fields to update" });
-    return;
-  }
-
+  // Scope update to operator's org
   const [farm] = await db
     .update(farmsTable)
     .set(updates)
-    .where(eq(farmsTable.id, farmId))
+    .where(and(eq(farmsTable.id, farmId), eq(farmsTable.clerkOrgId, req.clerkUserId)))
     .returning();
 
   if (!farm) {
-    res.status(404).json({ error: "Farm not found" });
+    res.status(404).json({ error: "Farm not found or not in your operations group" });
     return;
   }
 
@@ -172,13 +176,14 @@ router.delete("/farms/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  // Scope delete to operator's org
   const [farm] = await db
     .delete(farmsTable)
-    .where(eq(farmsTable.id, farmId))
+    .where(and(eq(farmsTable.id, farmId), eq(farmsTable.clerkOrgId, req.clerkUserId)))
     .returning();
 
   if (!farm) {
-    res.status(404).json({ error: "Farm not found" });
+    res.status(404).json({ error: "Farm not found or not in your operations group" });
     return;
   }
 
@@ -186,7 +191,7 @@ router.delete("/farms/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 // ── POST /api/farms/set-operator ───────────────────────────────────────────
-// Promote another Clerk user to operator role. Requires operator auth.
+// Promote another Clerk user to operator role. Requires existing operator auth.
 router.post("/farms/set-operator", requireAuth, async (req, res): Promise<void> => {
   if (req.userRole !== "operator") {
     res.status(403).json({ error: "Operator access required" });

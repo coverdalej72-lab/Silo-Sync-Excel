@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useGetTodayProgress, getGetTodayProgressQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { useFarmConfig } from "@/hooks/use-farm-config";
+import { useFarmMine } from "@/hooks/useFarmMine";
 
 function InstallBanner() {
   const [show, setShow] = useState(false);
@@ -90,6 +91,7 @@ const SILO_ICON = (
 export function Layout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { config } = useFarmConfig();
+  const farmMine = useFarmMine();
 
   const { data: progress } = useGetTodayProgress({
     query: { queryKey: getGetTodayProgressQueryKey() }
@@ -117,7 +119,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="Silo Base Mate" className="h-10 w-auto object-contain shrink-0" />
             <div>
-              <div className="font-bold text-base text-foreground leading-tight">{config.farmName || "Silo Base Mate"}</div>
+              <div className="font-bold text-base text-foreground leading-tight">{farmMine?.name || config.farmName || "Farm Buddy"}</div>
               <div className="text-[11px] text-muted-foreground font-medium tracking-wide uppercase">Feed Management</div>
             </div>
           </div>

@@ -61,11 +61,15 @@ router.post("/deliveries", requireAuth, attachFarmScope, async (req, res): Promi
   }
 
   const farmId = req.effectiveFarmId;
+  if (farmId === null) {
+    res.status(400).json({ error: "farmId is required — operators must pass ?farmId= to scope the delivery" });
+    return;
+  }
 
   const [delivery] = await db
     .insert(deliveriesTable)
     .values({
-      farmId: farmId ?? null,
+      farmId,
       shedGroupId: parsed.data.shedGroupId ?? null,
       siloId: parsed.data.siloId ?? null,
       feedType: parsed.data.feedType,
