@@ -1500,7 +1500,7 @@ const OPS_TIERS = [
     label: "🥉 Bronze",
     sheds: "Up to 6 sheds",
     shedMax: 6,
-    price: 75,
+    price: 99,
     features: ["Silo readings & history", "Daily progress tracking", "CSV export"],
     color: "#b45309",
     bg: "#fef3c7",
@@ -1510,7 +1510,7 @@ const OPS_TIERS = [
     label: "🥈 Silver",
     sheds: "7 – 12 sheds",
     shedMax: 12,
-    price: 150,
+    price: 179,
     features: ["Everything in Bronze", "Feed program spreadsheet", "Batch tracking"],
     color: "#475569",
     bg: "#f1f5f9",
@@ -1520,7 +1520,7 @@ const OPS_TIERS = [
     label: "🥇 Gold",
     sheds: "12+ sheds",
     shedMax: 999,
-    price: 250,
+    price: 299,
     features: ["Everything in Silver", "Delivery tracking", "Feed-on-hand alerts", "Priority support"],
     color: "#92400e",
     bg: "#fffbeb",
@@ -1685,7 +1685,7 @@ function OperationsBundle() {
   const tierCounts = OPS_TIERS.map(t => ({ ...t, count: farms.filter(f => f.tierId === t.id).length }));
 
   return (
-    <section id="operations-bundle" style={{ background: "linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%)", padding: "80px 24px", borderTop: "4px solid #1a5c36" }}>
+    <section id="operations-bundle" style={{ background: "linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%)", padding: "40px 24px", borderTop: "4px solid #1a5c36" }}>
       {showCheckout && (
         <BundleCheckoutModal
           farms={farms}
@@ -1697,11 +1697,11 @@ function OperationsBundle() {
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
 
         {/* Section header */}
-        <div style={{ textAlign: "center", marginBottom: 52 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
           <span style={{ display: "inline-block", background: "#1a5c36", color: GOLD, fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", padding: "5px 14px", borderRadius: 20, marginBottom: 14 }}>
             For Operations Groups
           </span>
-          <h2 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 900, color: "#111827", letterSpacing: "-0.03em", margin: "0 0 16px" }}>
+          <h2 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 900, color: "#111827", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
             Build Your Operations Bundle
           </h2>
           <p style={{ color: "#4b5563", fontSize: 17, maxWidth: 580, margin: "0 auto", lineHeight: 1.65 }}>
@@ -2051,7 +2051,7 @@ export default function App() {
       <section style={{
         position: "relative",
         color: "#fff",
-        padding: "90px 24px 80px",
+        padding: "52px 24px 44px",
         textAlign: "center",
         overflow: "hidden",
       }}>
@@ -2079,7 +2079,7 @@ export default function App() {
             padding: "6px 18px",
             fontSize: 13,
             fontWeight: 600,
-            marginBottom: 20,
+            marginBottom: 12,
             letterSpacing: "0.05em",
           }}>
             🐔 Built for Poultry Producers — Large or Small
@@ -2088,7 +2088,7 @@ export default function App() {
             fontSize: "clamp(32px, 6vw, 52px)",
             fontWeight: 900,
             lineHeight: 1.1,
-            marginBottom: 20,
+            marginBottom: 12,
             letterSpacing: "-0.03em",
           }}>
             Every shed. Every batch.<br />
@@ -2098,7 +2098,7 @@ export default function App() {
             fontSize: "clamp(16px, 2.5vw, 20px)",
             opacity: 0.88,
             lineHeight: 1.6,
-            marginBottom: 36,
+            marginBottom: 20,
           }}>
             Farm Buddy is a complete farm management platform for <strong style={{ color: GOLD }}>broiler</strong> and <strong style={{ color: GOLD }}>breeder</strong> farms — replacing paper & Excel with live silo tracking, batch results, egg production logs, body weight curves, and real-time feed alerts across every device on your farm.
           </p>
@@ -2180,21 +2180,21 @@ export default function App() {
       </section>
 
       {/* HOW IT WORKS VIDEO */}
-      <section style={{ background: "#f9fafb", padding: "80px 24px 88px" }}>
+      <section style={{ background: "#f9fafb", padding: "40px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <HowItWorksVideo />
         </div>
       </section>
 
       {/* SCREENSHOTS */}
-      <section style={{ background: "#fff", padding: "64px 24px 72px", borderTop: "1px solid #e5e7eb" }}>
+      <section style={{ background: "#fff", padding: "36px 24px", borderTop: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
             <h2 style={{ fontSize: "clamp(22px, 3.5vw, 34px)", fontWeight: 900, color: "#111827", margin: "0 0 12px", letterSpacing: "-0.03em" }}>See the real apps</h2>
             <p style={{ fontSize: 16, color: "#6b7280", margin: 0 }}>Your actual tools — browser-based and mobile-ready</p>
           </div>
           {/* Screenshot cards */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 32, justifyContent: "center", alignItems: "flex-start" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 20, justifyContent: "center", alignItems: "flex-start" }}>
 
             {/* Broiler Base Mate screenshot */}
             <div style={{ flex: "1 1 520px", maxWidth: 640 }}>
@@ -2212,7 +2212,7 @@ export default function App() {
                   style={{ width: "100%", display: "block" }}
                 />
               </div>
-              <div style={{ marginTop: 20, paddingLeft: 4 }}>
+              <div style={{ marginTop: 12, paddingLeft: 4 }}>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>🖥️ Broiler Base Mate — Desktop & Tablet</div>
                 <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
                   Your complete feed tracking spreadsheet in the browser. All sheds, all days, with automatic feed-on-hand calculations, silo readings, and end-of-batch reporting — no Excel install required.
@@ -2240,7 +2240,7 @@ export default function App() {
                   />
                 </div>
               </div>
-              <div style={{ marginTop: 20, paddingLeft: 4 }}>
+              <div style={{ marginTop: 12, paddingLeft: 4 }}>
                 <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginBottom: 6 }}>📱 Farm Buddy — iPhone & Android</div>
                 <p style={{ color: "#6b7280", fontSize: 14, lineHeight: 1.6, margin: 0 }}>
                   Record silo readings and scan delivery dockets right from the shed — no paper, no re-keying. Syncs instantly to the Broiler Base Mate.
@@ -2260,15 +2260,15 @@ export default function App() {
       </section>
 
       {/* BATCH HISTORY FEATURE */}
-      <section style={{ background: "linear-gradient(135deg, #0f3d24 0%, #1a5c36 60%, #217346 100%)", padding: "72px 24px", color: "#fff" }}>
+      <section style={{ background: "linear-gradient(135deg, #0f3d24 0%, #1a5c36 60%, #217346 100%)", padding: "40px 24px", color: "#fff" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
           {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(201,162,39,0.2)", border: "1px solid rgba(201,162,39,0.5)", borderRadius: 999, padding: "6px 20px", marginBottom: 18 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(201,162,39,0.2)", border: "1px solid rgba(201,162,39,0.5)", borderRadius: 999, padding: "6px 20px", marginBottom: 10 }}>
               <span style={{ fontSize: 18 }}>📈</span>
               <span style={{ color: "#C9A227", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Batch History</span>
             </div>
-            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 8px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
               Every batch tracked.<br />
               <span style={{ color: "#C9A227" }}>Every result compared.</span>
             </h2>
@@ -2278,7 +2278,7 @@ export default function App() {
           </div>
 
           {/* Metric Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 16, marginBottom: 52 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16 }}>
             {[
               { icon: "🐣", label: "Birds Placed",    desc: "Total birds in for each batch" },
               { icon: "🌾", label: "Feed Ordered",     desc: "Total kg ordered per batch" },
@@ -2298,7 +2298,7 @@ export default function App() {
           </div>
 
           {/* Mini bar chart illustration */}
-          <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", padding: "28px 32px", maxWidth: 680, margin: "0 auto" }}>
+          <div style={{ background: "rgba(0,0,0,0.25)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", padding: "16px 24px", maxWidth: 680, margin: "0 auto" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <div style={{ background: "#C9A227", borderRadius: 6, padding: "3px 12px", fontWeight: 800, fontSize: 12, color: "#000", letterSpacing: "0.05em" }}>BATCH HISTORY</div>
               <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Last 6 batches — Birds Placed</span>
@@ -2320,14 +2320,14 @@ export default function App() {
       </section>
 
       {/* FEED MATE & DAILY OPERATIONS */}
-      <section style={{ background: "#fff", padding: "72px 24px", borderTop: "1px solid #e5e7eb" }}>
+      <section style={{ background: "#fff", padding: "40px 24px", borderTop: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: `${GREEN}14`, border: `1px solid ${GREEN}40`, borderRadius: 999, padding: "6px 20px", marginBottom: 18 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: `${GREEN}14`, border: `1px solid ${GREEN}40`, borderRadius: 999, padding: "6px 20px", marginBottom: 10 }}>
               <span style={{ fontSize: 18 }}>🌾</span>
               <span style={{ color: GREEN, fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Daily Feed Management</span>
             </div>
-            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15, color: "#111827" }}>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 8px", letterSpacing: "-0.03em", lineHeight: 1.15, color: "#111827" }}>
               Every shed. Every day.<br />
               <span style={{ color: GREEN }}>Feed data that works for you.</span>
             </h2>
@@ -2360,14 +2360,14 @@ export default function App() {
       </section>
 
       {/* MORTS & FLOCK FORECAST */}
-      <section style={{ background: "#f9fafb", padding: "72px 24px", borderTop: "1px solid #e5e7eb" }}>
+      <section style={{ background: "#f9fafb", padding: "40px 24px", borderTop: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(139,26,26,0.1)", border: "1px solid rgba(139,26,26,0.3)", borderRadius: 999, padding: "6px 20px", marginBottom: 18 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(139,26,26,0.1)", border: "1px solid rgba(139,26,26,0.3)", borderRadius: 999, padding: "6px 20px", marginBottom: 10 }}>
               <span style={{ fontSize: 18 }}>💀</span>
               <span style={{ color: "#8b1a1a", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Morts & Flock Forecast</span>
             </div>
-            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15, color: "#111827" }}>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 8px", letterSpacing: "-0.03em", lineHeight: 1.15, color: "#111827" }}>
               Know your flock.<br />
               <span style={{ color: "#8b1a1a" }}>Catch problems early.</span>
             </h2>
@@ -2417,14 +2417,14 @@ export default function App() {
       </section>
 
       {/* BREEDER FARM TOOLS */}
-      <section style={{ background: "linear-gradient(135deg, #2d1558 0%, #4c1d95 60%, #6d28d9 100%)", padding: "72px 24px", color: "#fff" }}>
+      <section style={{ background: "linear-gradient(135deg, #2d1558 0%, #4c1d95 60%, #6d28d9 100%)", padding: "40px 24px", color: "#fff" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(201,162,39,0.2)", border: "1px solid rgba(201,162,39,0.5)", borderRadius: 999, padding: "6px 20px", marginBottom: 18 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "rgba(201,162,39,0.2)", border: "1px solid rgba(201,162,39,0.5)", borderRadius: 999, padding: "6px 20px", marginBottom: 10 }}>
               <span style={{ fontSize: 18 }}>💎</span>
               <span style={{ color: "#C9A227", fontWeight: 700, fontSize: 13, letterSpacing: "0.08em", textTransform: "uppercase" }}>Platinum — Breeder Farm Tools</span>
             </div>
-            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 16px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
+            <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, margin: "0 0 8px", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
               Built for parent stock.<br />
               <span style={{ color: "#C9A227" }}>Every egg. Every gram.</span>
             </h2>
@@ -2501,9 +2501,9 @@ export default function App() {
       </section>
 
       {/* PRICING */}
-      <section id="pricing" style={{ padding: "72px 24px" }}>
+      <section id="pricing" style={{ padding: "40px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
             <h2 style={{ fontSize: "clamp(26px, 4vw, 38px)", fontWeight: 900, color: "#111827", marginBottom: 12, letterSpacing: "-0.03em" }}>
               Simple, honest pricing
             </h2>
@@ -2606,7 +2606,7 @@ export default function App() {
         background: `linear-gradient(135deg, ${GREEN}11 0%, ${GOLD}11 100%)`,
         borderTop: "1px solid #e5e7eb",
         borderBottom: "1px solid #e5e7eb",
-        padding: "56px 24px",
+        padding: "28px 24px",
       }}>
         <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>🌾</div>
@@ -2627,11 +2627,11 @@ export default function App() {
       <section style={{
         background: "#fff",
         borderTop: "1px solid #e5e7eb",
-        padding: "72px 24px",
+        padding: "40px 24px",
       }}>
         <div style={{ maxWidth: 1060, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 52 }}>
-            <div style={{ fontSize: 44, marginBottom: 12 }}>❤️</div>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>❤️</div>
             <h2 style={{
               fontSize: "clamp(24px, 4vw, 36px)",
               fontWeight: 900,
@@ -2652,7 +2652,7 @@ export default function App() {
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
             gap: 20,
-            marginBottom: 40,
+            marginBottom: 20,
           }}>
             {[
               {
@@ -2725,7 +2725,7 @@ export default function App() {
                     color: "#fff",
                     fontWeight: 700,
                     fontSize: 14,
-                    padding: "12px 0",
+                    padding: "9px 0",
                     borderRadius: 10,
                     textDecoration: "none",
                     marginTop: "auto",
@@ -2814,13 +2814,13 @@ export default function App() {
       </section>
 
       {/* FAQ */}
-      <section style={{ padding: "72px 24px" }}>
+      <section style={{ padding: "40px 24px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
           <h2 style={{
             fontSize: "clamp(24px, 3.5vw, 34px)",
             fontWeight: 900,
             color: "#111827",
-            marginBottom: 40,
+            marginBottom: 24,
             textAlign: "center",
             letterSpacing: "-0.02em",
           }}>
@@ -2831,13 +2831,13 @@ export default function App() {
       </section>
 
       {/* ── SPONSORS & SUPPORT ── */}
-      <section style={{ background: "#f8fafc", padding: "80px 24px", borderTop: "1px solid #e5e7eb" }}>
+      <section style={{ background: "#f8fafc", padding: "40px 24px", borderTop: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 1000, margin: "0 auto" }}>
 
           {/* Heading */}
-          <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
             <span style={{ background: `${GOLD}22`, color: GOLD, fontWeight: 800, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", padding: "4px 14px", borderRadius: 20, display: "inline-block", marginBottom: 16 }}>Sponsor Farm Buddy</span>
-            <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 900, color: "#111827", margin: "0 0 16px", letterSpacing: "-0.02em" }}>
+            <h2 style={{ fontSize: "clamp(24px, 3.5vw, 36px)", fontWeight: 900, color: "#111827", margin: "0 0 8px", letterSpacing: "-0.02em" }}>
               Help us keep building for Australian growers
             </h2>
             <p style={{ fontSize: 16, color: "#6b7280", maxWidth: 600, margin: "0 auto", lineHeight: 1.7 }}>
@@ -2846,7 +2846,7 @@ export default function App() {
           </div>
 
           {/* How funds are split */}
-          <div style={{ background: "#fff", border: `2px solid ${GREEN}22`, borderRadius: 16, padding: "28px 32px", marginBottom: 48, maxWidth: 680, margin: "0 auto 48px" }}>
+          <div style={{ background: "#fff", border: `2px solid ${GREEN}22`, borderRadius: 16, padding: "16px 24px", marginBottom: 48, maxWidth: 680, margin: "0 auto 48px" }}>
             <div style={{ fontWeight: 800, fontSize: 15, color: "#111827", marginBottom: 20, textAlign: "center" }}>💰 How every sponsorship dollar is used</div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
               {[
@@ -2864,7 +2864,7 @@ export default function App() {
           </div>
 
           {/* Sponsor tiers */}
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center", marginBottom: 56 }}>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center", marginBottom: 24 }}>
             {[
               {
                 name: "Seedling Sponsor",
@@ -2924,7 +2924,7 @@ export default function App() {
                   <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: colour, color: "#fff", fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", padding: "4px 14px", borderRadius: 20 }}>Most Popular</div>
                 )}
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 36 }}>{icon}</div>
+                  <div style={{ fontSize: 28 }}>{icon}</div>
                   <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginTop: 8 }}>{name}</div>
                   <div style={{ fontWeight: 900, fontSize: 28, color: colour, marginTop: 4 }}>{price}</div>
                 </div>
@@ -3010,9 +3010,9 @@ export default function App() {
       </section>
 
       {/* SUPPORT THE PROJECT */}
-      <section style={{ background: "#fff", padding: "80px 24px", borderTop: "1px solid #e5e7eb" }}>
+      <section style={{ background: "#fff", padding: "40px 24px", borderTop: "1px solid #e5e7eb" }}>
         <div style={{ maxWidth: 960, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
             <div style={{ display: "inline-block", background: "#fef9ec", border: `1.5px solid ${GOLD}`, borderRadius: 20, padding: "4px 16px", fontSize: 12, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: 1, marginBottom: 16 }}>
               Back the Build
             </div>
@@ -3024,7 +3024,7 @@ export default function App() {
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center", marginBottom: 48 }}>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center", marginBottom: 20 }}>
             {SUPPORTER_TIERS.map(tier => (
               <div
                 key={tier.id}
@@ -3046,10 +3046,10 @@ export default function App() {
                   <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: tier.colour, color: "#fff", fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase", padding: "4px 14px", borderRadius: 20 }}>Most Popular</div>
                 )}
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 38 }}>{tier.icon}</div>
+                  <div style={{ fontSize: 30 }}>{tier.icon}</div>
                   <div style={{ fontWeight: 800, fontSize: 17, color: "#111827", marginTop: 8 }}>{tier.name}</div>
                   <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{tier.tagline}</div>
-                  <div style={{ fontWeight: 900, fontSize: 30, color: tier.colour, marginTop: 10 }}>
+                  <div style={{ fontWeight: 900, fontSize: 24, color: tier.colour, marginTop: 6 }}>
                     ${tier.amount.toLocaleString()} <span style={{ fontSize: 13, fontWeight: 600, color: "#9ca3af" }}>AUD</span>
                   </div>
                   <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>one-off · no subscription</div>
@@ -3096,7 +3096,7 @@ export default function App() {
       <section style={{
         background: GREEN,
         color: "#fff",
-        padding: "64px 24px",
+        padding: "36px 24px",
         textAlign: "center",
       }}>
         <div style={{ maxWidth: 560, margin: "0 auto" }}>

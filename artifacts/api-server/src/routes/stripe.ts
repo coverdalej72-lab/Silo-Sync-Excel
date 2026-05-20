@@ -251,10 +251,10 @@ router.post('/stripe/bundle-checkout', async (req, res) => {
     }
 
     const TIER_PRICES: Record<string, { label: string; priceAUD: number; sheds: string }> = {
-      bronze:   { label: 'Bronze',   priceAUD: 75,  sheds: 'Up to 6 sheds' },
-      silver:   { label: 'Silver',   priceAUD: 150, sheds: '7–12 sheds' },
-      gold:     { label: 'Gold',     priceAUD: 250, sheds: '12+ sheds' },
-      platinum: { label: 'Platinum', priceAUD: 400, sheds: 'Unlimited sheds' },
+      bronze:   { label: 'Bronze',   priceAUD: 99,  sheds: 'Up to 6 sheds' },
+      silver:   { label: 'Silver',   priceAUD: 179, sheds: '7–12 sheds' },
+      gold:     { label: 'Gold',     priceAUD: 299, sheds: '12+ sheds' },
+      platinum: { label: 'Platinum', priceAUD: 499, sheds: 'Unlimited sheds' },
     };
 
     const stripe = await getUncachableStripeClient();
