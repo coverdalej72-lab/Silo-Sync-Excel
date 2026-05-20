@@ -11,6 +11,7 @@ import sponsorsRouter, { publicSponsorsRouter } from "./sponsors";
 import weighBirdRouter from "./weigh-bird";
 import stripeRouter from "./stripe";
 import farmsRouter from "./farms";
+import bootstrapRouter from "./bootstrap";
 import { requireAuth } from "../middlewares/requireAuth";
 import { attachFarmScope } from "../middlewares/farmScope";
 
@@ -26,6 +27,7 @@ router.use(publicSponsorsRouter);
 
 // All other routes require authentication + farm scope
 router.use(requireAuth);
+router.use(bootstrapRouter);  // needs auth but not farm scope
 router.use(attachFarmScope);
 router.use(farmsRouter);
 router.use(shedGroupsRouter);
