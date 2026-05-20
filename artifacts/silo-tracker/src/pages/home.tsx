@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   useGetTodayProgress,
   getGetTodayProgressQueryKey,
-  useBatchCreateReadings
+  useBatchCreateReadings,
+  useDeleteReading
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, WifiOff, RefreshCw } from "lucide-react";
+import { Check, WifiOff, RefreshCw, Undo2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFarmConfig } from "@/hooks/use-farm-config";
 import { cn } from "@/lib/utils";
@@ -101,7 +102,12 @@ export default function Home() {
   const { toast }                               = useToast();
   const queryClient                             = useQueryClient();
   const batchCreate                             = useBatchCreateReadings();
+  const deleteReading                           = useDeleteReading();
   const { getShedName, isShedActive, getActiveSiloLetters } = useFarmConfig();
+
+  // Two-tap undo: shedId → timeout handle (armed = waiting for second tap)
+  const [undoArmed, setUndoArmed] = useState<Record<number, boolean>>({});
+  const undoTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const lastSync                                = useLastFpSync();
 
   const { data: liveProgress, isLoading, isError } = useGetTodayProgress({
@@ -270,6 +276,35 @@ export default function Home() {
     });
   };
 
+  // ── Undo saved shed (delete today's readings, re-arm the form) ───────────
+  const handleUndoShed = (shedId: number, silos: any[]) => {
+    const isArmed = undoArmed[shedId];
+    if (!isArmed) {
+      // First tap — arm it, auto-disarm after 3 s
+      setUndoArmed(prev => ({ ...prev, [shedId]: true }));
+      undoTimers.current[shedId] = setTimeout(() => {
+        setUndoArmed(prev => { const n = { ...prev }; delete n[shedId]; return n; });
+      }, 3000);
+      return;
+    }
+    // Second tap — cancel disarm timer and delete the readings
+    clearTimeout(undoTimers.current[shedId]);
+    setUndoArmed(prev => { const n = { ...prev }; delete n[shedId]; return n; });
+    const readingIds = silos
+      .map((s: any) => s.readingId)
+      .filter((id: any) => typeof id === "number");
+    if (readingIds.length === 0) {
+      toast({ variant: "destructive", title: "No reading ID found — try refreshing" });
+      return;
+    }
+    Promise.all(readingIds.map((id: number) => deleteReading.mutateAsync({ id })))
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: getGetTodayProgressQueryKey() });
+        toast({ title: "Reading removed — re-enter your correct values" });
+      })
+      .catch(() => toast({ variant: "destructive", title: "Couldn't undo — check your connection" }));
+  };
+
   // ── Loading / empty states ────────────────────────────────────────────────
   if (isLoading && !cachedProgress) {
     return (
@@ -349,17 +384,35 @@ export default function Home() {
                   </p>
                 </div>
                 <button
-                  onClick={() => !isSaved && handleSaveShed(shed.shedGroupId)}
-                  disabled={batchCreate.isPending || isSaved}
+                  onClick={() => {
+                    if (shedQueued) return;
+                    if (isSaved) {
+                      handleUndoShed(shed.shedGroupId, visibleSilos);
+                    } else {
+                      handleSaveShed(shed.shedGroupId);
+                    }
+                  }}
+                  disabled={batchCreate.isPending || deleteReading.isPending || !!shedQueued}
                   className={cn(
-                    "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all",
-                    isSaved || shedQueued
+                    "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all active:scale-95",
+                    shedQueued
                       ? "bg-primary/15 text-primary cursor-default"
-                      : "bg-primary text-primary-foreground active:scale-95"
+                      : undoArmed[shed.shedGroupId]
+                        ? "bg-amber-500 text-white animate-pulse"
+                        : isSaved
+                          ? "bg-primary/15 text-primary"
+                          : "bg-primary text-primary-foreground"
                   )}
                 >
-                  {(isSaved || shedQueued) && <Check className="w-3.5 h-3.5" />}
-                  {shedQueued ? "Queued" : isSaved ? "Saved" : "Save"}
+                  {shedQueued ? (
+                    <><Check className="w-3.5 h-3.5" />Queued</>
+                  ) : undoArmed[shed.shedGroupId] ? (
+                    <><Undo2 className="w-3.5 h-3.5" />Undo?</>
+                  ) : isSaved ? (
+                    <><Check className="w-3.5 h-3.5" />Saved</>
+                  ) : (
+                    "Save"
+                  )}
                 </button>
               </div>
 
