@@ -6846,10 +6846,18 @@ export default function App() {
       // Priority 2: last row with a silo value in this shed + 1 (or same row for corrections)
       // Priority 3: global day-offset fallback (only if shed has no silo data at all)
 
-      // Priority 1 — date-column scan
+      // Priority 1 — date-column scan.
+      // IMPORTANT: check the edits map first, then the original cell value.
+      // Sheds whose Excel date column (col B) is a formula with no cached value
+      // will have dates seeded into edits by buildInitialEditsForSheet — the raw
+      // cells map will be empty for those rows. Checking only cells caused sheds
+      // 5&6 onwards to miss today's row and fall through to the wrong Priority 2 row.
       let targetRow = -1;
+      const sheetEditsForDate = next[i] ?? new Map<string, string>();
       for (let r = startRow; r < startRow + 65; r++) {
-        const dv = String(cells.get(`${r},1`)?.value ?? "").trim();
+        const dvEdit = sheetEditsForDate.get(`${r},1`) ?? "";
+        const dvCell = String(cells.get(`${r},1`)?.value ?? "").trim();
+        const dv = dvEdit || dvCell;
         if (!dv) continue;
         const parsed = parseDateInput(dv);
         if (parsed &&
