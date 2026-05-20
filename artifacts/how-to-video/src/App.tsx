@@ -1,16 +1,19 @@
-import { Router, Route, Switch } from "wouter";
-import Dashboard from "@/pages/Dashboard";
-import Settings from "@/pages/Settings";
-
-const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-
 export default function App() {
   return (
-    <Router base={base}>
-      <Switch>
-        <Route path="/settings" component={Settings} />
-        <Route path="/" component={Dashboard} />
-      </Switch>
-    </Router>
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#0f1e14",
+      color: "#fff",
+      fontFamily: "sans-serif",
+      flexDirection: "column",
+      gap: 16,
+    }}>
+      <div style={{ fontSize: 48 }}>🌾</div>
+      <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>Farm Buddy™</h1>
+      <p style={{ margin: 0, color: "#9ca3af" }}>Operations video coming soon.</p>
+    </div>
   );
 }

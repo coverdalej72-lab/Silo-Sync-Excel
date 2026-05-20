@@ -1,10 +1,13 @@
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
-import { Settings, Plus, LayoutGrid } from "lucide-react";
+import { Settings, Plus, LayoutGrid, ChevronLeft, ChevronRight } from "lucide-react";
 import OpsFarmCard from "@/components/OpsFarmCard";
 import { useFarms } from "@/hooks/useFarms";
 import { useFarmData } from "@/hooks/useFarmData";
 import { cn } from "@/lib/utils";
 import type { Farm } from "@/hooks/useFarms";
+
+// ── Per-farm fetcher ────────────────────────────────────────────────────────
 
 function FarmDataWrapper({ farm }: { farm: Farm }) {
   const data = useFarmData(farm.apiUrl);
@@ -18,26 +21,132 @@ function FarmDataWrapper({ farm }: { farm: Farm }) {
   );
 }
 
+// ── Carousel ────────────────────────────────────────────────────────────────
+
+function FarmCarousel({ farms }: { farms: Farm[] }) {
+  const [current, setCurrent] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const count = farms.length;
+
+  const prev = () => setCurrent(i => Math.max(0, i - 1));
+  const next = () => setCurrent(i => Math.min(count - 1, i + 1));
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const delta = touchStartX.current - e.changedTouches[0].clientX;
+    if (Math.abs(delta) > 40) {
+      if (delta > 0) next();
+      else prev();
+    }
+    touchStartX.current = null;
+  };
+
+  return (
+    <div className="relative w-full">
+      {/* Track */}
+      <div
+        className="overflow-hidden"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
+        <div
+          className="flex transition-transform duration-300 ease-in-out"
+          style={{ transform: `translateX(-${current * 100}%)` }}
+        >
+          {farms.map(farm => (
+            <div
+              key={farm.id}
+              className="min-w-full px-0 sm:px-4"
+              style={{ maxWidth: "100%" }}
+            >
+              {/* Cap individual card width on large screens */}
+              <div className="max-w-2xl mx-auto">
+                <FarmDataWrapper farm={farm} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Arrow buttons — visible on desktop when there are multiple cards */}
+      {count > 1 && (
+        <>
+          <button
+            onClick={prev}
+            disabled={current === 0}
+            aria-label="Previous farm"
+            className={cn(
+              "absolute left-0 sm:-left-5 top-1/2 -translate-y-1/2 z-10",
+              "w-9 h-9 rounded-full flex items-center justify-center shadow-md",
+              "bg-card border border-border text-foreground",
+              "transition-all hover:bg-secondary",
+              current === 0 && "opacity-30 cursor-not-allowed"
+            )}
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={next}
+            disabled={current === count - 1}
+            aria-label="Next farm"
+            className={cn(
+              "absolute right-0 sm:-right-5 top-1/2 -translate-y-1/2 z-10",
+              "w-9 h-9 rounded-full flex items-center justify-center shadow-md",
+              "bg-card border border-border text-foreground",
+              "transition-all hover:bg-secondary",
+              current === count - 1 && "opacity-30 cursor-not-allowed"
+            )}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </>
+      )}
+
+      {/* Pagination dots */}
+      {count > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-5">
+          {farms.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrent(i)}
+              aria-label={`Go to farm ${i + 1}`}
+              className={cn(
+                "rounded-full transition-all duration-200",
+                i === current
+                  ? "w-5 h-2.5 bg-primary"
+                  : "w-2.5 h-2.5 bg-border hover:bg-muted-foreground/40"
+              )}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Current indicator text */}
+      {count > 1 && (
+        <p className="text-center text-muted-foreground text-xs mt-2">
+          {current + 1} of {count}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Dashboard page ──────────────────────────────────────────────────────────
+
 export default function OpsDashboard() {
   const { farms } = useFarms();
   const [, navigate] = useLocation();
-
   const count = farms.length;
-
-  const gridCols =
-    count <= 1
-      ? "grid-cols-1 max-w-lg mx-auto"
-      : count === 2
-        ? "grid-cols-2 max-w-4xl mx-auto"
-        : count <= 4
-          ? "grid-cols-2 xl:grid-cols-3"
-          : "grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Topbar */}
       <header className="sticky top-0 z-30 bg-primary border-b border-primary/20 shadow-sm">
-        <div className="max-w-screen-2xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-primary-foreground/15 flex items-center justify-center text-primary-foreground font-extrabold text-sm tracking-tight">
               FB
@@ -64,9 +173,10 @@ export default function OpsDashboard() {
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 max-w-screen-2xl mx-auto w-full px-6 py-6">
+      {/* Main */}
+      <main className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6">
         {count === 0 ? (
+          /* Empty state */
           <div className="flex flex-col items-center justify-center h-[60vh] gap-6 text-center">
             <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
               <LayoutGrid className="w-10 h-10 text-primary/40" />
@@ -87,11 +197,12 @@ export default function OpsDashboard() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-5">
+            {/* Status bar */}
+            <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-lg font-extrabold text-foreground">Operations Overview</h1>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  Monitoring {count} {count === 1 ? "farm" : "farms"} · Click any card to open that farm's app
+                  Swipe or use arrows to browse farms · tap Open App to drill in
                 </p>
               </div>
               <div className="hidden md:flex items-center gap-3 text-[10px] text-muted-foreground font-medium px-3 py-1.5 rounded-lg bg-secondary/60">
@@ -101,10 +212,9 @@ export default function OpsDashboard() {
               </div>
             </div>
 
-            <div className={cn("grid gap-4 items-start", gridCols)}>
-              {farms.map(farm => (
-                <FarmDataWrapper key={farm.id} farm={farm} />
-              ))}
+            {/* Carousel */}
+            <div className="relative px-5 sm:px-8">
+              <FarmCarousel farms={farms} />
             </div>
           </>
         )}
