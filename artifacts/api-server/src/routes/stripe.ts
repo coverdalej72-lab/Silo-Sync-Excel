@@ -231,6 +231,97 @@ router.post('/stripe/subscribe', async (req, res) => {
   }
 });
 
+// Operations Bundle checkout
+// Body: { opsEmail, farms: [{name, managerEmail, tier}], totalMonthly, successUrl, cancelUrl }
+router.post('/stripe/bundle-checkout', async (req, res) => {
+  try {
+    const { opsEmail, farms, successUrl, cancelUrl } = req.body as {
+      opsEmail: string;
+      farms: { name: string; managerEmail: string; tier: string }[];
+      totalMonthly: number;
+      successUrl?: string;
+      cancelUrl?: string;
+    };
+
+    if (!opsEmail || !opsEmail.includes('@')) {
+      return res.status(400).json({ error: 'opsEmail is required' });
+    }
+    if (!Array.isArray(farms) || farms.length === 0) {
+      return res.status(400).json({ error: 'At least one farm is required' });
+    }
+
+    const TIER_PRICES: Record<string, { label: string; priceAUD: number; sheds: string }> = {
+      bronze:   { label: 'Bronze',   priceAUD: 75,  sheds: 'Up to 6 sheds' },
+      silver:   { label: 'Silver',   priceAUD: 150, sheds: '7–12 sheds' },
+      gold:     { label: 'Gold',     priceAUD: 250, sheds: '12+ sheds' },
+      platinum: { label: 'Platinum', priceAUD: 400, sheds: 'Unlimited sheds' },
+    };
+
+    const stripe = await getUncachableStripeClient();
+    const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+
+    // Find or create ops manager customer
+    const existing = await stripe.customers.list({ email: opsEmail, limit: 1 });
+    let customer = existing.data[0];
+    if (!customer) {
+      customer = await stripe.customers.create({
+        email: opsEmail,
+        metadata: { role: 'operator', farm_count: String(farms.length) },
+      });
+    }
+
+    // One line item per farm — each billed monthly
+    const lineItems = farms.map(farm => {
+      const tier = TIER_PRICES[farm.tier] ?? TIER_PRICES['bronze'];
+      return {
+        price_data: {
+          currency: 'aud',
+          product_data: {
+            name: `Farm Buddy ${tier.label} — ${farm.name || 'Unnamed Farm'}`,
+            description: `${tier.sheds} · Manager: ${farm.managerEmail}`,
+            metadata: { farm_name: farm.name, manager_email: farm.managerEmail, tier: farm.tier },
+          },
+          unit_amount: tier.priceAUD * 100,
+          recurring: { interval: 'month' as const },
+        },
+        quantity: 1,
+      };
+    });
+
+    // Store farm details in session metadata for webhook processing
+    const farmsSummary = farms
+      .map(f => `${f.name}|${f.managerEmail}|${f.tier}`)
+      .join(',');
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customer.id,
+      payment_method_types: ['card'],
+      line_items: lineItems,
+      mode: 'subscription',
+      subscription_data: {
+        metadata: {
+          bundle_type: 'operations',
+          ops_email: opsEmail,
+          farm_count: String(farms.length),
+          farms: farmsSummary.slice(0, 500), // Stripe metadata limit
+        },
+      },
+      metadata: {
+        bundle_type: 'operations',
+        ops_email: opsEmail,
+        farm_count: String(farms.length),
+        farms: farmsSummary.slice(0, 500),
+      },
+      success_url: successUrl || `${baseUrl}/plans/?checkout=success`,
+      cancel_url:  cancelUrl  || `${baseUrl}/plans/?checkout=cancel`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err: unknown) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // Manage subscription (customer portal)
 router.post('/stripe/portal', async (req, res) => {
   try {

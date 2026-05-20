@@ -1495,196 +1495,400 @@ function CheckoutSuccessModal({ onClose }: { onClose: () => void }) {
 }
 
 const OPS_TIERS = [
-  { id: "bronze", label: "🥉 Bronze", price: 75, desc: "Silo readings & history", color: "#CD7F32" },
-  { id: "silver", label: "🥈 Silver", price: 150, desc: "Bronze + feed program", color: "#94a3b8" },
-  { id: "gold",   label: "🥇 Gold",   price: 250, desc: "Silver + deliveries & export", color: "#C9A227" },
-  { id: "platinum", label: "💎 Platinum", price: 400, desc: "Gold + priority support & custom reports", color: "#7c3aed" },
+  {
+    id: "bronze",
+    label: "🥉 Bronze",
+    sheds: "Up to 6 sheds",
+    shedMax: 6,
+    price: 75,
+    features: ["Silo readings & history", "Daily progress tracking", "CSV export"],
+    color: "#b45309",
+    bg: "#fef3c7",
+  },
+  {
+    id: "silver",
+    label: "🥈 Silver",
+    sheds: "7 – 12 sheds",
+    shedMax: 12,
+    price: 150,
+    features: ["Everything in Bronze", "Feed program spreadsheet", "Batch tracking"],
+    color: "#475569",
+    bg: "#f1f5f9",
+  },
+  {
+    id: "gold",
+    label: "🥇 Gold",
+    sheds: "12+ sheds",
+    shedMax: 999,
+    price: 250,
+    features: ["Everything in Silver", "Delivery tracking", "Feed-on-hand alerts", "Priority support"],
+    color: "#92400e",
+    bg: "#fffbeb",
+    highlight: true,
+  },
 ];
 
-function OperationsBundle() {
-  const [counts, setCounts] = useState<Record<string, number>>({ bronze: 0, silver: 0, gold: 0, platinum: 0 });
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", company: "", notes: "" });
+type FarmRow = { id: string; name: string; email: string; tierId: string };
 
-  const totalMonthly = OPS_TIERS.reduce((sum, t) => sum + (counts[t.id] ?? 0) * t.price, 0);
-  const totalFarms = OPS_TIERS.reduce((sum, t) => sum + (counts[t.id] ?? 0), 0);
+function newFarmRow(): FarmRow {
+  return { id: Math.random().toString(36).slice(2), name: "", email: "", tierId: "bronze" };
+}
 
-  const adj = (id: string, delta: number) => setCounts(c => ({ ...c, [id]: Math.max(0, Math.min(20, (c[id] ?? 0) + delta)) }));
+function BundleCheckoutModal({ farms, totalMonthly, onClose }: {
+  farms: FarmRow[];
+  totalMonthly: number;
+  onClose: () => void;
+}) {
+  const [opsEmail, setOpsEmail] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
 
-  const mailto = `mailto:coverdalej72@gmail.com?subject=${encodeURIComponent("Operations Bundle Enquiry — Farm Buddy™")}&body=${encodeURIComponent(
-    `Hi,\n\nI'm interested in the Operations Bundle for ${totalFarms} farm${totalFarms !== 1 ? "s" : ""}.\n\nTier breakdown:\n` +
-    OPS_TIERS.filter(t => (counts[t.id] ?? 0) > 0).map(t => `  ${TIER_LABELS_LOCAL[t.id]}: ${counts[t.id]} farm${counts[t.id] !== 1 ? "s" : ""} × $${t.price}/mo`).join("\n") +
-    `\n\nTotal: $${totalMonthly}/month (AUD, ex. GST)\n\nName: ${form.name}\nEmail: ${form.email}\nCompany/Farm Group: ${form.company}\nNotes: ${form.notes}\n`
-  )}`;
+  const handleCheckout = async () => {
+    if (!opsEmail.includes("@")) { setError("Enter a valid email for the operations account."); return; }
+    const missingEmail = farms.find(f => !f.email.includes("@"));
+    if (missingEmail) { setError(`Enter a valid manager email for "${missingEmail.name || "unnamed farm"}".`); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const domain = window.location.origin;
+      const resp = await fetch(`${domain}/api/stripe/bundle-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          opsEmail,
+          farms: farms.map(f => ({ name: f.name || "Unnamed Farm", managerEmail: f.email, tier: f.tierId })),
+          totalMonthly,
+          successUrl: `${domain}/plans/?checkout=success`,
+          cancelUrl:  `${domain}/plans/?checkout=cancel`,
+        }),
+      });
+      const data = await resp.json() as { url?: string; error?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data.error ?? "Something went wrong — please try again.");
+      }
+    } catch {
+      setError("Connection error — please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <section id="operations-bundle" style={{ background: "#f0fdf4", padding: "80px 24px", borderTop: "4px solid #1a5c36" }}>
-      <div style={{ maxWidth: 900, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <span style={{
-            display: "inline-block", background: "#1a5c36", color: "#C9A227",
-            fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
-            padding: "5px 14px", borderRadius: 20, marginBottom: 14,
-          }}>
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, overflowY: "auto" }}
+    >
+      <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 500, boxShadow: "0 24px 80px rgba(0,0,0,0.22)", overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{ background: GREEN, padding: "24px 28px", color: "#fff" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 20, marginBottom: 4 }}>Operations Bundle</div>
+              <div style={{ fontSize: 13, opacity: 0.85 }}>{farms.length} farm{farms.length !== 1 ? "s" : ""} · ${totalMonthly}/mo AUD ex. GST</div>
+            </div>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 8, width: 32, height: 32, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          </div>
+        </div>
+
+        <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Bundle summary */}
+          <div style={{ background: "#f9fafb", borderRadius: 12, padding: "14px 16px" }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Your bundle</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {farms.map((f, i) => {
+                const tier = OPS_TIERS.find(t => t.id === f.tierId)!;
+                return (
+                  <div key={f.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                      <span style={{ background: tier.bg, color: tier.color, fontWeight: 800, fontSize: 11, padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>{tier.label}</span>
+                      <span style={{ fontSize: 13, color: "#111", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name || `Farm ${i + 1}`}</span>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#374151", whiteSpace: "nowrap" }}>${tier.price}/mo</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 10, paddingTop: 10, display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: 15 }}>
+              <span style={{ color: "#374151" }}>Monthly total</span>
+              <span style={{ color: GREEN }}>${totalMonthly}/mo</span>
+            </div>
+          </div>
+
+          {/* Ops manager email */}
+          <div>
+            <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 6 }}>
+              Your email (operations manager account)
+            </label>
+            <input
+              type="email"
+              value={opsEmail}
+              onChange={e => { setOpsEmail(e.target.value); setError(""); }}
+              placeholder="ops@farmgroup.com.au"
+              autoFocus
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${error && !opsEmail.includes("@") ? "#dc2626" : "#d1d5db"}`, fontSize: 14, boxSizing: "border-box", outline: "none" }}
+            />
+            <div style={{ fontSize: 12, color: "#6b7280", marginTop: 5 }}>You'll receive your ops dashboard login link here.</div>
+          </div>
+
+          {/* Farm manager emails summary */}
+          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 14px" }}>
+            <div style={{ fontWeight: 700, fontSize: 12, color: "#166534", marginBottom: 6 }}>📧 After payment — each farm manager receives an invite email</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {farms.map((f, i) => (
+                <div key={f.id} style={{ fontSize: 12, color: "#374151" }}>
+                  <span style={{ fontWeight: 600 }}>{f.name || `Farm ${i + 1}`}</span>
+                  {" → "}{f.email || <span style={{ color: "#9ca3af" }}>no email entered</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {error && (
+            <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", color: "#dc2626", fontSize: 13 }}>{error}</div>
+          )}
+
+          <button
+            onClick={handleCheckout}
+            disabled={loading}
+            style={{ width: "100%", background: loading ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 900, fontSize: 16, padding: "14px 0", borderRadius: 12, border: "none", cursor: loading ? "not-allowed" : "pointer" }}
+          >
+            {loading ? "Redirecting to Stripe…" : `Pay $${totalMonthly}/mo — ${farms.length} farm${farms.length !== 1 ? "s" : ""} →`}
+          </button>
+          <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", margin: "-8px 0 0" }}>
+            Secure payment via Stripe · Monthly subscription · Cancel anytime
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OperationsBundle() {
+  const [farms, setFarms]           = useState<FarmRow[]>([newFarmRow()]);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [newTierId, setNewTierId]   = useState("bronze");
+
+  const totalMonthly = farms.reduce((sum, f) => {
+    const tier = OPS_TIERS.find(t => t.id === f.tierId);
+    return sum + (tier?.price ?? 0);
+  }, 0);
+
+  const updateFarm = (id: string, patch: Partial<FarmRow>) =>
+    setFarms(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
+  const removeFarm = (id: string) =>
+    setFarms(prev => prev.filter(f => f.id !== id));
+  const addFarm = () =>
+    setFarms(prev => [...prev, { ...newFarmRow(), tierId: newTierId }]);
+
+  const tierCounts = OPS_TIERS.map(t => ({ ...t, count: farms.filter(f => f.tierId === t.id).length }));
+
+  return (
+    <section id="operations-bundle" style={{ background: "linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%)", padding: "80px 24px", borderTop: "4px solid #1a5c36" }}>
+      {showCheckout && (
+        <BundleCheckoutModal
+          farms={farms}
+          totalMonthly={totalMonthly}
+          onClose={() => setShowCheckout(false)}
+        />
+      )}
+
+      <div style={{ maxWidth: 960, margin: "0 auto" }}>
+
+        {/* Section header */}
+        <div style={{ textAlign: "center", marginBottom: 52 }}>
+          <span style={{ display: "inline-block", background: "#1a5c36", color: GOLD, fontWeight: 900, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", padding: "5px 14px", borderRadius: 20, marginBottom: 14 }}>
             For Operations Groups
           </span>
-          <h2 style={{ fontSize: "clamp(26px, 4vw, 40px)", fontWeight: 900, color: "#111827", letterSpacing: "-0.03em", margin: "0 0 14px" }}>
-            Operations Bundle
+          <h2 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 900, color: "#111827", letterSpacing: "-0.03em", margin: "0 0 16px" }}>
+            Build Your Operations Bundle
           </h2>
-          <p style={{ color: "#4b5563", fontSize: 17, maxWidth: 560, margin: "0 auto", lineHeight: 1.6 }}>
-            Run multiple farms under one operations group. Mix and match plan tiers per farm — only pay for what each site needs.
+          <p style={{ color: "#4b5563", fontSize: 17, maxWidth: 580, margin: "0 auto", lineHeight: 1.65 }}>
+            Name each farm, pick the right tier for its shed count, and see your total price update live. After payment, every farm manager gets an invite email with their private app link.
           </p>
         </div>
 
-        {/* Tier grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 16, marginBottom: 32 }}>
+        {/* Tier reference cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 36 }}>
           {OPS_TIERS.map(tier => (
             <div key={tier.id} style={{
-              background: "#fff", borderRadius: 14,
-              border: `2px solid ${(counts[tier.id] ?? 0) > 0 ? tier.color : "#e5e7eb"}`,
+              background: tier.highlight ? GREEN : "#fff",
+              borderRadius: 14,
+              border: `2px solid ${tier.highlight ? GREEN : "#e5e7eb"}`,
               padding: "20px 18px",
-              transition: "border-color 0.15s, box-shadow 0.15s",
-              boxShadow: (counts[tier.id] ?? 0) > 0 ? `0 0 0 3px ${tier.color}22` : "none",
+              position: "relative",
+              boxShadow: tier.highlight ? "0 4px 20px rgba(26,92,54,0.18)" : "none",
             }}>
-              <div style={{ fontSize: 22, fontWeight: 900, color: tier.color, marginBottom: 4 }}>{tier.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: "#111827", marginBottom: 2 }}>
-                ${tier.price}<span style={{ fontSize: 12, fontWeight: 600, color: "#6b7280" }}>/mo</span>
+              {tier.highlight && (
+                <div style={{ position: "absolute", top: -11, left: "50%", transform: "translateX(-50%)", background: GOLD, color: "#1a1a1a", fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 12px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                  Most Popular
+                </div>
+              )}
+              <div style={{ fontWeight: 900, fontSize: 18, color: tier.highlight ? GOLD : tier.color, marginBottom: 2 }}>{tier.label}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: tier.highlight ? "rgba(255,255,255,0.7)" : "#6b7280", marginBottom: 10, letterSpacing: "0.04em", textTransform: "uppercase" }}>{tier.sheds}</div>
+              <div style={{ fontSize: 26, fontWeight: 900, color: tier.highlight ? "#fff" : "#111827", marginBottom: 12 }}>
+                ${tier.price}<span style={{ fontSize: 13, fontWeight: 600, color: tier.highlight ? "rgba(255,255,255,0.65)" : "#9ca3af" }}>/mo</span>
               </div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 16, lineHeight: 1.4 }}>{tier.desc}</div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <button
-                  onClick={() => adj(tier.id, -1)}
-                  disabled={(counts[tier.id] ?? 0) === 0}
-                  style={{
-                    width: 32, height: 32, borderRadius: 8, border: "1.5px solid #d1d5db",
-                    background: "#f9fafb", fontSize: 18, fontWeight: 700, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    opacity: (counts[tier.id] ?? 0) === 0 ? 0.35 : 1,
-                  }}
-                >−</button>
-                <span style={{ fontWeight: 800, fontSize: 20, color: "#111827", minWidth: 28, textAlign: "center" }}>
-                  {counts[tier.id] ?? 0}
-                </span>
-                <button
-                  onClick={() => adj(tier.id, 1)}
-                  style={{
-                    width: 32, height: 32, borderRadius: 8, border: "1.5px solid #d1d5db",
-                    background: "#f9fafb", fontSize: 18, fontWeight: 700, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}
-                >+</button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {tier.features.map(feat => (
+                  <div key={feat} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, color: tier.highlight ? "rgba(255,255,255,0.88)" : "#374151" }}>
+                    <span style={{ color: tier.highlight ? GOLD : "#16a34a", fontWeight: 900, fontSize: 14, lineHeight: "16px", flexShrink: 0 }}>✓</span>
+                    {feat}
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 14, fontSize: 11, fontWeight: 700, color: tier.highlight ? "rgba(255,255,255,0.5)" : "#9ca3af" }}>
+                {tierCounts.find(t => t.id === tier.id)?.count ?? 0} farm{(tierCounts.find(t => t.id === tier.id)?.count ?? 0) !== 1 ? "s" : ""} selected
               </div>
             </div>
           ))}
         </div>
 
-        {/* Pricing summary */}
+        {/* Farm builder */}
+        <div style={{ background: "#fff", borderRadius: 18, border: "2px solid #d1fae5", padding: "28px", marginBottom: 24, boxShadow: "0 2px 12px rgba(26,92,54,0.07)" }}>
+          <div style={{ fontWeight: 900, fontSize: 16, color: "#111827", marginBottom: 6 }}>Your Farms</div>
+          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 20 }}>
+            Add each farm in your operations group. Name it, enter the manager's email, and choose the right tier for how many sheds it has.
+          </div>
+
+          {/* Column headers — desktop only */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 10, marginBottom: 8, padding: "0 4px" }}>
+            {["Farm name", "Manager's email", "Plan tier", ""].map((h, i) => (
+              <div key={i} style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.07em" }}>{h}</div>
+            ))}
+          </div>
+
+          {/* Farm rows */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {farms.map((farm, idx) => {
+              const tier = OPS_TIERS.find(t => t.id === farm.tierId)!;
+              return (
+                <div key={farm.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 10, alignItems: "center", background: "#f9fafb", borderRadius: 10, padding: "10px 12px", border: "1.5px solid #e5e7eb" }}>
+                  <input
+                    type="text"
+                    placeholder={`Farm ${idx + 1} name`}
+                    value={farm.name}
+                    onChange={e => updateFarm(farm.id, { name: e.target.value })}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 14, outline: "none", background: "#fff", minWidth: 0 }}
+                  />
+                  <input
+                    type="email"
+                    placeholder="manager@farm.com"
+                    value={farm.email}
+                    onChange={e => updateFarm(farm.id, { email: e.target.value })}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 14, outline: "none", background: "#fff", minWidth: 0 }}
+                  />
+                  <select
+                    value={farm.tierId}
+                    onChange={e => updateFarm(farm.id, { tierId: e.target.value })}
+                    style={{ padding: "8px 10px", borderRadius: 8, border: `1.5px solid ${tier.color}66`, fontSize: 13, fontWeight: 700, color: tier.color, background: tier.bg, outline: "none", cursor: "pointer" }}
+                  >
+                    {OPS_TIERS.map(t => (
+                      <option key={t.id} value={t.id}>{t.label} — ${t.price}/mo ({t.sheds})</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => removeFarm(farm.id)}
+                    disabled={farms.length === 1}
+                    title="Remove farm"
+                    style={{ width: 32, height: 32, borderRadius: 8, border: "1.5px solid #fca5a5", background: "#fef2f2", color: "#dc2626", fontSize: 16, cursor: farms.length === 1 ? "not-allowed" : "pointer", opacity: farms.length === 1 ? 0.35 : 1, display: "flex", alignItems: "center", justifyContent: "center" }}
+                  >×</button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add farm row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, paddingTop: 14, borderTop: "1px dashed #d1fae5" }}>
+            <select
+              value={newTierId}
+              onChange={e => setNewTierId(e.target.value)}
+              style={{ padding: "8px 12px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 13, color: "#374151", background: "#fff", outline: "none" }}
+            >
+              {OPS_TIERS.map(t => (
+                <option key={t.id} value={t.id}>{t.label} — ${t.price}/mo ({t.sheds})</option>
+              ))}
+            </select>
+            <button
+              onClick={addFarm}
+              style={{ display: "flex", alignItems: "center", gap: 7, background: "#f0fdf4", border: "2px dashed #6ee7b7", color: "#065f46", fontWeight: 700, fontSize: 14, padding: "8px 18px", borderRadius: 10, cursor: "pointer" }}
+            >
+              + Add farm
+            </button>
+          </div>
+        </div>
+
+        {/* Live price summary + CTA */}
         <div style={{
-          background: "#fff", borderRadius: 16, border: "2px solid #1a5c36",
-          padding: "24px 28px", marginBottom: 28,
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap", gap: 16,
+          background: totalMonthly > 0 ? GREEN : "#fff",
+          border: `2px solid ${totalMonthly > 0 ? GREEN : "#d1d5db"}`,
+          borderRadius: 16,
+          padding: "24px 28px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 18,
+          transition: "background 0.3s, border-color 0.3s",
+          marginBottom: 32,
         }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
-              {totalFarms === 0 ? "Select farms above to calculate" : `${totalFarms} farm${totalFarms !== 1 ? "s" : ""} · monthly total`}
+            <div style={{ fontSize: 13, fontWeight: 600, color: totalMonthly > 0 ? "rgba(255,255,255,0.75)" : "#6b7280", marginBottom: 4 }}>
+              {farms.length} farm{farms.length !== 1 ? "s" : ""} · monthly total
             </div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: "#1a5c36", letterSpacing: "-0.04em" }}>
-              {totalMonthly === 0 ? "—" : `$${totalMonthly.toLocaleString()}`}
-              {totalMonthly > 0 && <span style={{ fontSize: 14, fontWeight: 600, color: "#6b7280" }}> /mo AUD ex. GST</span>}
+            <div style={{ fontSize: 42, fontWeight: 900, color: totalMonthly > 0 ? "#fff" : "#d1d5db", letterSpacing: "-0.04em", lineHeight: 1 }}>
+              ${totalMonthly > 0 ? totalMonthly.toLocaleString() : "—"}
+              {totalMonthly > 0 && <span style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginLeft: 4 }}>/mo AUD ex. GST</span>}
             </div>
-            {totalFarms > 0 && (
-              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "6px 16px" }}>
-                {OPS_TIERS.filter(t => (counts[t.id] ?? 0) > 0).map(t => (
-                  <span key={t.id} style={{ fontSize: 12, color: "#374151" }}>
-                    <span style={{ fontWeight: 700, color: t.color }}>{t.label}</span> × {counts[t.id]}
+            {totalMonthly > 0 && (
+              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
+                {tierCounts.filter(t => t.count > 0).map(t => (
+                  <span key={t.id} style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>
+                    {t.label} × {t.count}
                   </span>
                 ))}
               </div>
             )}
           </div>
           <button
-            disabled={totalFarms === 0}
-            onClick={() => totalFarms > 0 && setShowForm(true)}
+            disabled={totalMonthly === 0}
+            onClick={() => totalMonthly > 0 && setShowCheckout(true)}
             style={{
-              background: totalFarms > 0 ? "#1a5c36" : "#e5e7eb",
-              color: totalFarms > 0 ? "#fff" : "#9ca3af",
-              fontWeight: 800, fontSize: 16, padding: "14px 32px",
-              borderRadius: 12, border: "none", cursor: totalFarms > 0 ? "pointer" : "not-allowed",
-              transition: "background 0.15s",
+              background: totalMonthly > 0 ? GOLD : "#e5e7eb",
+              color: totalMonthly > 0 ? "#1a1a1a" : "#9ca3af",
+              fontWeight: 900, fontSize: 17, padding: "16px 36px",
+              borderRadius: 12, border: "none", cursor: totalMonthly > 0 ? "pointer" : "not-allowed",
+              boxShadow: totalMonthly > 0 ? "0 4px 16px rgba(201,162,39,0.35)" : "none",
+              whiteSpace: "nowrap",
             }}
           >
-            Request Operations Bundle →
+            Get Started →
           </button>
         </div>
 
-        {/* Contact form */}
-        {showForm && (
-          <div style={{
-            background: "#fff", borderRadius: 16, border: "2px solid #1a5c36",
-            padding: "28px", marginBottom: 28,
-          }}>
-            <h3 style={{ margin: "0 0 18px", fontWeight: 800, fontSize: 18, color: "#111827" }}>
-              Request your Operations Bundle
-            </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 12 }}>
-              {[
-                { key: "name", label: "Your Name", placeholder: "Jane Smith" },
-                { key: "email", label: "Email", placeholder: "jane@farmgroup.com.au" },
-                { key: "company", label: "Farm Group / Company", placeholder: "Double B Farms" },
-              ].map(f => (
-                <div key={f.key}>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 5 }}>{f.label}</label>
-                  <input
-                    type="text"
-                    value={form[f.key as keyof typeof form]}
-                    onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                    placeholder={f.placeholder}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 14, boxSizing: "border-box" }}
-                  />
-                </div>
-              ))}
+        {/* How it works steps */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 20, marginBottom: 40 }}>
+          {[
+            { step: "1", icon: "🛒", title: "Build your bundle", desc: "Name each farm, pick Bronze / Silver / Gold based on shed count, see the total update live." },
+            { step: "2", icon: "💳", title: "Pay once via Stripe", desc: "One monthly invoice for the whole group. Cancel or adjust any farm at any time." },
+            { step: "3", icon: "📧", title: "Invites go out", desc: "Each farm manager gets an email with their private Farm Buddy link — ready to log in on day one." },
+            { step: "4", icon: "📊", title: "You're in control", desc: "Your ops dashboard shows every farm's feed levels, sheds done, and next delivery at a glance." },
+          ].map(s => (
+            <div key={s.step} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+              <div style={{ background: GREEN, color: "#fff", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 14, flexShrink: 0 }}>{s.step}</div>
+              <div>
+                <div style={{ fontSize: 18, marginBottom: 4 }}>{s.icon}</div>
+                <div style={{ fontWeight: 800, fontSize: 14, color: "#111827", marginBottom: 4 }}>{s.title}</div>
+                <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.55 }}>{s.desc}</div>
+              </div>
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 5 }}>Notes (optional)</label>
-              <textarea
-                value={form.notes}
-                onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Special requirements, go-live date, questions..."
-                rows={3}
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 14, resize: "vertical", boxSizing: "border-box" }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <a
-                href={mailto}
-                style={{
-                  display: "inline-block", background: "#1a5c36", color: "#fff",
-                  fontWeight: 800, fontSize: 15, padding: "12px 28px", borderRadius: 10,
-                  textDecoration: "none",
-                }}
-              >
-                Send Enquiry →
-              </a>
-              <button
-                onClick={() => setShowForm(false)}
-                style={{ background: "transparent", border: "1.5px solid #d1d5db", padding: "12px 20px", borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#374151" }}
-              >
-                Cancel
-              </button>
-            </div>
-            <p style={{ marginTop: 12, fontSize: 12, color: "#9ca3af" }}>
-              We'll respond within 1 business day with a tailored setup plan and invoice.
-            </p>
-          </div>
-        )}
+          ))}
+        </div>
 
+        {/* Trust badges */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
           {[
             { icon: "🔒", title: "Full data isolation", desc: "Each farm's readings, silos, and deliveries are completely separate." },
             { icon: "👤", title: "One login per farm", desc: "Each farm manager gets their own email/password account." },
             { icon: "📊", title: "Ops dashboard", desc: "Boss account sees all farms at a glance — feed levels, sheds done, next delivery." },
-            { icon: "📧", title: "Invite-based onboarding", desc: "We email each farm manager a secure sign-up link to activate their account." },
+            { icon: "🔄", title: "Change tiers anytime", desc: "Upgrade a farm from Bronze to Gold as the operation grows — billing adjusts next cycle." },
           ].map(f => (
             <div key={f.title} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
               <span style={{ fontSize: 24 }}>{f.icon}</span>
@@ -1695,6 +1899,7 @@ function OperationsBundle() {
             </div>
           ))}
         </div>
+
       </div>
     </section>
   );
