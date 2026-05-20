@@ -90,22 +90,23 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
       )}
 
       {count > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-5">
-          {farms.map((_, i) => (
+        <div className="flex items-center justify-center mt-5 overflow-x-auto gap-1.5 pb-1 scrollbar-none">
+          {farms.map((farm, i) => (
             <button
-              key={i}
+              key={farm.id}
               onClick={() => setCurrent(i)}
-              aria-label={`Go to farm ${i + 1}`}
+              aria-label={`Go to ${farm.name}`}
               className={cn(
-                "rounded-full transition-all duration-200",
-                i === current ? "w-5 h-2.5 bg-primary" : "w-2.5 h-2.5 bg-border hover:bg-muted-foreground/40"
+                "shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap border",
+                i === current
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
               )}
-            />
+            >
+              {farm.name}
+            </button>
           ))}
         </div>
-      )}
-      {count > 1 && (
-        <p className="text-center text-muted-foreground text-xs mt-2">{current + 1} of {count}</p>
       )}
     </div>
   );
