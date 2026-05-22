@@ -52,7 +52,7 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
           {farms.map(farm => (
             <div key={farm.id} className="min-w-full px-0 sm:px-4" style={{ maxWidth: "100%" }}>
               <div className="max-w-2xl mx-auto">
-                <FarmDataWrapper farm={farm} />
+                <DemoFarmCard farm={farm} />
               </div>
             </div>
           ))}
@@ -215,15 +215,42 @@ function BootstrapOperatorCard() {
 
 // ── Dashboard page ───────────────────────────────────────────────────────────
 
+const DEMO_FARMS: Farm[] = [
+  { id: "1", name: "Double B Farm",     planTier: "gold"     },
+  { id: "2", name: "Sunrise Poultry",   planTier: "silver"   },
+  { id: "3", name: "Red Hill Growers",  planTier: "platinum" },
+  { id: "4", name: "Outback Broilers",  planTier: "bronze"   },
+];
+type FD = import("@/hooks/useFarmData").FarmData;
+const DEMO_DATA: Record<string, FD> = {
+  "1": { progress: { date: new Date().toISOString().slice(0,10), savedCount:4, totalCount:4, sheds:[
+    { shedGroupId:1, shedGroupName:"Sheds 1 & 2", allSaved:true,  silos:[{siloId:1,amountRemaining:28.4,unit:"t"},{siloId:2,amountRemaining:14.1,unit:"t"}] },
+    { shedGroupId:2, shedGroupName:"Sheds 3 & 4", allSaved:true,  silos:[{siloId:3,amountRemaining:6.2,unit:"t"}, {siloId:4,amountRemaining:22.8,unit:"t"}] },
+  ]}, deliveries:[{id:"d1",deliveryDate:new Date(Date.now()+2*86400000).toISOString().slice(0,10),feedType:"Grower Mash",amount:30,unit:"t",shedGroupName:"Sheds 1 & 2"}], loading:false, error:null, lastFetched:Date.now(), refresh:()=>{} },
+  "2": { progress: { date: new Date().toISOString().slice(0,10), savedCount:2, totalCount:3, sheds:[
+    { shedGroupId:3, shedGroupName:"Sheds 1 & 2", allSaved:true,  silos:[{siloId:5,amountRemaining:18.5,unit:"t"}] },
+    { shedGroupId:4, shedGroupName:"Shed 3",       allSaved:false, silos:[{siloId:6,amountRemaining:3.8,unit:"t"}]  },
+  ]}, deliveries:[], loading:false, error:null, lastFetched:Date.now(), refresh:()=>{} },
+  "3": { progress: { date: new Date(Date.now()-86400000).toISOString().slice(0,10), savedCount:6, totalCount:6, sheds:[
+    { shedGroupId:5, shedGroupName:"Sheds 1 & 2", allSaved:true, silos:[{siloId:7,amountRemaining:31.0,unit:"t"},{siloId:8,amountRemaining:24.5,unit:"t"}] },
+    { shedGroupId:6, shedGroupName:"Sheds 3 & 4", allSaved:true, silos:[{siloId:9,amountRemaining:19.2,unit:"t"}] },
+    { shedGroupId:7, shedGroupName:"Sheds 5 & 6", allSaved:true, silos:[{siloId:10,amountRemaining:12.7,unit:"t"}] },
+  ]}, deliveries:[{id:"d2",deliveryDate:new Date(Date.now()+86400000).toISOString().slice(0,10),feedType:"Starter Crumbles",amount:25,unit:"t",shedGroupName:"Sheds 1 & 2"}], loading:false, error:null, lastFetched:Date.now(), refresh:()=>{} },
+  "4": { progress:null, deliveries:[], loading:false, error:"No readings yet", lastFetched:null, refresh:()=>{} },
+};
+function DemoFarmCard({ farm }: { farm: Farm }) {
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const d = DEMO_DATA[farm.id] ?? { progress:null, deliveries:[], loading:false, error:null, lastFetched:null, refresh:()=>{} };
+  return <OpsFarmCard name={farm.name} planTier={farm.planTier} apiUrl={`${BASE}/api`} data={d} onRefresh={()=>{}} />;
+}
+
 export default function OpsDashboard() {
   useEffect(() => { document.title = "Farm Buddy™ — Operations"; }, []);
-  const { farms, loading, error, refresh } = useFarms();
-  const { user, isLoaded: userLoaded } = useUser();
   const [, navigate] = useLocation();
+  const farms = DEMO_FARMS;
   const count = farms.length;
-
-  const isOperator = userLoaded &&
-    (user?.publicMetadata as Record<string, unknown> | undefined)?.role === "operator";
+  const loading = false; const error = null; const refresh = () => {};
+  const isOperator = true;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -268,11 +295,7 @@ export default function OpsDashboard() {
 
       {/* Main */}
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6">
-        {!userLoaded ? (
-          <div className="flex items-center justify-center h-[60vh]">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-          </div>
-        ) : !isOperator ? (
+        {!isOperator ? (
           <BootstrapOperatorCard />
         ) : loading ? (
           <div className="flex items-center justify-center h-[60vh]">

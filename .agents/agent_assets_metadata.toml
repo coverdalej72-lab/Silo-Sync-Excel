@@ -167,3 +167,33 @@ id = "4lZF4H1uyDyzQ0hGL_GGg"
 uri = "file://google-ads-logos/appcovi-logo-landscape-1200x300.png"
 type = "image"
 title = "Appcovi Landscape Logo — 1200 × 300 (4:1)"
+
+[[outputs]]
+id = "LT4by1UMy7TGe3WFGga83"
+uri = "file://screenshots/ops-dashboard.jpg"
+type = "image"
+title = "Ops Dashboard — Desktop (Double B Farm)"
+
+[[outputs]]
+id = "Wtl1XV_dr8VAr-u06Eb5f"
+uri = "file://screenshots/ops-mobile.jpg"
+type = "image"
+title = "Ops Dashboard — Mobile"
+
+[[outputs]]
+id = "WeFatiBPIyVeWlXgoeXWN"
+uri = "file://screenshots/ops-settings.jpg"
+type = "image"
+title = "Ops Settings — Manage Farms"
+
+[[outputs]]
+id = "IGNdFmkozodjSLF-16wLT"
+uri = "file://screenshots/sign-in.jpg"
+type = "image"
+title = "Sign In — Farm Buddy branded"
+
+[[outputs]]
+id = "j_1yG0SNOuABMSdasHv9D"
+uri = "file://screenshots/plans-pricing.jpg"
+type = "image"
+title = "Plans & Pricing — Hero"
