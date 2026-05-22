@@ -1,5 +1,7 @@
+@layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@clerk/themes/shadcn.css";
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
@@ -116,6 +118,20 @@
     -webkit-appearance: none;
     margin: 0;
   }
+}
+
+/* Clerk pseudo-states — must be outside any @layer so specificity is preserved */
+.cl-formFieldInput::placeholder {
+  color: #6b9178;
+  opacity: 1;
+}
+.cl-formFieldInput:focus {
+  border-color: #1a7a40;
+  outline-color: #1a7a40;
+}
+.cl-otpCodeFieldInput::placeholder {
+  color: #6b9178;
+  opacity: 1;
 }
 
 /* iOS safe-area utilities */

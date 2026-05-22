@@ -8,6 +8,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { ClerkProvider, Show, useClerk, useUser } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
+import { shadcn } from "@clerk/themes";
 
 import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
@@ -185,6 +186,55 @@ function Router() {
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+const clerkAppearance = {
+  theme: shadcn,
+  cssLayerName: "clerk",
+  options: {
+    logoPlacement: "inside" as const,
+    logoLinkUrl: basePath || "/",
+    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+  },
+  variables: {
+    colorPrimary: "#1a7a40",
+    colorForeground: "#0d1f14",
+    colorMutedForeground: "#4d7060",
+    colorDanger: "#dc2626",
+    colorBackground: "#ffffff",
+    colorInput: "#f0f5f2",
+    colorInputForeground: "#0d1f14",
+    colorNeutral: "#6b9178",
+    fontFamily: "'Inter', sans-serif",
+    borderRadius: "0.75rem",
+  },
+  elements: {
+    rootBox: "w-full flex justify-center",
+    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl",
+    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    headerTitle: "text-[#0d1f14] font-semibold",
+    headerSubtitle: "text-[#4d7060]",
+    socialButtonsBlockButtonText: "text-[#0d1f14] font-medium",
+    formFieldLabel: "text-[#0d1f14] font-medium",
+    footerActionLink: "text-[#1a7a40] hover:text-[#155f32] font-medium",
+    footerActionText: "text-[#4d7060]",
+    dividerText: "text-[#4d7060]",
+    identityPreviewEditButton: "text-[#1a7a40]",
+    formFieldSuccessText: "text-[#1a7a40]",
+    alertText: "text-[#0d1f14]",
+    logoBox: "flex justify-center mb-1",
+    logoImage: "h-12 w-12",
+    socialButtonsBlockButton: "border-[#d1e8da] hover:bg-[#f0f5f2]",
+    formButtonPrimary: "bg-[#1a7a40] hover:bg-[#155f32] text-white",
+    formFieldInput: "bg-[#f0f5f2] border-[#c5ddd0] text-[#0d1f14]",
+    footerAction: "bg-[#f5faf7]",
+    dividerLine: "bg-[#d1e8da]",
+    alert: "bg-[#f0f5f2] border-[#c5ddd0]",
+    otpCodeFieldInput: "bg-[#f0f5f2] border-[#c5ddd0] text-[#0d1f14]",
+    formFieldRow: "",
+    main: "",
+  },
+};
+
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
   import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
@@ -204,6 +254,7 @@ function ClerkProviderWithRoutes() {
     <ClerkProvider
       publishableKey={clerkPubKey}
       proxyUrl={clerkProxyUrl}
+      appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
       routerPush={(to) => setLocation(stripBase(to))}
