@@ -215,28 +215,129 @@ function BootstrapOperatorCard() {
 
 // ── Dashboard page ───────────────────────────────────────────────────────────
 
+// ── Demo farms — realistic multi-batch poultry operation ─────────────────────
 const DEMO_FARMS: Farm[] = [
-  { id: "1", name: "Double B Farm",     planTier: "gold"     },
-  { id: "2", name: "Sunrise Poultry",   planTier: "silver"   },
-  { id: "3", name: "Red Hill Growers",  planTier: "platinum" },
-  { id: "4", name: "Outback Broilers",  planTier: "bronze"   },
+  { id: "1", name: "Dunmore Poultry",    planTier: "platinum" },
+  { id: "2", name: "Riverina Broilers",  planTier: "gold"     },
+  { id: "3", name: "Hillcrest Farm",     planTier: "silver"   },
+  { id: "4", name: "Blackwood Ag",       planTier: "bronze"   },
 ];
+
 type FD = import("@/hooks/useFarmData").FarmData;
+const TODAY  = new Date().toISOString().slice(0, 10);
+const YESTERDAY = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+const IN1    = new Date(Date.now() + 1 * 86400000).toISOString().slice(0, 10);
+const IN3    = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
+const IN5    = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+const IN7    = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+// Helpers so silos look complete
+const silo = (id: number, letter: string, name: string, feedType: string, amount: number | null): import("@/hooks/useFarmData").SiloStatus =>
+  ({ siloId: id, letter, name, saved: amount !== null, amountRemaining: amount, feedType, unit: "t" });
+
 const DEMO_DATA: Record<string, FD> = {
-  "1": { progress: { date: new Date().toISOString().slice(0,10), savedCount:4, totalCount:4, sheds:[
-    { shedGroupId:1, shedGroupName:"Sheds 1 & 2", allSaved:true,  silos:[{siloId:1,amountRemaining:28.4,unit:"t"},{siloId:2,amountRemaining:14.1,unit:"t"}] },
-    { shedGroupId:2, shedGroupName:"Sheds 3 & 4", allSaved:true,  silos:[{siloId:3,amountRemaining:6.2,unit:"t"}, {siloId:4,amountRemaining:22.8,unit:"t"}] },
-  ]}, deliveries:[{id:"d1",deliveryDate:new Date(Date.now()+2*86400000).toISOString().slice(0,10),feedType:"Grower Mash",amount:30,unit:"t",shedGroupName:"Sheds 1 & 2"}], loading:false, error:null, lastFetched:Date.now(), refresh:()=>{} },
-  "2": { progress: { date: new Date().toISOString().slice(0,10), savedCount:2, totalCount:3, sheds:[
-    { shedGroupId:3, shedGroupName:"Sheds 1 & 2", allSaved:true,  silos:[{siloId:5,amountRemaining:18.5,unit:"t"}] },
-    { shedGroupId:4, shedGroupName:"Shed 3",       allSaved:false, silos:[{siloId:6,amountRemaining:3.8,unit:"t"}]  },
-  ]}, deliveries:[], loading:false, error:null, lastFetched:Date.now(), refresh:()=>{} },
-  "3": { progress: { date: new Date(Date.now()-86400000).toISOString().slice(0,10), savedCount:6, totalCount:6, sheds:[
-    { shedGroupId:5, shedGroupName:"Sheds 1 & 2", allSaved:true, silos:[{siloId:7,amountRemaining:31.0,unit:"t"},{siloId:8,amountRemaining:24.5,unit:"t"}] },
-    { shedGroupId:6, shedGroupName:"Sheds 3 & 4", allSaved:true, silos:[{siloId:9,amountRemaining:19.2,unit:"t"}] },
-    { shedGroupId:7, shedGroupName:"Sheds 5 & 6", allSaved:true, silos:[{siloId:10,amountRemaining:12.7,unit:"t"}] },
-  ]}, deliveries:[{id:"d2",deliveryDate:new Date(Date.now()+86400000).toISOString().slice(0,10),feedType:"Starter Crumbles",amount:25,unit:"t",shedGroupName:"Sheds 1 & 2"}], loading:false, error:null, lastFetched:Date.now(), refresh:()=>{} },
-  "4": { progress:null, deliveries:[], loading:false, error:"No readings yet", lastFetched:null, refresh:()=>{} },
+
+  // ── Farm 1: Dunmore Poultry — Platinum, 4 shed groups, 8 silos, all recorded today
+  // Sheds 1&2 + 3&4 → Grower Mash (day 19 of batch)
+  // Sheds 5&6       → Finisher Pellets (day 29 — near end, Silo A getting low)
+  // Sheds 7&8       → Starter Crumbles (day 4 — fresh placement, silos full)
+  "1": {
+    progress: {
+      date: TODAY, savedCount: 4, totalCount: 4,
+      sheds: [
+        { shedGroupId: 1, shedGroupName: "Sheds 1 & 2", allSaved: true, silos: [
+          silo(1, "A", "Silo A — Sheds 1&2", "Grower Mash", 24.6),
+          silo(2, "B", "Silo B — Sheds 1&2", "Grower Mash", 21.3),
+        ]},
+        { shedGroupId: 2, shedGroupName: "Sheds 3 & 4", allSaved: true, silos: [
+          silo(3, "A", "Silo A — Sheds 3&4", "Grower Mash", 18.8),
+          silo(4, "B", "Silo B — Sheds 3&4", "Grower Mash", 22.1),
+        ]},
+        { shedGroupId: 3, shedGroupName: "Sheds 5 & 6", allSaved: true, silos: [
+          silo(5, "A", "Silo A — Sheds 5&6", "Finisher Pellets", 8.2),   // amber — nearly done
+          silo(6, "B", "Silo B — Sheds 5&6", "Finisher Pellets", 15.4),
+        ]},
+        { shedGroupId: 4, shedGroupName: "Sheds 7 & 8", allSaved: true, silos: [
+          silo(7, "A", "Silo A — Sheds 7&8", "Starter Crumbles", 29.5),
+          silo(8, "B", "Silo B — Sheds 7&8", "Starter Crumbles", 28.0),
+        ]},
+      ],
+    },
+    deliveries: [
+      { id: 1, shedGroupId: 3, shedGroupName: "Sheds 5 & 6", feedType: "Finisher Pellets", amount: 22, unit: "t", notes: "Top up Silo A first",  deliveryDate: IN1 },
+      { id: 2, shedGroupId: 1, shedGroupName: "Sheds 1 & 2", feedType: "Grower Mash",      amount: 30, unit: "t", notes: null,                  deliveryDate: IN5 },
+    ],
+    loading: false, error: false, lastFetched: Date.now() - 4 * 60000, refresh: () => {},
+  },
+
+  // ── Farm 2: Riverina Broilers — Gold, 3 shed groups, Sheds 5&6 NOT yet recorded
+  // Sheds 1&2 → Grower Mash (day 14), good levels
+  // Sheds 3&4 → Finisher Pellets (day 31 — Silo B critically low at 3.6t!)
+  // Sheds 5&6 → Grower Mash (day 21), NOT recorded yet today
+  "2": {
+    progress: {
+      date: TODAY, savedCount: 2, totalCount: 3,
+      sheds: [
+        { shedGroupId: 5, shedGroupName: "Sheds 1 & 2", allSaved: true, silos: [
+          silo(9,  "A", "Silo A — Sheds 1&2", "Grower Mash", 22.4),
+          silo(10, "B", "Silo B — Sheds 1&2", "Grower Mash", 19.8),
+        ]},
+        { shedGroupId: 6, shedGroupName: "Sheds 3 & 4", allSaved: true, silos: [
+          silo(11, "A", "Silo A — Sheds 3&4", "Finisher Pellets", 6.7),   // amber
+          silo(12, "B", "Silo B — Sheds 3&4", "Finisher Pellets", 3.6),   // RED — critical
+        ]},
+        { shedGroupId: 7, shedGroupName: "Sheds 5 & 6", allSaved: false, silos: [
+          silo(13, "A", "Silo A — Sheds 5&6", "Grower Mash", null),       // not recorded yet
+          silo(14, "B", "Silo B — Sheds 5&6", "Grower Mash", null),
+        ]},
+      ],
+    },
+    deliveries: [
+      { id: 3, shedGroupId: 6, shedGroupName: "Sheds 3 & 4", feedType: "Finisher Pellets", amount: 28, unit: "t", notes: "Urgent — Silo B critical", deliveryDate: IN1 },
+      { id: 4, shedGroupId: 5, shedGroupName: "Sheds 1 & 2", feedType: "Grower Mash",      amount: 30, unit: "t", notes: null,                        deliveryDate: IN3 },
+    ],
+    loading: false, error: false, lastFetched: Date.now() - 23 * 60000, refresh: () => {},
+  },
+
+  // ── Farm 3: Hillcrest Farm — Silver, readings from YESTERDAY (overdue badge)
+  // Sheds 1&2 → Grower Mash (day 17), decent levels
+  // Sheds 3&4 → Finisher Pellets (day 26), Silo A low
+  // No upcoming deliveries booked — attention needed
+  "3": {
+    progress: {
+      date: YESTERDAY, savedCount: 2, totalCount: 2,
+      sheds: [
+        { shedGroupId: 8, shedGroupName: "Sheds 1 & 2", allSaved: true, silos: [
+          silo(15, "A", "Silo A — Sheds 1&2", "Grower Mash", 16.4),
+          silo(16, "B", "Silo B — Sheds 1&2", "Grower Mash", 14.2),
+        ]},
+        { shedGroupId: 9, shedGroupName: "Sheds 3 & 4", allSaved: true, silos: [
+          silo(17, "A", "Silo A — Sheds 3&4", "Finisher Pellets",  9.8),  // amber
+          silo(18, "B", "Silo B — Sheds 3&4", "Finisher Pellets", 11.3),
+        ]},
+      ],
+    },
+    deliveries: [],   // no deliveries booked — manager needs to act
+    loading: false, error: false, lastFetched: Date.now() - 18 * 3600000, refresh: () => {},
+  },
+
+  // ── Farm 4: Blackwood Ag — Bronze, small 2-shed op, day 5 fresh batch
+  // Starter Crumbles, silos loaded up, delivery booked in 7 days for Grower changeover
+  "4": {
+    progress: {
+      date: TODAY, savedCount: 1, totalCount: 1,
+      sheds: [
+        { shedGroupId: 10, shedGroupName: "Shed 1 & 2", allSaved: true, silos: [
+          silo(19, "A", "Silo A — Shed 1&2", "Starter Crumbles", 27.5),
+          silo(20, "B", "Silo B — Shed 1&2", "Starter Crumbles", 26.0),
+        ]},
+      ],
+    },
+    deliveries: [
+      { id: 5, shedGroupId: 10, shedGroupName: "Shed 1 & 2", feedType: "Grower Mash", amount: 30, unit: "t", notes: "Swap feed — batch day 12", deliveryDate: IN7 },
+    ],
+    loading: false, error: false, lastFetched: Date.now() - 2 * 60000, refresh: () => {},
+  },
 };
 function DemoFarmCard({ farm }: { farm: Farm }) {
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");

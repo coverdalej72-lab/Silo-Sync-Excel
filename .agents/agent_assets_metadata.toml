@@ -197,3 +197,15 @@ id = "j_1yG0SNOuABMSdasHv9D"
 uri = "file://screenshots/plans-pricing.jpg"
 type = "image"
 title = "Plans & Pricing — Hero"
+
+[[outputs]]
+id = "Rh-PwYAXJKQ4p6_Jz2oga"
+uri = "file://screenshots/farm1-dunmore.jpg"
+type = "image"
+title = "Dunmore Poultry (Platinum) — Desktop"
+
+[[outputs]]
+id = "4fc-Kvr-cRNrGKrLb5lU_"
+uri = "file://screenshots/farm1-dunmore-mobile.jpg"
+type = "image"
+title = "Dunmore Poultry (Platinum) — Mobile"
