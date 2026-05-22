@@ -1500,7 +1500,8 @@ const OPS_TIERS = [
     label: "🥉 Bronze",
     sheds: "Up to 6 sheds",
     shedMax: 6,
-    price: 99,
+    price: 50,
+    annualDiscount: 5,
     features: ["Silo readings & history", "Daily progress tracking", "CSV export"],
     color: "#b45309",
     bg: "#fef3c7",
@@ -1510,7 +1511,8 @@ const OPS_TIERS = [
     label: "🥈 Silver",
     sheds: "7 – 12 sheds",
     shedMax: 12,
-    price: 179,
+    price: 90,
+    annualDiscount: 10,
     features: ["Everything in Bronze", "Feed program spreadsheet", "Batch tracking"],
     color: "#475569",
     bg: "#f1f5f9",
@@ -1520,7 +1522,8 @@ const OPS_TIERS = [
     label: "🥇 Gold",
     sheds: "12+ sheds",
     shedMax: 999,
-    price: 299,
+    price: 150,
+    annualDiscount: 15,
     features: ["Everything in Silver", "Delivery tracking", "Feed-on-hand alerts", "Priority support"],
     color: "#92400e",
     bg: "#fffbeb",
@@ -1534,9 +1537,11 @@ function newFarmRow(): FarmRow {
   return { id: Math.random().toString(36).slice(2), name: "", email: "", tierId: "bronze" };
 }
 
-function BundleCheckoutModal({ farms, totalMonthly, onClose }: {
+function BundleCheckoutModal({ farms, totalMonthly, yearly, totalAnnual, onClose }: {
   farms: FarmRow[];
   totalMonthly: number;
+  yearly: boolean;
+  totalAnnual: number;
   onClose: () => void;
 }) {
   const [opsEmail, setOpsEmail] = useState("");
@@ -1586,7 +1591,7 @@ function BundleCheckoutModal({ farms, totalMonthly, onClose }: {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
               <div style={{ fontWeight: 900, fontSize: 20, marginBottom: 4 }}>Operations Bundle</div>
-              <div style={{ fontSize: 13, opacity: 0.85 }}>{farms.length} farm{farms.length !== 1 ? "s" : ""} · ${totalMonthly}/mo AUD ex. GST</div>
+              <div style={{ fontSize: 13, opacity: 0.85 }}>{farms.length} farm{farms.length !== 1 ? "s" : ""} · ${yearly ? totalAnnual.toLocaleString() : totalMonthly}/{yearly ? "yr" : "mo"} AUD ex. GST</div>
             </div>
             <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 8, width: 32, height: 32, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
           </div>
@@ -1605,14 +1610,17 @@ function BundleCheckoutModal({ farms, totalMonthly, onClose }: {
                       <span style={{ background: tier.bg, color: tier.color, fontWeight: 800, fontSize: 11, padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>{tier.label}</span>
                       <span style={{ fontSize: 13, color: "#111", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name || `Farm ${i + 1}`}</span>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#374151", whiteSpace: "nowrap" }}>${tier.price}/mo</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#374151", whiteSpace: "nowrap" }}>
+                      ${yearly ? (tier.price * (1 - tier.annualDiscount / 100)).toFixed(2) : tier.price}/mo
+                      {yearly && <span style={{ fontSize: 10, color: "#16a34a", fontWeight: 800, marginLeft: 4 }}>−{tier.annualDiscount}%</span>}
+                    </span>
                   </div>
                 );
               })}
             </div>
             <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 10, paddingTop: 10, display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: 15 }}>
-              <span style={{ color: "#374151" }}>Monthly total</span>
-              <span style={{ color: GREEN }}>${totalMonthly}/mo</span>
+              <span style={{ color: "#374151" }}>{yearly ? "Annual total" : "Monthly total"}</span>
+              <span style={{ color: GREEN }}>${yearly ? totalAnnual.toLocaleString() : totalMonthly}/{yearly ? "yr" : "mo"}</span>
             </div>
           </div>
 
@@ -1654,7 +1662,7 @@ function BundleCheckoutModal({ farms, totalMonthly, onClose }: {
             disabled={loading}
             style={{ width: "100%", background: loading ? "#9ca3af" : GREEN, color: "#fff", fontWeight: 900, fontSize: 16, padding: "14px 0", borderRadius: 12, border: "none", cursor: loading ? "not-allowed" : "pointer" }}
           >
-            {loading ? "Redirecting to Stripe…" : `Pay $${totalMonthly}/mo — ${farms.length} farm${farms.length !== 1 ? "s" : ""} →`}
+            {loading ? "Redirecting to Stripe…" : `Pay $${yearly ? totalAnnual.toLocaleString() : totalMonthly}/yr — ${farms.length} farm${farms.length !== 1 ? "s" : ""} →`}
           </button>
           <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", margin: "-8px 0 0" }}>
             Secure payment via Stripe · Monthly subscription · Cancel anytime
@@ -1669,11 +1677,21 @@ function OperationsBundle() {
   const [farms, setFarms]           = useState<FarmRow[]>([newFarmRow()]);
   const [showCheckout, setShowCheckout] = useState(false);
   const [newTierId, setNewTierId]   = useState("bronze");
+  const [yearly, setYearly]         = useState(false);
+
+  const effectiveMonthly = (tier: typeof OPS_TIERS[0]) =>
+    yearly ? parseFloat((tier.price * (1 - tier.annualDiscount / 100)).toFixed(2)) : tier.price;
 
   const totalMonthly = farms.reduce((sum, f) => {
     const tier = OPS_TIERS.find(t => t.id === f.tierId);
+    return sum + (tier ? effectiveMonthly(tier) : 0);
+  }, 0);
+  const totalAnnual = parseFloat((totalMonthly * 12).toFixed(2));
+  const totalMonthlyFull = farms.reduce((sum, f) => {
+    const tier = OPS_TIERS.find(t => t.id === f.tierId);
     return sum + (tier?.price ?? 0);
   }, 0);
+  const annualSavings = parseFloat(((totalMonthlyFull * 12) - totalAnnual).toFixed(2));
 
   const updateFarm = (id: string, patch: Partial<FarmRow>) =>
     setFarms(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
@@ -1690,6 +1708,8 @@ function OperationsBundle() {
         <BundleCheckoutModal
           farms={farms}
           totalMonthly={totalMonthly}
+          yearly={yearly}
+          totalAnnual={totalAnnual}
           onClose={() => setShowCheckout(false)}
         />
       )}
@@ -1704,9 +1724,26 @@ function OperationsBundle() {
           <h2 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 900, color: "#111827", letterSpacing: "-0.03em", margin: "0 0 8px" }}>
             Build Your Operations Bundle
           </h2>
-          <p style={{ color: "#4b5563", fontSize: 17, maxWidth: 580, margin: "0 auto", lineHeight: 1.65 }}>
+          <p style={{ color: "#4b5563", fontSize: 17, maxWidth: 580, margin: "0 auto 20px", lineHeight: 1.65 }}>
             Name each farm, pick the right tier for its shed count, and see your total price update live. After payment, every farm manager gets an invite email with their private app link.
           </p>
+
+          {/* Annual / Monthly toggle */}
+          <div style={{ display: "inline-flex", background: "#f3f4f6", borderRadius: 12, padding: 4, gap: 2 }}>
+            <button
+              onClick={() => setYearly(false)}
+              style={{ padding: "8px 22px", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", background: !yearly ? "#fff" : "transparent", color: !yearly ? "#111827" : "#6b7280", boxShadow: !yearly ? "0 1px 4px #0001" : "none", transition: "all 0.15s" }}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setYearly(true)}
+              style={{ padding: "8px 22px", borderRadius: 9, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", background: yearly ? "#fff" : "transparent", color: yearly ? "#111827" : "#6b7280", boxShadow: yearly ? "0 1px 4px #0001" : "none", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 6 }}
+            >
+              Annual
+              <span style={{ background: "#dcfce7", color: "#166534", fontSize: 10, fontWeight: 800, padding: "1px 7px", borderRadius: 20 }}>Save up to 15%</span>
+            </button>
+          </div>
         </div>
 
         {/* Tier reference cards */}
@@ -1727,8 +1764,21 @@ function OperationsBundle() {
               )}
               <div style={{ fontWeight: 900, fontSize: 18, color: tier.highlight ? GOLD : tier.color, marginBottom: 2 }}>{tier.label}</div>
               <div style={{ fontSize: 11, fontWeight: 700, color: tier.highlight ? "rgba(255,255,255,0.7)" : "#6b7280", marginBottom: 10, letterSpacing: "0.04em", textTransform: "uppercase" }}>{tier.sheds}</div>
-              <div style={{ fontSize: 26, fontWeight: 900, color: tier.highlight ? "#fff" : "#111827", marginBottom: 12 }}>
-                ${tier.price}<span style={{ fontSize: 13, fontWeight: 600, color: tier.highlight ? "rgba(255,255,255,0.65)" : "#9ca3af" }}>/mo</span>
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 26, fontWeight: 900, color: tier.highlight ? "#fff" : "#111827", lineHeight: 1 }}>
+                  ${yearly ? (tier.price * (1 - tier.annualDiscount / 100)).toFixed(2) : tier.price}
+                  <span style={{ fontSize: 13, fontWeight: 600, color: tier.highlight ? "rgba(255,255,255,0.65)" : "#9ca3af" }}>/mo</span>
+                </div>
+                {yearly ? (
+                  <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: tier.highlight ? "rgba(255,255,255,0.5)" : "#9ca3af", textDecoration: "line-through" }}>${tier.price}/mo</span>
+                    <span style={{ background: tier.highlight ? "rgba(255,255,255,0.15)" : "#dcfce7", color: tier.highlight ? "#fff" : "#166534", fontSize: 10, fontWeight: 800, padding: "1px 7px", borderRadius: 20 }}>Save {tier.annualDiscount}%</span>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 4, fontSize: 11, color: tier.highlight ? "rgba(255,255,255,0.5)" : "#9ca3af" }}>
+                    or ${(tier.price * 12 * (1 - tier.annualDiscount / 100)).toFixed(0)}/yr (save {tier.annualDiscount}%)
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {tier.features.map(feat => (
@@ -1785,7 +1835,7 @@ function OperationsBundle() {
                     style={{ padding: "8px 10px", borderRadius: 8, border: `1.5px solid ${tier.color}66`, fontSize: 13, fontWeight: 700, color: tier.color, background: tier.bg, outline: "none", cursor: "pointer" }}
                   >
                     {OPS_TIERS.map(t => (
-                      <option key={t.id} value={t.id}>{t.label} — ${t.price}/mo ({t.sheds})</option>
+                      <option key={t.id} value={t.id}>{t.label} — ${yearly ? (t.price * (1 - t.annualDiscount / 100)).toFixed(2) : t.price}/mo ({t.sheds})</option>
                     ))}
                   </select>
                   <button
@@ -1807,7 +1857,7 @@ function OperationsBundle() {
               style={{ padding: "8px 12px", borderRadius: 8, border: "1.5px solid #d1d5db", fontSize: 13, color: "#374151", background: "#fff", outline: "none" }}
             >
               {OPS_TIERS.map(t => (
-                <option key={t.id} value={t.id}>{t.label} — ${t.price}/mo ({t.sheds})</option>
+                <option key={t.id} value={t.id}>{t.label} — ${yearly ? (t.price * (1 - t.annualDiscount / 100)).toFixed(2) : t.price}/mo ({t.sheds})</option>
               ))}
             </select>
             <button
@@ -1831,19 +1881,33 @@ function OperationsBundle() {
         }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: totalMonthly > 0 ? "rgba(255,255,255,0.75)" : "#6b7280", marginBottom: 4 }}>
-              {farms.length} farm{farms.length !== 1 ? "s" : ""} · monthly total
+              {farms.length} farm{farms.length !== 1 ? "s" : ""} · {yearly ? "annual total" : "monthly total"}
             </div>
             <div style={{ fontSize: 42, fontWeight: 900, color: totalMonthly > 0 ? "#fff" : "#d1d5db", letterSpacing: "-0.04em", lineHeight: 1 }}>
-              ${totalMonthly > 0 ? totalMonthly.toLocaleString() : "—"}
-              {totalMonthly > 0 && <span style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginLeft: 4 }}>/mo AUD ex. GST</span>}
+              ${totalMonthly > 0 ? (yearly ? totalAnnual.toLocaleString() : totalMonthly.toLocaleString()) : "—"}
+              {totalMonthly > 0 && (
+                <span style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginLeft: 4 }}>
+                  {yearly ? "/yr" : "/mo"} AUD ex. GST
+                </span>
+              )}
             </div>
             {totalMonthly > 0 && (
-              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
+              <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "6px 14px", alignItems: "center" }}>
                 {tierCounts.filter(t => t.count > 0).map(t => (
                   <span key={t.id} style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", fontWeight: 600 }}>
                     {t.label} × {t.count}
                   </span>
                 ))}
+                {yearly && annualSavings > 0 && (
+                  <span style={{ background: GOLD, color: "#1a1a1a", fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 20 }}>
+                    💰 Save ${annualSavings.toFixed(0)}/yr
+                  </span>
+                )}
+              </div>
+            )}
+            {yearly && totalMonthly > 0 && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+                equiv. ${totalMonthly.toFixed(2)}/mo per farm avg
               </div>
             )}
           </div>
