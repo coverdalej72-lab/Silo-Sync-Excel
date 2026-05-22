@@ -17,6 +17,8 @@ import History from "@/pages/history";
 import Deliveries from "@/pages/deliveries";
 import SettingsPage from "@/pages/settings";
 import Photos from "@/pages/photos";
+import RecordReading from "@/pages/record";
+import Silos from "@/pages/silos";
 import OpsDashboard from "@/pages/ops-dashboard";
 import OpsSettings from "@/pages/ops-settings";
 import SignInPage from "@/pages/sign-in";
@@ -187,8 +189,8 @@ function Router() {
               <Route path="/deliveries" component={Deliveries} />
               <Route path="/photos" component={Photos} />
               <Route path="/settings" component={SettingsPage} />
-              <Route path="/record" component={RedirectHome} />
-              <Route path="/silos" component={RedirectHome} />
+              <Route path="/record" component={RecordReading} />
+              <Route path="/silos" component={Silos} />
               <Route component={NotFound} />
             </Switch>
           </Layout>
