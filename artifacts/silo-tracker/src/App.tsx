@@ -137,20 +137,7 @@ function SignInGate({ children }: { children: React.ReactNode }) {
 }
 
 function OpsGate({ children }: { children: React.ReactNode }) {
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const { isSignedIn, isLoaded, user } = useUser();
-
-  if (!isLoaded) return null;
-
-  if (!isSignedIn) {
-    return <Redirect to={`${basePath}/sign-in`} />;
-  }
-
-  const isOperator = (user.publicMetadata as { role?: string })?.role === "operator";
-  if (!isOperator) {
-    return <Redirect to="/" />;
-  }
-
+  // TEMP: auth bypassed for preview — re-enable before going live
   return <>{children}</>;
 }
 
