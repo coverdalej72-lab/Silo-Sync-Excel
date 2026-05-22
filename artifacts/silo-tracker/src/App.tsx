@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { useTheme } from "@/hooks/use-theme";
 import { useRegisterSW } from "virtual:pwa-register/react";
-import { ClerkProvider, Show, useClerk } from "@clerk/react";
+import { ClerkProvider, Show, useClerk, useUser } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 
 import { Layout } from "@/components/layout";
@@ -123,16 +123,20 @@ function SignInGate({ children }: { children: React.ReactNode }) {
 
 function OpsGate({ children }: { children: React.ReactNode }) {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return (
-    <>
-      <Show when="signed-in">
-        {children}
-      </Show>
-      <Show when="signed-out">
-        <Redirect to={`${basePath}/sign-in`} />
-      </Show>
-    </>
-  );
+  const { isSignedIn, isLoaded, user } = useUser();
+
+  if (!isLoaded) return null;
+
+  if (!isSignedIn) {
+    return <Redirect to={`${basePath}/sign-in`} />;
+  }
+
+  const isOperator = (user.publicMetadata as { role?: string })?.role === "operator";
+  if (!isOperator) {
+    return <Redirect to="/" />;
+  }
+
+  return <>{children}</>;
 }
 
 function Router() {
