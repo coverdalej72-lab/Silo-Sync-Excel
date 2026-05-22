@@ -19,13 +19,16 @@ import type {
 import type {
   BatchCreateReadingsBody,
   CreateDeliveryBody,
+  CreateSiloBody,
   Delivery,
   HealthStatus,
   ListReadingsParams,
   OnedriveStatus,
   Reading,
   ShedGroup,
+  Silo,
   TodayProgress,
+  UpdateSiloBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -191,10 +194,7 @@ export function useListShedGroups<
  * @summary Get today's reading progress per shed group
  */
 export const getGetTodayProgressUrl = () => {
-  // Pass the device's local date (YYYY-MM-DD) so the server can filter
-  // on the correct Australian day regardless of its UTC clock.
-  const localDate = new Date().toLocaleDateString("en-CA"); // en-CA gives YYYY-MM-DD
-  return `/api/readings/today?localDate=${localDate}`;
+  return `/api/readings/today`;
 };
 
 export const getTodayProgress = async (
@@ -207,9 +207,7 @@ export const getTodayProgress = async (
 };
 
 export const getGetTodayProgressQueryKey = () => {
-  // Include the local date in the query key so React Query refetches on a new day.
-  const localDate = new Date().toLocaleDateString("en-CA");
-  return [`/api/readings/today`, localDate] as const;
+  return [`/api/readings/today`] as const;
 };
 
 export const getGetTodayProgressQueryOptions = <
@@ -529,6 +527,328 @@ export const useDeleteReading = <
   TContext
 > => {
   return useMutation(getDeleteReadingMutationOptions(options));
+};
+
+/**
+ * @summary List silos for the current farm
+ */
+export const getListSilosUrl = () => {
+  return `/api/silos`;
+};
+
+export const listSilos = async (options?: RequestInit): Promise<Silo[]> => {
+  return customFetch<Silo[]>(getListSilosUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSilosQueryKey = () => {
+  return [`/api/silos`] as const;
+};
+
+export const getListSilosQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSilos>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listSilos>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSilosQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSilos>>> = ({
+    signal,
+  }) => listSilos({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSilos>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSilosQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSilos>>
+>;
+export type ListSilosQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List silos for the current farm
+ */
+
+export function useListSilos<
+  TData = Awaited<ReturnType<typeof listSilos>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<Awaited<ReturnType<typeof listSilos>>, TError, TData>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSilosQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a silo
+ */
+export const getCreateSiloUrl = () => {
+  return `/api/silos`;
+};
+
+export const createSilo = async (
+  createSiloBody: CreateSiloBody,
+  options?: RequestInit,
+): Promise<Silo> => {
+  return customFetch<Silo>(getCreateSiloUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSiloBody),
+  });
+};
+
+export const getCreateSiloMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSilo>>,
+    TError,
+    { data: BodyType<CreateSiloBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSilo>>,
+  TError,
+  { data: BodyType<CreateSiloBody> },
+  TContext
+> => {
+  const mutationKey = ["createSilo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSilo>>,
+    { data: BodyType<CreateSiloBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSilo(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSiloMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSilo>>
+>;
+export type CreateSiloMutationBody = BodyType<CreateSiloBody>;
+export type CreateSiloMutationError = ErrorType<void>;
+
+/**
+ * @summary Create a silo
+ */
+export const useCreateSilo = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSilo>>,
+    TError,
+    { data: BodyType<CreateSiloBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSilo>>,
+  TError,
+  { data: BodyType<CreateSiloBody> },
+  TContext
+> => {
+  return useMutation(getCreateSiloMutationOptions(options));
+};
+
+/**
+ * @summary Update a silo's name or default feed type
+ */
+export const getUpdateSiloUrl = (id: number) => {
+  return `/api/silos/${id}`;
+};
+
+export const updateSilo = async (
+  id: number,
+  updateSiloBody: UpdateSiloBody,
+  options?: RequestInit,
+): Promise<Silo> => {
+  return customFetch<Silo>(getUpdateSiloUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSiloBody),
+  });
+};
+
+export const getUpdateSiloMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSilo>>,
+    TError,
+    { id: number; data: BodyType<UpdateSiloBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSilo>>,
+  TError,
+  { id: number; data: BodyType<UpdateSiloBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSilo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSilo>>,
+    { id: number; data: BodyType<UpdateSiloBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSilo(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSiloMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSilo>>
+>;
+export type UpdateSiloMutationBody = BodyType<UpdateSiloBody>;
+export type UpdateSiloMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a silo's name or default feed type
+ */
+export const useUpdateSilo = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSilo>>,
+    TError,
+    { id: number; data: BodyType<UpdateSiloBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSilo>>,
+  TError,
+  { id: number; data: BodyType<UpdateSiloBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSiloMutationOptions(options));
+};
+
+/**
+ * @summary Delete a silo
+ */
+export const getDeleteSiloUrl = (id: number) => {
+  return `/api/silos/${id}`;
+};
+
+export const deleteSilo = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSiloUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSiloMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSilo>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSilo>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSilo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSilo>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSilo(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSiloMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSilo>>
+>;
+
+export type DeleteSiloMutationError = ErrorType<void>;
+
+/**
+ * @summary Delete a silo
+ */
+export const useDeleteSilo = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSilo>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSilo>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSiloMutationOptions(options));
 };
 
 /**

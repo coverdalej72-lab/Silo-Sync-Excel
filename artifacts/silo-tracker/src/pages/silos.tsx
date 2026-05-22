@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useListSilos, useCreateSilo, useUpdateSilo, useDeleteSilo, getListSilosQueryKey } from "@workspace/api-client-react";
+import type { Silo } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,7 +61,7 @@ export default function Silos() {
     setIsDialogOpen(true);
   };
 
-  const openEditDialog = (silo: any) => {
+  const openEditDialog = (silo: Silo) => {
     setEditingSiloId(silo.id);
     form.reset({
       name: silo.name,
@@ -170,7 +171,7 @@ export default function Silos() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {silos.map(silo => (
+          {silos.map((silo: Silo) => (
             <Card key={silo.id}>
               <CardContent className="p-6 flex justify-between items-center">
                 <div>

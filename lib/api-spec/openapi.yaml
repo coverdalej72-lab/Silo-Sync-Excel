@@ -121,6 +121,82 @@ paths:
         "404":
           description: Not found
 
+  /silos:
+    get:
+      operationId: listSilos
+      tags: [sheds]
+      summary: List silos for the current farm
+      responses:
+        "200":
+          description: Silos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Silo"
+    post:
+      operationId: createSilo
+      tags: [sheds]
+      summary: Create a silo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSiloBody"
+      responses:
+        "201":
+          description: Silo created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Silo"
+        "400":
+          description: Invalid input
+
+  /silos/{id}:
+    patch:
+      operationId: updateSilo
+      tags: [sheds]
+      summary: Update a silo's name or default feed type
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSiloBody"
+      responses:
+        "200":
+          description: Silo updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Silo"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSilo
+      tags: [sheds]
+      summary: Delete a silo
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
   /deliveries:
     get:
       operationId: listDeliveries
@@ -193,6 +269,34 @@ components:
         status:
           type: string
       required: [status]
+
+    Silo:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        defaultFeedType:
+          type: ["string", "null"]
+      required: [id, name, defaultFeedType]
+
+    CreateSiloBody:
+      type: object
+      properties:
+        name:
+          type: string
+        defaultFeedType:
+          type: ["string", "null"]
+      required: [name]
+
+    UpdateSiloBody:
+      type: object
+      properties:
+        name:
+          type: string
+        defaultFeedType:
+          type: ["string", "null"]
 
     SiloInfo:
       type: object

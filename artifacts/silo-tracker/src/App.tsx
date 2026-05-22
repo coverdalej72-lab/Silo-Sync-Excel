@@ -6,9 +6,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { useTheme } from "@/hooks/use-theme";
 import { useRegisterSW } from "virtual:pwa-register/react";
-import { ClerkProvider, Show, useClerk, useUser } from "@clerk/react";
+import { ClerkProvider, Show, useClerk, useUser, useAuth } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 import { Layout } from "@/components/layout";
 import Home from "@/pages/home";
@@ -86,6 +87,19 @@ function PwaUpdateBanner() {
 function RedirectHome() {
   const [, setLocation] = useLocation();
   useEffect(() => { setLocation("/"); }, [setLocation]);
+  return null;
+}
+
+function ClerkTokenSync() {
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+    return () => {
+      setAuthTokenGetter(null);
+    };
+  }, [getToken]);
+
   return null;
 }
 
@@ -265,6 +279,7 @@ function ClerkProviderWithRoutes() {
       }}
     >
       <QueryClientProvider client={queryClient}>
+        <ClerkTokenSync />
         <ClerkQueryClientCacheInvalidator />
         <TooltipProvider>
           <Router />

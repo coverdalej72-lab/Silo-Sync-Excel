@@ -12,6 +12,7 @@ import weighBirdRouter from "./weigh-bird";
 import stripeRouter from "./stripe";
 import farmsRouter from "./farms";
 import bootstrapRouter from "./bootstrap";
+import silosRouter from "./silos";
 import { requireAuth } from "../middlewares/requireAuth";
 import { attachFarmScope } from "../middlewares/farmScope";
 
@@ -30,6 +31,7 @@ router.use(requireAuth);
 router.use(bootstrapRouter);  // needs auth but not farm scope
 router.use(attachFarmScope);
 router.use(farmsRouter);
+router.use(silosRouter);
 router.use(shedGroupsRouter);
 router.use(readingsRouter);
 router.use(deliveriesRouter);

@@ -107,6 +107,49 @@ export const DeleteReadingParams = zod.object({
 });
 
 /**
+ * @summary List silos for the current farm
+ */
+export const ListSilosResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  defaultFeedType: zod.string().nullable(),
+});
+export const ListSilosResponse = zod.array(ListSilosResponseItem);
+
+/**
+ * @summary Create a silo
+ */
+export const CreateSiloBody = zod.object({
+  name: zod.string(),
+  defaultFeedType: zod.string().nullish(),
+});
+
+/**
+ * @summary Update a silo's name or default feed type
+ */
+export const UpdateSiloParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSiloBody = zod.object({
+  name: zod.string().optional(),
+  defaultFeedType: zod.string().nullish(),
+});
+
+export const UpdateSiloResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  defaultFeedType: zod.string().nullable(),
+});
+
+/**
+ * @summary Delete a silo
+ */
+export const DeleteSiloParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary List all deliveries newest first
  */
 export const ListDeliveriesResponseItem = zod.object({

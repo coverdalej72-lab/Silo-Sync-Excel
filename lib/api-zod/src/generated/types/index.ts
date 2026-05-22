@@ -8,14 +8,17 @@
 
 export * from "./batchCreateReadingsBody";
 export * from "./createDeliveryBody";
+export * from "./createSiloBody";
 export * from "./delivery";
 export * from "./healthStatus";
 export * from "./listReadingsParams";
 export * from "./onedriveStatus";
 export * from "./reading";
 export * from "./shedGroup";
+export * from "./silo";
 export * from "./siloInfo";
 export * from "./siloReadingInput";
 export * from "./todayProgress";
 export * from "./todayShedStatus";
 export * from "./todaySiloStatus";
+export * from "./updateSiloBody";

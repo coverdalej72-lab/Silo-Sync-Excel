@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useListSilos, useCreateReading, getGetReadingsSummaryQueryKey, getListReadingsQueryKey } from "@workspace/api-client-react";
+import { useListSilos, useBatchCreateReadings, getListReadingsQueryKey } from "@workspace/api-client-react";
+import type { Silo } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 
@@ -35,7 +36,7 @@ export default function RecordReading() {
     query: { queryKey: ["/api/silos"] }
   });
 
-  const createReading = useCreateReading();
+  const createReading = useBatchCreateReadings();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -52,7 +53,7 @@ export default function RecordReading() {
   const selectedSiloId = form.watch("siloId");
   useEffect(() => {
     if (selectedSiloId && silos) {
-      const silo = silos.find(s => s.id === selectedSiloId);
+      const silo = silos.find((s: Silo) => s.id === selectedSiloId);
       if (silo && silo.defaultFeedType) {
         form.setValue("feedType", silo.defaultFeedType);
       }
@@ -60,13 +61,22 @@ export default function RecordReading() {
   }, [selectedSiloId, silos, form]);
 
   const onSubmit = (values: FormValues) => {
-    createReading.mutate({ data: values }, {
+    createReading.mutate({
+      data: {
+        readings: [{
+          siloId: values.siloId,
+          feedType: values.feedType,
+          amountRemaining: values.amountRemaining,
+          unit: values.unit,
+          notes: values.notes ?? null,
+        }],
+      }
+    }, {
       onSuccess: () => {
         toast({
           title: "Reading recorded",
           description: "Your silo reading has been saved successfully.",
         });
-        queryClient.invalidateQueries({ queryKey: getGetReadingsSummaryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getListReadingsQueryKey() });
         setLocation("/");
       },
@@ -142,7 +152,7 @@ export default function RecordReading() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {silos.map((silo) => (
+                        {silos.map((silo: Silo) => (
                           <SelectItem key={silo.id} value={silo.id.toString()} className="text-lg py-3">
                             {silo.name}
                           </SelectItem>

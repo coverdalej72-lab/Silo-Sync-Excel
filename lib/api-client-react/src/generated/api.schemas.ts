@@ -9,6 +9,25 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface Silo {
+  id: number;
+  name: string;
+  /** @nullable */
+  defaultFeedType: string | null;
+}
+
+export interface CreateSiloBody {
+  name: string;
+  /** @nullable */
+  defaultFeedType?: string | null;
+}
+
+export interface UpdateSiloBody {
+  name?: string;
+  /** @nullable */
+  defaultFeedType?: string | null;
+}
+
 export interface SiloInfo {
   id: number;
   letter: string;
