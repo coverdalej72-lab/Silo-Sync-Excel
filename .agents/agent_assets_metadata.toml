@@ -202,10 +202,16 @@ title = "Plans & Pricing — Hero"
 id = "Rh-PwYAXJKQ4p6_Jz2oga"
 uri = "file://screenshots/farm1-dunmore.jpg"
 type = "image"
-title = "Dunmore Poultry (Platinum) — Desktop"
+title = "Farm 1 — Dunmore Poultry (Platinum) · Desktop"
 
 [[outputs]]
 id = "4fc-Kvr-cRNrGKrLb5lU_"
 uri = "file://screenshots/farm1-dunmore-mobile.jpg"
 type = "image"
-title = "Dunmore Poultry (Platinum) — Mobile"
+title = "Farm 1 — Dunmore Poultry (Platinum) · Mobile"
+
+[[outputs]]
+id = "P8Xh0Eq0IRgEOsrwmhEyX"
+uri = "file://screenshots/ops-wow-full.jpg"
+type = "image"
+title = "Ops Dashboard — All 4 Farms with Batch & Chat"

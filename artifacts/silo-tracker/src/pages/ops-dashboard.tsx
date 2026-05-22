@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Settings, Plus, LayoutGrid, ChevronLeft, ChevronRight, RefreshCw, ShieldCheck, Loader2 } from "lucide-react";
 import { useUser, useAuth } from "@clerk/react";
-import OpsFarmCard from "@/components/OpsFarmCard";
+import OpsFarmCard, { type BatchInfo } from "@/components/OpsFarmCard";
+import { type ChatMessage } from "@/components/FarmChatModal";
 import { useFarms, type Farm } from "@/hooks/useFarms";
 import { useFarmData } from "@/hooks/useFarmData";
 import { cn } from "@/lib/utils";
@@ -339,10 +340,95 @@ const DEMO_DATA: Record<string, FD> = {
     loading: false, error: false, lastFetched: Date.now() - 2 * 60000, refresh: () => {},
   },
 };
+// ── Demo batch info — Cobb 500 weigh milestones per farm ─────────────────────
+const ago = (days: number) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+
+const DEMO_BATCH: Record<string, BatchInfo> = {
+  // Day 19 — Sheds 1–4 main batch (Grower Mash). 82k birds, 2 weigh-ins done.
+  "1": {
+    placedDate: ago(19),
+    birdCount: 82000,
+    mortalityToDate: 186,
+    weighRecords: [
+      { day: 7,  weightG: 196 },   // +3.2% vs 190g target ✓
+      { day: 14, weightG: 462 },   // +2.7% vs 450g target ✓
+    ],
+  },
+  // Day 31 — Finisher stage. 58k birds, 4 weigh-ins done, Silo B critical.
+  "2": {
+    placedDate: ago(31),
+    birdCount: 58000,
+    mortalityToDate: 410,
+    weighRecords: [
+      { day: 7,  weightG: 185 },   // -2.6% vs 190g — slightly under
+      { day: 14, weightG: 447 },   // -0.7% vs 450g — close
+      { day: 21, weightG: 803 },   // -2.1% vs 820g
+      { day: 28, weightG: 1318 },  // -2.4% vs 1350g
+    ],
+  },
+  // Day 17 — readings overdue. 24k birds, 2 weigh-ins done.
+  "3": {
+    placedDate: ago(17),
+    birdCount: 24000,
+    mortalityToDate: 95,
+    weighRecords: [
+      { day: 7,  weightG: 192 },   // +1.1% vs 190g ✓
+      { day: 14, weightG: 459 },   // +2.0% vs 450g ✓
+    ],
+  },
+  // Day 5 — brand new batch. 16k birds, no weigh-ins yet (Day 7 in 2 days).
+  "4": {
+    placedDate: ago(5),
+    birdCount: 16000,
+    mortalityToDate: 28,
+    weighRecords: [],
+  },
+};
+
+// ── Demo chat threads — realistic ops ↔ farm messages ────────────────────────
+const DEMO_CHAT: Record<string, ChatMessage[]> = {
+  "1": [
+    { id: "1a", from: "farm",  senderName: "Tom (Farm Mgr)", text: "Morning, all 4 shed groups recorded. Sheds 5&6 Silo A sitting at 8.2t — getting low.", sentAt: "7:42 am" },
+    { id: "1b", from: "ops",   senderName: "You (Ops)",      text: "Seen it. Finisher Pellets delivery locked in for tomorrow — 22t to top Silo A first.", sentAt: "8:05 am" },
+    { id: "1c", from: "farm",  senderName: "Tom (Farm Mgr)", text: "Perfect. Sheds 7&8 new batch going well — only 28 deaths in 4 days, well under target.", sentAt: "8:11 am" },
+    { id: "1d", from: "ops",   senderName: "You (Ops)",      text: "Good numbers. Day 21 weigh for Sheds 1–4 is in 2 days — send me the results as soon as you have them.", sentAt: "8:14 am" },
+    { id: "1e", from: "farm",  senderName: "Tom (Farm Mgr)", text: "Will do. Birds look on track — expect around 800–820g.", sentAt: "8:16 am" },
+  ],
+  "2": [
+    { id: "2a", from: "ops",   senderName: "You (Ops)",      text: "Silo B on Sheds 3&4 is at 3.6t — that's critical. When did it drop below 5?", sentAt: "6:58 am" },
+    { id: "2b", from: "farm",  senderName: "Jake (Farm Mgr)", text: "Came down fast overnight — birds eating heavy at day 31. Really sorry, should've flagged it sooner.", sentAt: "7:14 am" },
+    { id: "2c", from: "ops",   senderName: "You (Ops)",      text: "28t Finisher Pellets delivery locked in for tomorrow morning. Make Sheds 5&6 readings are in before EOD today.", sentAt: "7:18 am" },
+    { id: "2d", from: "farm",  senderName: "Jake (Farm Mgr)", text: "Will do. Also — catchup weigh on Sheds 3&4, birds are sitting around 1.31kg, slightly under target but catchup expected with new feed.", sentAt: "7:25 am" },
+    { id: "2e", from: "ops",   senderName: "You (Ops)",      text: "Keep a close eye on FCR this week. Catch up needed before day 35.", sentAt: "7:31 am" },
+  ],
+  "3": [
+    { id: "3a", from: "ops",   senderName: "You (Ops)",      text: "Readings showing as yesterday 21 May — have you recorded today yet?", sentAt: "9:02 am" },
+    { id: "3b", from: "farm",  senderName: "Mick (Farm Mgr)", text: "Sorry, had a water line fault in Sheds 3&4 this morning. Fixed now, will have readings in by midday.", sentAt: "9:28 am" },
+    { id: "3c", from: "ops",   senderName: "You (Ops)",      text: "Ok. Also — no deliveries booked and Silo A on Sheds 3&4 is at 9.8t. You'll need Finisher Pellets in the next few days.", sentAt: "9:31 am" },
+    { id: "3d", from: "farm",  senderName: "Mick (Farm Mgr)", text: "Will call the feed rep now. Estimated 5–6 more days on current levels.", sentAt: "9:44 am" },
+  ],
+  "4": [
+    { id: "4a", from: "farm",  senderName: "Ben (Farm Mgr)", text: "New batch in and going well — 16,000 birds, 28 deaths in first 5 days, all within normal range.", sentAt: "8:00 am" },
+    { id: "4b", from: "ops",   senderName: "You (Ops)",      text: "Great start. Day 7 weigh in 2 days — really important to get accurate numbers early. Send through as soon as done.", sentAt: "8:22 am" },
+    { id: "4c", from: "farm",  senderName: "Ben (Farm Mgr)", text: "Will do. Starter Crumbles silos fully loaded — no feed worries for a while. Ventilation and temp all looking good.", sentAt: "8:30 am" },
+    { id: "4d", from: "ops",   senderName: "You (Ops)",      text: "Grower Mash delivery booked for day 12 (29 May). You'll need to swap feed at that point. I'll send a reminder the day before.", sentAt: "8:35 am" },
+  ],
+};
+
 function DemoFarmCard({ farm }: { farm: Farm }) {
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const d = DEMO_DATA[farm.id] ?? { progress:null, deliveries:[], loading:false, error:null, lastFetched:null, refresh:()=>{} };
-  return <OpsFarmCard name={farm.name} planTier={farm.planTier} apiUrl={`${BASE}/api`} data={d} onRefresh={()=>{}} />;
+  const d = DEMO_DATA[farm.id] ?? { progress: null, deliveries: [], loading: false, error: false, lastFetched: null, refresh: () => {} };
+  return (
+    <OpsFarmCard
+      name={farm.name}
+      planTier={farm.planTier}
+      apiUrl={`${BASE}/api`}
+      data={d}
+      onRefresh={() => {}}
+      batchInfo={DEMO_BATCH[farm.id]}
+      chatMessages={DEMO_CHAT[farm.id]}
+    />
+  );
 }
 
 export default function OpsDashboard() {
@@ -430,20 +516,57 @@ export default function OpsDashboard() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-lg font-extrabold text-foreground">Operations Overview</h1>
-                <p className="text-muted-foreground text-xs mt-0.5">
-                  Swipe or use arrows to browse farms · tap Open App to drill in
-                </p>
-              </div>
-              <div className="hidden md:flex items-center gap-3 text-[10px] text-muted-foreground font-medium px-3 py-1.5 rounded-lg bg-secondary/60">
+            {/* Fleet summary bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              {[
+                {
+                  label: "Total Feed on Hand",
+                  value: Object.values(DEMO_DATA).reduce((sum, fd) => sum + (fd.progress ? fd.progress.sheds.reduce((s, sh) => s + sh.silos.reduce((ss, si) => ss + (si.amountRemaining ?? 0), 0), 0) : 0), 0).toFixed(1) + "t",
+                  sub: "across all farms",
+                  color: "text-green-600 dark:text-green-400",
+                },
+                {
+                  label: "Farms Reporting Today",
+                  value: Object.values(DEMO_DATA).filter(fd => fd.progress?.date === new Date().toISOString().slice(0,10)).length + " / " + farms.length,
+                  sub: "readings submitted",
+                  color: "text-foreground",
+                },
+                {
+                  label: "Deliveries This Week",
+                  value: Object.values(DEMO_DATA).reduce((n, fd) => n + fd.deliveries.filter(d => d.deliveryDate <= new Date(Date.now()+7*86400000).toISOString().slice(0,10)).length, 0) + "",
+                  sub: "scheduled",
+                  color: "text-[hsl(43,72%,47%)]",
+                },
+                {
+                  label: "Critical Alerts",
+                  value: Object.values(DEMO_DATA).reduce((n, fd) => n + (fd.progress?.sheds.some(sh => sh.silos.some(si => si.amountRemaining !== null && si.amountRemaining < 5)) ? 1 : 0), 0) + "",
+                  sub: "silos below 5t",
+                  color: "text-red-600 dark:text-red-400",
+                },
+              ].map(({ label, value, sub, color }) => (
+                <div key={label} className="bg-card border border-border rounded-xl px-4 py-3">
+                  <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mb-1">{label}</p>
+                  <p className={cn("text-2xl font-extrabold leading-none", color)}>{value}</p>
+                  <p className="text-muted-foreground text-[11px] mt-0.5">{sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-base font-extrabold text-foreground">All Farms</h1>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />≥15t good</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />5–15t low</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />&lt;5t critical</span>
               </div>
             </div>
-            <div className="relative px-5 sm:px-8">
+
+            {/* 2-column grid on desktop, carousel on mobile */}
+            <div className="hidden md:grid md:grid-cols-2 gap-5">
+              {farms.map(farm => <DemoFarmCard key={farm.id} farm={farm} />)}
+            </div>
+            <div className="md:hidden relative px-1">
               <FarmCarousel farms={farms} />
             </div>
           </>
