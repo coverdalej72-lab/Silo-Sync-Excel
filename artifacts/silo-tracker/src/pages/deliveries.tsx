@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useListDeliveries, useCreateDelivery, useDeleteDelivery, useListShedGroups, getListDeliveriesQueryKey } from "@workspace/api-client-react";
 import { format } from "date-fns";
-import { Trash2, Truck, ScanLine, Plus, X } from "lucide-react";
+import { Trash2, Truck, ScanLine, Plus, X, Camera } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import * as z from "zod";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { QrScanner, type DocketData } from "@/components/qr-scanner";
+import { InghamScanner } from "@/components/ingham-scanner";
 
 const FEED_TYPES = ["Starter", "Grower", "Finisher", "Withdrawal"] as const;
 
@@ -54,7 +55,7 @@ function groupByBatch(deliveries: any[]) {
 export default function Deliveries() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showScanner, setShowScanner] = useState(false);
+  const [activeScanner, setActiveScanner] = useState<"ingham" | "baiada" | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   const { data: deliveries, isLoading } = useListDeliveries({
@@ -74,7 +75,7 @@ export default function Deliveries() {
   });
 
   const handleScanResult = (data: DocketData) => {
-    setShowScanner(false);
+    setActiveScanner(null);
     setShowForm(true);
     if (data.amountKg != null)  form.setValue("amount", data.amountKg);
     if (data.deliveryDate)       form.setValue("deliveryDate", data.deliveryDate);
@@ -109,8 +110,11 @@ export default function Deliveries() {
 
   return (
     <>
-      {showScanner && (
-        <QrScanner onResult={handleScanResult} onClose={() => setShowScanner(false)} />
+      {activeScanner === "baiada" && (
+        <QrScanner onResult={handleScanResult} onClose={() => setActiveScanner(null)} />
+      )}
+      {activeScanner === "ingham" && (
+        <InghamScanner onResult={handleScanResult} onClose={() => setActiveScanner(null)} />
       )}
 
       <div className="px-3 py-3 pb-8 space-y-3">
@@ -118,11 +122,18 @@ export default function Deliveries() {
         {/* Action buttons */}
         <div className="flex gap-2">
           <button
-            onClick={() => setShowScanner(true)}
-            className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground font-bold py-3.5 rounded-2xl text-sm active:scale-95 transition-all"
+            onClick={() => setActiveScanner("ingham")}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 bg-primary text-primary-foreground font-bold py-3 rounded-2xl text-sm active:scale-95 transition-all"
+          >
+            <Camera className="w-5 h-5" />
+            <span className="text-[11px] font-bold">Ingham</span>
+          </button>
+          <button
+            onClick={() => setActiveScanner("baiada")}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 bg-secondary border border-border/50 text-foreground font-bold py-3 rounded-2xl text-sm active:scale-95 transition-all"
           >
             <ScanLine className="w-5 h-5" />
-            Scan QR Code
+            <span className="text-[11px] font-bold">Baiada QR</span>
           </button>
           <button
             onClick={() => setShowForm(v => !v)}

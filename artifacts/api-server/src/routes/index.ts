@@ -13,6 +13,7 @@ import stripeRouter from "./stripe";
 import farmsRouter from "./farms";
 import bootstrapRouter from "./bootstrap";
 import silosRouter from "./silos";
+import scanDocketRouter from "./scan-docket";
 import { requireAuth } from "../middlewares/requireAuth";
 import { attachFarmScope } from "../middlewares/farmScope";
 
@@ -25,6 +26,7 @@ router.get("/", (_req, res) => { res.status(200).json({ ok: true }); });
 router.use(healthRouter);
 router.use(stripeRouter);
 router.use(publicSponsorsRouter);
+router.use(scanDocketRouter);
 
 // All other routes require authentication + farm scope
 router.use(requireAuth);

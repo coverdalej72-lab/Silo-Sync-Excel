@@ -81,6 +81,7 @@
     "@clerk/themes": "^2.4.57",
     "exceljs": "^4.4.0",
     "html5-qrcode": "^2.3.8",
+    "jsqr": "^1.4.0",
     "qrcode.react": "^4.2.0"
   }
 }
