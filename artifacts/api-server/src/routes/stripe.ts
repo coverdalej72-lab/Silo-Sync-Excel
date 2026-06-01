@@ -16,7 +16,7 @@ router.get('/stripe/charities', (_req, res) => {
   res.json({ data: CHARITIES });
 });
 
-router.get('/stripe/publishable-key', async (_req, res) => {
+router.get('/stripe/publishable-key', async (_req, res): Promise<void> => {
   try {
     const key = await getStripePublishableKey();
     res.json({ publishableKey: key });
@@ -26,7 +26,7 @@ router.get('/stripe/publishable-key', async (_req, res) => {
 });
 
 // List active plans (products + prices from stripe schema)
-router.get('/stripe/plans', async (_req, res) => {
+router.get('/stripe/plans', async (_req, res): Promise<void> => {
   try {
     const result = await db.execute(sql`
       SELECT
@@ -76,12 +76,13 @@ router.get('/stripe/plans', async (_req, res) => {
 
 // Create checkout session
 // Body: { priceId, email, charityId, successUrl, cancelUrl }
-router.post('/stripe/checkout', async (req, res) => {
+router.post('/stripe/checkout', async (req, res): Promise<void> => {
   try {
     const { priceId, email, charityId, successUrl, cancelUrl } = req.body;
 
     if (!priceId || !email) {
-      return res.status(400).json({ error: 'priceId and email are required' });
+      res.status(400).json({ error: 'priceId and email are required' });
+      return;
     }
 
     const charity = CHARITIES.find(c => c.id === charityId) || CHARITIES[0];
@@ -131,11 +132,12 @@ router.post('/stripe/checkout', async (req, res) => {
 
 // One-time supporter / backer checkout
 // Body: { tier, email, name, successUrl, cancelUrl }
-router.post('/stripe/supporter-checkout', async (req, res) => {
+router.post('/stripe/supporter-checkout', async (req, res): Promise<void> => {
   try {
     const { tier, email, name, successUrl, cancelUrl } = req.body;
     if (!tier || !email) {
-      return res.status(400).json({ error: 'tier and email are required' });
+      res.status(400).json({ error: 'tier and email are required' });
+      return;
     }
 
     const TIERS: Record<string, { name: string; description: string; amount: number }> = {
@@ -146,7 +148,7 @@ router.post('/stripe/supporter-checkout', async (req, res) => {
     };
 
     const selected = TIERS[tier];
-    if (!selected) return res.status(400).json({ error: 'Invalid tier' });
+    if (!selected) { res.status(400).json({ error: 'Invalid tier' }); return; }
 
     const stripe = await getUncachableStripeClient();
 
@@ -183,11 +185,12 @@ router.post('/stripe/supporter-checkout', async (req, res) => {
 
 // Inline subscription checkout — no pre-created Stripe price needed
 // Body: { planName, amountAUD, interval, email, charityId, successUrl, cancelUrl }
-router.post('/stripe/subscribe', async (req, res) => {
+router.post('/stripe/subscribe', async (req, res): Promise<void> => {
   try {
     const { planName, amountAUD, interval, email, charityId, successUrl, cancelUrl } = req.body;
     if (!planName || !amountAUD || !interval || !email) {
-      return res.status(400).json({ error: 'planName, amountAUD, interval and email are required' });
+      res.status(400).json({ error: 'planName, amountAUD, interval and email are required' });
+      return;
     }
 
     const stripe = await getUncachableStripeClient();
@@ -233,7 +236,7 @@ router.post('/stripe/subscribe', async (req, res) => {
 
 // Operations Bundle checkout
 // Body: { opsEmail, farms: [{name, managerEmail, tier}], totalMonthly, successUrl, cancelUrl }
-router.post('/stripe/bundle-checkout', async (req, res) => {
+router.post('/stripe/bundle-checkout', async (req, res): Promise<void> => {
   try {
     const { opsEmail, farms, successUrl, cancelUrl } = req.body as {
       opsEmail: string;
@@ -244,10 +247,12 @@ router.post('/stripe/bundle-checkout', async (req, res) => {
     };
 
     if (!opsEmail || !opsEmail.includes('@')) {
-      return res.status(400).json({ error: 'opsEmail is required' });
+      res.status(400).json({ error: 'opsEmail is required' });
+      return;
     }
     if (!Array.isArray(farms) || farms.length === 0) {
-      return res.status(400).json({ error: 'At least one farm is required' });
+      res.status(400).json({ error: 'At least one farm is required' });
+      return;
     }
 
     const TIER_PRICES: Record<string, { label: string; priceAUD: number; sheds: string }> = {
@@ -323,15 +328,15 @@ router.post('/stripe/bundle-checkout', async (req, res) => {
 });
 
 // Manage subscription (customer portal)
-router.post('/stripe/portal', async (req, res) => {
+router.post('/stripe/portal', async (req, res): Promise<void> => {
   try {
     const { email, returnUrl } = req.body;
-    if (!email) return res.status(400).json({ error: 'email is required' });
+    if (!email) { res.status(400).json({ error: 'email is required' }); return; }
 
     const stripe = await getUncachableStripeClient();
     const existing = await stripe.customers.list({ email, limit: 1 });
     const customer = existing.data[0];
-    if (!customer) return res.status(404).json({ error: 'No subscription found for that email' });
+    if (!customer) { res.status(404).json({ error: 'No subscription found for that email' }); return; }
 
     const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
     const session = await stripe.billingPortal.sessions.create({

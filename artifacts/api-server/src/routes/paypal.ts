@@ -8,16 +8,17 @@ import {
 
 const router: IRouter = Router();
 
-router.get('/paypal/client-id', (_req, res) => {
+router.get('/paypal/client-id', (_req, res): void => {
   const clientId = getClientId();
-  if (!clientId) return res.status(503).json({ error: 'PayPal not configured' });
+  if (!clientId) { res.status(503).json({ error: 'PayPal not configured' }); return; }
   res.json({ clientId });
 });
 
-router.post('/paypal/create-subscription', async (req, res) => {
+router.post('/paypal/create-subscription', async (req, res): Promise<void> => {
   const { tier, interval, email, charityId, successUrl, cancelUrl } = req.body;
   if (!tier || !interval || !email) {
-    return res.status(400).json({ error: 'tier, interval, and email are required' });
+    res.status(400).json({ error: 'tier, interval, and email are required' });
+    return;
   }
   try {
     const domain = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
@@ -35,7 +36,7 @@ router.post('/paypal/create-subscription', async (req, res) => {
   }
 });
 
-router.post('/paypal/create-order', async (req, res) => {
+router.post('/paypal/create-order', async (req, res): Promise<void> => {
   const { tier, successUrl, cancelUrl } = req.body;
 
   const TIERS: Record<string, { amount: number; description: string }> = {
@@ -45,7 +46,7 @@ router.post('/paypal/create-order', async (req, res) => {
   };
 
   const selected = TIERS[tier];
-  if (!selected) return res.status(400).json({ error: 'Invalid tier' });
+  if (!selected) { res.status(400).json({ error: 'Invalid tier' }); return; }
 
   try {
     const domain = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
@@ -61,9 +62,9 @@ router.post('/paypal/create-order', async (req, res) => {
   }
 });
 
-router.post('/paypal/capture-order', async (req, res) => {
+router.post('/paypal/capture-order', async (req, res): Promise<void> => {
   const { orderId } = req.body;
-  if (!orderId) return res.status(400).json({ error: 'orderId is required' });
+  if (!orderId) { res.status(400).json({ error: 'orderId is required' }); return; }
   try {
     const result = await captureOrder(orderId);
     res.json(result);

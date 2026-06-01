@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, shedGroupsTable, silosTable } from "@workspace/db";
+import { db, farmsTable, shedGroupsTable, silosTable } from "@workspace/db";
 import { count } from "drizzle-orm";
 
 // Prevent unhandled promise rejections from crashing the server process
@@ -31,23 +31,29 @@ async function seedFarmData() {
     if (groupCount > 0) return;
 
     logger.info('Seeding shed groups and silos...');
+
+    // Get or create a default farm to satisfy the farmId foreign key
+    const existingFarms = await db.select().from(farmsTable).limit(1);
+    const farm = existingFarms[0] ?? (await db.insert(farmsTable).values({ name: "Default Farm" }).returning())[0];
+
     const sheds = [
-      { name: "Sheds 1 & 2",   displayOrder: 1  },
-      { name: "Sheds 3 & 4",   displayOrder: 2  },
-      { name: "Sheds 5 & 6",   displayOrder: 3  },
-      { name: "Sheds 7 & 8",   displayOrder: 4  },
-      { name: "Sheds 9 & 10",  displayOrder: 5  },
-      { name: "Sheds 11 & 12", displayOrder: 6  },
-      { name: "Sheds 13 & 14", displayOrder: 7  },
-      { name: "Sheds 15 & 16", displayOrder: 8  },
-      { name: "Sheds 17 & 18", displayOrder: 9  },
-      { name: "Sheds 19 & 20", displayOrder: 10 },
+      { farmId: farm.id, name: "Sheds 1 & 2",   displayOrder: 1  },
+      { farmId: farm.id, name: "Sheds 3 & 4",   displayOrder: 2  },
+      { farmId: farm.id, name: "Sheds 5 & 6",   displayOrder: 3  },
+      { farmId: farm.id, name: "Sheds 7 & 8",   displayOrder: 4  },
+      { farmId: farm.id, name: "Sheds 9 & 10",  displayOrder: 5  },
+      { farmId: farm.id, name: "Sheds 11 & 12", displayOrder: 6  },
+      { farmId: farm.id, name: "Sheds 13 & 14", displayOrder: 7  },
+      { farmId: farm.id, name: "Sheds 15 & 16", displayOrder: 8  },
+      { farmId: farm.id, name: "Sheds 17 & 18", displayOrder: 9  },
+      { farmId: farm.id, name: "Sheds 19 & 20", displayOrder: 10 },
     ];
 
     const insertedGroups = await db.insert(shedGroupsTable).values(sheds).returning();
 
     const silos = insertedGroups.flatMap(g =>
       ["A", "B", "C"].map(letter => ({
+        farmId: farm.id,
         shedGroupId: g.id,
         letter,
         name: `Silo ${letter}`,
@@ -62,7 +68,9 @@ async function seedFarmData() {
 }
 
 // Start listening immediately so the port is open before any async init work
-const server = app.listen(port, (err) => {
+// Bind explicitly to 0.0.0.0 (IPv4) so the workflow health checker can reach it.
+// Without this Node.js binds to :: (IPv6 wildcard) and the IPv4 monitor check fails.
+const server = app.listen(port, "0.0.0.0", (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
