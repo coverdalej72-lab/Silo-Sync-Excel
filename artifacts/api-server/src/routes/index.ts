@@ -6,7 +6,6 @@ import deliveriesRouter from "./deliveries";
 import onedriveRouter from "./onedrive";
 import exportRouter from "./export";
 import batchRouter from "./batch";
-import paypalRouter from "./paypal";
 import sponsorsRouter, { publicSponsorsRouter } from "./sponsors";
 import weighBirdRouter from "./weigh-bird";
 import stripeRouter from "./stripe";
@@ -40,7 +39,6 @@ router.use(deliveriesRouter);
 router.use(onedriveRouter);
 router.use(exportRouter);
 router.use(batchRouter);
-router.use(paypalRouter);
 router.use(sponsorsRouter);
 router.use(weighBirdRouter);
 

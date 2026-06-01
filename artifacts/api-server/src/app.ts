@@ -6,7 +6,6 @@ import { fileURLToPath } from "url";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { ensurePlansTable } from "./paypalClient";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
@@ -56,11 +55,6 @@ app.use("/home", express.static(homeDistPath));
 app.use("/home", (_req, res) => {
   res.sendFile(path.join(homeDistPath, "index.html"));
 });
-
-// Initialize PayPal plans table (non-blocking)
-ensurePlansTable().catch(err =>
-  logger.warn({ err: err.message }, 'PayPal plans table setup failed — continuing')
-);
 
 // Global error handler — catches any unhandled errors thrown by routes
 // Must have 4 params for Express to treat it as an error handler
