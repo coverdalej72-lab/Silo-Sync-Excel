@@ -139,6 +139,12 @@ function SignInGate({ children }: { children: React.ReactNode }) {
 }
 
 function OpsGate({ children }: { children: React.ReactNode }) {
+  const { user, isLoaded } = useUser();
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  if (!isLoaded) return null;
+  if (user?.publicMetadata?.role !== "operator") {
+    return <Redirect to={`${basePath}/sign-in`} />;
+  }
   return <>{children}</>;
 }
 

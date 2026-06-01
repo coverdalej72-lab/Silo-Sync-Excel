@@ -2,8 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Settings, Plus, LayoutGrid, ChevronLeft, ChevronRight, RefreshCw, ShieldCheck, Loader2 } from "lucide-react";
 import { useUser, useAuth } from "@clerk/react";
-import OpsFarmCard, { type BatchInfo } from "@/components/OpsFarmCard";
-import { type ChatMessage } from "@/components/FarmChatModal";
+import OpsFarmCard from "@/components/OpsFarmCard";
 import { useFarms, type Farm } from "@/hooks/useFarms";
 import { useFarmData } from "@/hooks/useFarmData";
 import { cn } from "@/lib/utils";
@@ -53,7 +52,7 @@ function FarmCarousel({ farms }: { farms: Farm[] }) {
           {farms.map(farm => (
             <div key={farm.id} className="min-w-full px-0 sm:px-4" style={{ maxWidth: "100%" }}>
               <div className="max-w-2xl mx-auto">
-                <DemoFarmCard farm={farm} />
+                <FarmDataWrapper farm={farm} />
               </div>
             </div>
           ))}
@@ -216,228 +215,13 @@ function BootstrapOperatorCard() {
 
 // ── Dashboard page ───────────────────────────────────────────────────────────
 
-// ── Demo farms — realistic multi-batch poultry operation ─────────────────────
-const DEMO_FARMS: Farm[] = [
-  { id: "1", name: "Dunmore Poultry",    planTier: "platinum" },
-  { id: "2", name: "Riverina Broilers",  planTier: "gold"     },
-  { id: "3", name: "Hillcrest Farm",     planTier: "silver"   },
-  { id: "4", name: "Blackwood Ag",       planTier: "bronze"   },
-];
-
-type FD = import("@/hooks/useFarmData").FarmData;
-const TODAY  = new Date().toISOString().slice(0, 10);
-const YESTERDAY = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-const IN1    = new Date(Date.now() + 1 * 86400000).toISOString().slice(0, 10);
-const IN3    = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
-const IN5    = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
-const IN7    = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
-
-// Helpers so silos look complete
-const silo = (id: number, letter: string, name: string, feedType: string, amount: number | null): import("@/hooks/useFarmData").SiloStatus =>
-  ({ siloId: id, letter, name, saved: amount !== null, amountRemaining: amount, feedType, unit: "t" });
-
-const DEMO_DATA: Record<string, FD> = {
-
-  // ── Farm 1: Dunmore Poultry — Platinum, 4 shed groups, 8 silos, all recorded today
-  // Sheds 1&2 + 3&4 → Grower Mash (day 19 of batch)
-  // Sheds 5&6       → Finisher Pellets (day 29 — near end, Silo A getting low)
-  // Sheds 7&8       → Starter Crumbles (day 4 — fresh placement, silos full)
-  "1": {
-    progress: {
-      date: TODAY, savedCount: 4, totalCount: 4,
-      sheds: [
-        { shedGroupId: 1, shedGroupName: "Sheds 1 & 2", allSaved: true, silos: [
-          silo(1, "A", "Silo A — Sheds 1&2", "Grower Mash", 24.6),
-          silo(2, "B", "Silo B — Sheds 1&2", "Grower Mash", 21.3),
-        ]},
-        { shedGroupId: 2, shedGroupName: "Sheds 3 & 4", allSaved: true, silos: [
-          silo(3, "A", "Silo A — Sheds 3&4", "Grower Mash", 18.8),
-          silo(4, "B", "Silo B — Sheds 3&4", "Grower Mash", 22.1),
-        ]},
-        { shedGroupId: 3, shedGroupName: "Sheds 5 & 6", allSaved: true, silos: [
-          silo(5, "A", "Silo A — Sheds 5&6", "Finisher Pellets", 8.2),   // amber — nearly done
-          silo(6, "B", "Silo B — Sheds 5&6", "Finisher Pellets", 15.4),
-        ]},
-        { shedGroupId: 4, shedGroupName: "Sheds 7 & 8", allSaved: true, silos: [
-          silo(7, "A", "Silo A — Sheds 7&8", "Starter Crumbles", 29.5),
-          silo(8, "B", "Silo B — Sheds 7&8", "Starter Crumbles", 28.0),
-        ]},
-      ],
-    },
-    deliveries: [
-      { id: 1, shedGroupId: 3, shedGroupName: "Sheds 5 & 6", feedType: "Finisher Pellets", amount: 22, unit: "t", notes: "Top up Silo A first",  deliveryDate: IN1 },
-      { id: 2, shedGroupId: 1, shedGroupName: "Sheds 1 & 2", feedType: "Grower Mash",      amount: 30, unit: "t", notes: null,                  deliveryDate: IN5 },
-    ],
-    loading: false, error: false, lastFetched: Date.now() - 4 * 60000, refresh: () => {},
-  },
-
-  // ── Farm 2: Riverina Broilers — Gold, 3 shed groups, Sheds 5&6 NOT yet recorded
-  // Sheds 1&2 → Grower Mash (day 14), good levels
-  // Sheds 3&4 → Finisher Pellets (day 31 — Silo B critically low at 3.6t!)
-  // Sheds 5&6 → Grower Mash (day 21), NOT recorded yet today
-  "2": {
-    progress: {
-      date: TODAY, savedCount: 2, totalCount: 3,
-      sheds: [
-        { shedGroupId: 5, shedGroupName: "Sheds 1 & 2", allSaved: true, silos: [
-          silo(9,  "A", "Silo A — Sheds 1&2", "Grower Mash", 22.4),
-          silo(10, "B", "Silo B — Sheds 1&2", "Grower Mash", 19.8),
-        ]},
-        { shedGroupId: 6, shedGroupName: "Sheds 3 & 4", allSaved: true, silos: [
-          silo(11, "A", "Silo A — Sheds 3&4", "Finisher Pellets", 6.7),   // amber
-          silo(12, "B", "Silo B — Sheds 3&4", "Finisher Pellets", 3.6),   // RED — critical
-        ]},
-        { shedGroupId: 7, shedGroupName: "Sheds 5 & 6", allSaved: false, silos: [
-          silo(13, "A", "Silo A — Sheds 5&6", "Grower Mash", null),       // not recorded yet
-          silo(14, "B", "Silo B — Sheds 5&6", "Grower Mash", null),
-        ]},
-      ],
-    },
-    deliveries: [
-      { id: 3, shedGroupId: 6, shedGroupName: "Sheds 3 & 4", feedType: "Finisher Pellets", amount: 28, unit: "t", notes: "Urgent — Silo B critical", deliveryDate: IN1 },
-      { id: 4, shedGroupId: 5, shedGroupName: "Sheds 1 & 2", feedType: "Grower Mash",      amount: 30, unit: "t", notes: null,                        deliveryDate: IN3 },
-    ],
-    loading: false, error: false, lastFetched: Date.now() - 23 * 60000, refresh: () => {},
-  },
-
-  // ── Farm 3: Hillcrest Farm — Silver, readings from YESTERDAY (overdue badge)
-  // Sheds 1&2 → Grower Mash (day 17), decent levels
-  // Sheds 3&4 → Finisher Pellets (day 26), Silo A low
-  // No upcoming deliveries booked — attention needed
-  "3": {
-    progress: {
-      date: YESTERDAY, savedCount: 2, totalCount: 2,
-      sheds: [
-        { shedGroupId: 8, shedGroupName: "Sheds 1 & 2", allSaved: true, silos: [
-          silo(15, "A", "Silo A — Sheds 1&2", "Grower Mash", 16.4),
-          silo(16, "B", "Silo B — Sheds 1&2", "Grower Mash", 14.2),
-        ]},
-        { shedGroupId: 9, shedGroupName: "Sheds 3 & 4", allSaved: true, silos: [
-          silo(17, "A", "Silo A — Sheds 3&4", "Finisher Pellets",  9.8),  // amber
-          silo(18, "B", "Silo B — Sheds 3&4", "Finisher Pellets", 11.3),
-        ]},
-      ],
-    },
-    deliveries: [],   // no deliveries booked — manager needs to act
-    loading: false, error: false, lastFetched: Date.now() - 18 * 3600000, refresh: () => {},
-  },
-
-  // ── Farm 4: Blackwood Ag — Bronze, small 2-shed op, day 5 fresh batch
-  // Starter Crumbles, silos loaded up, delivery booked in 7 days for Grower changeover
-  "4": {
-    progress: {
-      date: TODAY, savedCount: 1, totalCount: 1,
-      sheds: [
-        { shedGroupId: 10, shedGroupName: "Shed 1 & 2", allSaved: true, silos: [
-          silo(19, "A", "Silo A — Shed 1&2", "Starter Crumbles", 27.5),
-          silo(20, "B", "Silo B — Shed 1&2", "Starter Crumbles", 26.0),
-        ]},
-      ],
-    },
-    deliveries: [
-      { id: 5, shedGroupId: 10, shedGroupName: "Shed 1 & 2", feedType: "Grower Mash", amount: 30, unit: "t", notes: "Swap feed — batch day 12", deliveryDate: IN7 },
-    ],
-    loading: false, error: false, lastFetched: Date.now() - 2 * 60000, refresh: () => {},
-  },
-};
-// ── Demo batch info — Cobb 500 weigh milestones per farm ─────────────────────
-const ago = (days: number) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-
-const DEMO_BATCH: Record<string, BatchInfo> = {
-  // Day 19 — Sheds 1–4 main batch (Grower Mash). 82k birds, 2 weigh-ins done.
-  "1": {
-    placedDate: ago(19),
-    birdCount: 82000,
-    mortalityToDate: 186,
-    weighRecords: [
-      { day: 7,  weightG: 196 },   // +3.2% vs 190g target ✓
-      { day: 14, weightG: 462 },   // +2.7% vs 450g target ✓
-    ],
-  },
-  // Day 31 — Finisher stage. 58k birds, 4 weigh-ins done, Silo B critical.
-  "2": {
-    placedDate: ago(31),
-    birdCount: 58000,
-    mortalityToDate: 410,
-    weighRecords: [
-      { day: 7,  weightG: 185 },   // -2.6% vs 190g — slightly under
-      { day: 14, weightG: 447 },   // -0.7% vs 450g — close
-      { day: 21, weightG: 803 },   // -2.1% vs 820g
-      { day: 28, weightG: 1318 },  // -2.4% vs 1350g
-    ],
-  },
-  // Day 17 — readings overdue. 24k birds, 2 weigh-ins done.
-  "3": {
-    placedDate: ago(17),
-    birdCount: 24000,
-    mortalityToDate: 95,
-    weighRecords: [
-      { day: 7,  weightG: 192 },   // +1.1% vs 190g ✓
-      { day: 14, weightG: 459 },   // +2.0% vs 450g ✓
-    ],
-  },
-  // Day 5 — brand new batch. 16k birds, no weigh-ins yet (Day 7 in 2 days).
-  "4": {
-    placedDate: ago(5),
-    birdCount: 16000,
-    mortalityToDate: 28,
-    weighRecords: [],
-  },
-};
-
-// ── Demo chat threads — realistic ops ↔ farm messages ────────────────────────
-const DEMO_CHAT: Record<string, ChatMessage[]> = {
-  "1": [
-    { id: "1a", from: "farm",  senderName: "Tom (Farm Mgr)", text: "Morning, all 4 shed groups recorded. Sheds 5&6 Silo A sitting at 8.2t — getting low.", sentAt: "7:42 am" },
-    { id: "1b", from: "ops",   senderName: "You (Ops)",      text: "Seen it. Finisher Pellets delivery locked in for tomorrow — 22t to top Silo A first.", sentAt: "8:05 am" },
-    { id: "1c", from: "farm",  senderName: "Tom (Farm Mgr)", text: "Perfect. Sheds 7&8 new batch going well — only 28 deaths in 4 days, well under target.", sentAt: "8:11 am" },
-    { id: "1d", from: "ops",   senderName: "You (Ops)",      text: "Good numbers. Day 21 weigh for Sheds 1–4 is in 2 days — send me the results as soon as you have them.", sentAt: "8:14 am" },
-    { id: "1e", from: "farm",  senderName: "Tom (Farm Mgr)", text: "Will do. Birds look on track — expect around 800–820g.", sentAt: "8:16 am" },
-  ],
-  "2": [
-    { id: "2a", from: "ops",   senderName: "You (Ops)",      text: "Silo B on Sheds 3&4 is at 3.6t — that's critical. When did it drop below 5?", sentAt: "6:58 am" },
-    { id: "2b", from: "farm",  senderName: "Jake (Farm Mgr)", text: "Came down fast overnight — birds eating heavy at day 31. Really sorry, should've flagged it sooner.", sentAt: "7:14 am" },
-    { id: "2c", from: "ops",   senderName: "You (Ops)",      text: "28t Finisher Pellets delivery locked in for tomorrow morning. Make Sheds 5&6 readings are in before EOD today.", sentAt: "7:18 am" },
-    { id: "2d", from: "farm",  senderName: "Jake (Farm Mgr)", text: "Will do. Also — catchup weigh on Sheds 3&4, birds are sitting around 1.31kg, slightly under target but catchup expected with new feed.", sentAt: "7:25 am" },
-    { id: "2e", from: "ops",   senderName: "You (Ops)",      text: "Keep a close eye on FCR this week. Catch up needed before day 35.", sentAt: "7:31 am" },
-  ],
-  "3": [
-    { id: "3a", from: "ops",   senderName: "You (Ops)",      text: "Readings showing as yesterday 21 May — have you recorded today yet?", sentAt: "9:02 am" },
-    { id: "3b", from: "farm",  senderName: "Mick (Farm Mgr)", text: "Sorry, had a water line fault in Sheds 3&4 this morning. Fixed now, will have readings in by midday.", sentAt: "9:28 am" },
-    { id: "3c", from: "ops",   senderName: "You (Ops)",      text: "Ok. Also — no deliveries booked and Silo A on Sheds 3&4 is at 9.8t. You'll need Finisher Pellets in the next few days.", sentAt: "9:31 am" },
-    { id: "3d", from: "farm",  senderName: "Mick (Farm Mgr)", text: "Will call the feed rep now. Estimated 5–6 more days on current levels.", sentAt: "9:44 am" },
-  ],
-  "4": [
-    { id: "4a", from: "farm",  senderName: "Ben (Farm Mgr)", text: "New batch in and going well — 16,000 birds, 28 deaths in first 5 days, all within normal range.", sentAt: "8:00 am" },
-    { id: "4b", from: "ops",   senderName: "You (Ops)",      text: "Great start. Day 7 weigh in 2 days — really important to get accurate numbers early. Send through as soon as done.", sentAt: "8:22 am" },
-    { id: "4c", from: "farm",  senderName: "Ben (Farm Mgr)", text: "Will do. Starter Crumbles silos fully loaded — no feed worries for a while. Ventilation and temp all looking good.", sentAt: "8:30 am" },
-    { id: "4d", from: "ops",   senderName: "You (Ops)",      text: "Grower Mash delivery booked for day 12 (29 May). You'll need to swap feed at that point. I'll send a reminder the day before.", sentAt: "8:35 am" },
-  ],
-};
-
-function DemoFarmCard({ farm }: { farm: Farm }) {
-  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const d = DEMO_DATA[farm.id] ?? { progress: null, deliveries: [], loading: false, error: false, lastFetched: null, refresh: () => {} };
-  return (
-    <OpsFarmCard
-      name={farm.name}
-      planTier={farm.planTier}
-      apiUrl={`${BASE}/api`}
-      data={d}
-      onRefresh={() => {}}
-      batchInfo={DEMO_BATCH[farm.id]}
-      chatMessages={DEMO_CHAT[farm.id]}
-    />
-  );
-}
-
 export default function OpsDashboard() {
   useEffect(() => { document.title = "Farm Buddy™ — Operations"; }, []);
   const [, navigate] = useLocation();
-  const farms = DEMO_FARMS;
+  const { user } = useUser();
+  const isOperator = user?.publicMetadata?.role === "operator";
+  const { farms, loading, error, refresh } = useFarms();
   const count = farms.length;
-  const loading = false; const error = null; const refresh = () => {};
-  const isOperator = true;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -517,31 +301,19 @@ export default function OpsDashboard() {
         ) : (
           <>
             {/* Fleet summary bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 mb-6">
               {[
                 {
-                  label: "Total Feed on Hand",
-                  value: Object.values(DEMO_DATA).reduce((sum, fd) => sum + (fd.progress ? fd.progress.sheds.reduce((s, sh) => s + sh.silos.reduce((ss, si) => ss + (si.amountRemaining ?? 0), 0), 0) : 0), 0).toFixed(1) + "t",
-                  sub: "across all farms",
+                  label: "Farms Monitored",
+                  value: String(count),
+                  sub: "active operations",
                   color: "text-green-600 dark:text-green-400",
                 },
                 {
-                  label: "Farms Reporting Today",
-                  value: Object.values(DEMO_DATA).filter(fd => fd.progress?.date === new Date().toISOString().slice(0,10)).length + " / " + farms.length,
-                  sub: "readings submitted",
+                  label: "Live Feed Data",
+                  value: "Per farm below",
+                  sub: "updated on each card",
                   color: "text-foreground",
-                },
-                {
-                  label: "Deliveries This Week",
-                  value: Object.values(DEMO_DATA).reduce((n, fd) => n + fd.deliveries.filter(d => d.deliveryDate <= new Date(Date.now()+7*86400000).toISOString().slice(0,10)).length, 0) + "",
-                  sub: "scheduled",
-                  color: "text-[hsl(43,72%,47%)]",
-                },
-                {
-                  label: "Critical Alerts",
-                  value: Object.values(DEMO_DATA).reduce((n, fd) => n + (fd.progress?.sheds.some(sh => sh.silos.some(si => si.amountRemaining !== null && si.amountRemaining < 5)) ? 1 : 0), 0) + "",
-                  sub: "silos below 5t",
-                  color: "text-red-600 dark:text-red-400",
                 },
               ].map(({ label, value, sub, color }) => (
                 <div key={label} className="bg-card border border-border rounded-xl px-4 py-3">
@@ -564,7 +336,7 @@ export default function OpsDashboard() {
 
             {/* 2-column grid on desktop, carousel on mobile */}
             <div className="hidden md:grid md:grid-cols-2 gap-5">
-              {farms.map(farm => <DemoFarmCard key={farm.id} farm={farm} />)}
+              {farms.map(farm => <FarmDataWrapper key={farm.id} farm={farm} />)}
             </div>
             <div className="md:hidden relative px-1">
               <FarmCarousel farms={farms} />
