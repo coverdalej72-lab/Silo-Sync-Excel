@@ -33,6 +33,12 @@ app.use(
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(cors({ credentials: true, origin: true }));
+
+// Stripe webhook needs raw body for signature verification.
+// Apply express.raw() BEFORE express.json() so body-parser doesn't consume it first.
+// The actual route handler lives in routes/stripeWebhook.ts (registered as a public route).
+app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

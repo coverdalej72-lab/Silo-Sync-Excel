@@ -9,6 +9,7 @@ import batchRouter from "./batch";
 import sponsorsRouter, { publicSponsorsRouter } from "./sponsors";
 import weighBirdRouter from "./weigh-bird";
 import stripeRouter from "./stripe";
+import stripeWebhookRouter from "./stripeWebhook";
 import farmsRouter from "./farms";
 import bootstrapRouter from "./bootstrap";
 import silosRouter from "./silos";
@@ -24,6 +25,7 @@ router.get("/", (_req, res) => { res.status(200).json({ ok: true }); });
 // Public routes — no auth required
 router.use(healthRouter);
 router.use(stripeRouter);
+router.use(stripeWebhookRouter);
 router.use(publicSponsorsRouter);
 router.use(scanDocketRouter);
 
