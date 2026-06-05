@@ -1,0 +1,1 @@
+- [Feed program auth](feed-program-auth.md) — feed program must NOT require Clerk sign-in; it was originally public and adding auth breaks it (blank screen, slow load).
